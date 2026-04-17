@@ -1,0 +1,254 @@
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@200;300;400;500;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Saudi Green and White Theme */
+  --background: 0 0% 100%;
+  --foreground: 150 100% 10%;
+  --card: 0 0% 100%;
+  --card-foreground: 150 100% 10%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 150 100% 10%;
+  --primary: 150 100% 21%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 150 20% 96%;
+  --secondary-foreground: 150 100% 21%;
+  --muted: 150 20% 96%;
+  --muted-foreground: 150 10% 40%;
+  --accent: 150 20% 96%;
+  --accent-foreground: 150 100% 21%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 150 20% 90%;
+  --input: 150 20% 90%;
+  --ring: 150 100% 21%;
+  --radius: 0.75rem;
+
+  /* Custom Saudi Colors */
+  --saudi-green: #006C35;
+  --saudi-green-dark: #004d26;
+  --saudi-green-light: #008542;
+  --gold: #D4AF37;
+  --gold-light: #E8C547;
+}
+
+.dark {
+  --background: 150 50% 5%;
+  --foreground: 0 0% 98%;
+  --card: 150 50% 5%;
+  --card-foreground: 0 0% 98%;
+  --popover: 150 50% 5%;
+  --popover-foreground: 0 0% 98%;
+  --primary: 150 100% 35%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 150 30% 15%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 150 30% 15%;
+  --muted-foreground: 150 10% 60%;
+  --accent: 150 30% 15%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62% 30%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 150 30% 20%;
+  --input: 150 30% 20%;
+  --ring: 150 100% 35%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Tajawal', sans-serif;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    background: linear-gradient(135deg, var(--saudi-green) 0%, var(--saudi-green-light) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .bg-saudi-gradient {
+    background: linear-gradient(135deg, var(--saudi-green-dark) 0%, var(--saudi-green) 50%, var(--saudi-green-light) 100%);
+  }
+
+  .bg-saudi-gradient-dark {
+    background: linear-gradient(180deg, var(--saudi-green) 0%, var(--saudi-green-dark) 100%);
+  }
+}
+
+/* Language Switch Animations */
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeSlideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeSlideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Animation Classes */
+.animate-fade-slide-in {
+  animation: fadeSlideIn 0.4s ease-out forwards;
+}
+
+.animate-fade-slide-in-left {
+  animation: fadeSlideInLeft 0.4s ease-out forwards;
+}
+
+.animate-fade-slide-in-right {
+  animation: fadeSlideInRight 0.4s ease-out forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.3s ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.4s ease-out forwards;
+}
+
+/* Staggered animation delays */
+.animate-delay-100 {
+  animation-delay: 0.1s;
+  opacity: 0;
+}
+
+.animate-delay-200 {
+  animation-delay: 0.2s;
+  opacity: 0;
+}
+
+.animate-delay-300 {
+  animation-delay: 0.3s;
+  opacity: 0;
+}
+
+.animate-delay-400 {
+  animation-delay: 0.4s;
+  opacity: 0;
+}
+
+.animate-delay-500 {
+  animation-delay: 0.5s;
+  opacity: 0;
+}
+
+/* Smooth direction transition */
+[dir] {
+  transition: all 0.3s ease-out;
+}
+
+/* Language switch content wrapper */
+.lang-content {
+  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+}
+
+.lang-content-enter {
+  animation: fadeSlideIn 0.4s ease-out forwards;
+}
+
+/* RTL specific animations */
+[dir="rtl"] .animate-lang-switch {
+  animation: fadeSlideInRight 0.4s ease-out forwards;
+}
+
+/* LTR specific animations */
+[dir="ltr"] .animate-lang-switch {
+  animation: fadeSlideInLeft 0.4s ease-out forwards;
+}
+
+/* Card hover effects */
+.card-hover {
+  transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 40px rgba(0, 108, 53, 0.1);
+}
+
+/* Progress bar animation */
+@keyframes progressFill {
+  from {
+    width: 0;
+  }
+}
+
+.animate-progress {
+  animation: progressFill 1s ease-out forwards;
+}
+
+/* Number counter animation */
+@keyframes countUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-count {
+  animation: countUp 0.5s ease-out forwards;
+}
