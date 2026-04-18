@@ -335,6 +335,267 @@ const branchMeta: Record<string, Record<string, BranchInfo>> = {
   },
 };
 
+// ===== Per-question derivation: extracts numbers / words from the question text
+// to produce specific (not generic) idea + fast method, while keeping branchMeta
+// as a structured fallback. No external AI — fully deterministic + safe. =====
+type Derived = { idea?: string; fast_method?: string; why_important?: string; subtype?: string; strategy_tag?: string };
+
+function num(s: string): number { return Number(s); }
+
+function deriveSmartInfo(q: TrainingQuestion, fallback?: BranchInfo): Derived {
+  const t = q.question;
+  const why = fallback?.why;
+  let m: RegExpMatchArray | null;
+
+  switch (q.topic) {
+    case "algebra": {
+      if ((m = t.match(/س\s*\+\s*(\d+)\s*=\s*(\d+)/))) {
+        const a = num(m[1]), b = num(m[2]);
+        return { subtype: "linear-add", strategy_tag: "isolate-x-subtract",
+          idea: `معادلة خطية: س + ${a} = ${b}`,
+          fast_method: `اطرح ${a} من الطرفين فوراً: س = ${b} − ${a} = ${b - a}`, why_important: why };
+      }
+      if ((m = t.match(/2س\s*-\s*(\d+)\s*=\s*(\d+)/))) {
+        const a = num(m[1]), b = num(m[2]); const x = (b + a) / 2;
+        return { subtype: "linear-mul-sub", strategy_tag: "balance-then-divide",
+          idea: `معادلة خطية: 2س − ${a} = ${b}`,
+          fast_method: `أضف ${a} للطرفين ثم اقسم على 2: س = (${b} + ${a}) ÷ 2 = ${x}`, why_important: why };
+      }
+      if ((m = t.match(/(\d+)س\s*=\s*(\d+)/))) {
+        const a = num(m[1]), b = num(m[2]); const x = b / a;
+        return { subtype: "linear-mul", strategy_tag: "divide-both-sides",
+          idea: `معادلة ضرب: ${a}س = ${b}`,
+          fast_method: `اقسم الطرفين على ${a}: س = ${b} ÷ ${a} = ${x}`, why_important: why };
+      }
+      if ((m = t.match(/س²\s*=\s*(\d+)/))) {
+        const b = num(m[1]); const r = Math.sqrt(b);
+        return { subtype: "square-eq", strategy_tag: "sqrt-both-sides",
+          idea: `معادلة تربيعية بسيطة: س² = ${b}`,
+          fast_method: `خذ الجذر التربيعي للطرفين: س = ±√${b} = ±${r}`, why_important: why };
+      }
+      if ((m = t.match(/\|س\s*-\s*(\d+)\|\s*=\s*(\d+)/))) {
+        const a = num(m[1]), b = num(m[2]);
+        return { subtype: "abs-eq", strategy_tag: "abs-two-cases",
+          idea: `معادلة قيمة مطلقة: |س − ${a}| = ${b}`,
+          fast_method: `حلّ حالتين: س − ${a} = ${b} (س = ${a + b}) أو س − ${a} = −${b} (س = ${a - b})`, why_important: why };
+      }
+      if ((m = t.match(/√(\d+)/))) {
+        const v = num(m[1]);
+        return { subtype: "sqrt", strategy_tag: "memorize-squares",
+          idea: `إيجاد الجذر التربيعي لـ ${v}`,
+          fast_method: `ابحث عن العدد الذي مربعه ${v}: الإجابة ${Math.sqrt(v)} لأن ${Math.sqrt(v)}² = ${v}`, why_important: why };
+      }
+      if ((m = t.match(/2س\s*-\s*(\d+)\s*>\s*(\d+)/))) {
+        const a = num(m[1]), b = num(m[2]);
+        return { subtype: "linear-ineq", strategy_tag: "isolate-keep-direction",
+          idea: `حل متباينة: 2س − ${a} > ${b}`,
+          fast_method: `أضف ${a} ثم اقسم على 2: س > ${(b + a) / 2}`, why_important: why };
+      }
+      if (/متباين|>|</.test(t)) {
+        return { subtype: "ineq", strategy_tag: "ineq-flip-on-negative",
+          idea: `حل متباينة جبرية`,
+          fast_method: `اعزل المتغير، وانتبه: عند الضرب أو القسمة على عدد سالب يُعكس اتجاه المتباينة`, why_important: why };
+      }
+      if (/بسّط|تبسيط/.test(t)) {
+        return { subtype: "simplify", strategy_tag: "factor-and-cancel",
+          idea: `تبسيط عبارة جبرية`,
+          fast_method: `حلّل البسط والمقام إلى عوامل، ثم اختصر العوامل المشتركة`, why_important: why };
+      }
+      if ((m = t.match(/\(س\s*\+\s*(\d+)\)\(س\s*-\s*(\d+)\)\s*=\s*0/))) {
+        const a = num(m[1]), b = num(m[2]);
+        return { subtype: "factored-zero", strategy_tag: "zero-product",
+          idea: `معادلة مُحلَّلة: (س + ${a})(س − ${b}) = 0`,
+          fast_method: `إذا كان حاصل الضرب صفراً فأحد العاملين صفر: س = −${a} أو س = ${b}`, why_important: why };
+      }
+      if (/لو\u200c?₂|لو₂|لو\(/.test(t)) {
+        return { subtype: "log", strategy_tag: "rewrite-as-power",
+          idea: `إيجاد قيمة لوغاريتم`,
+          fast_method: `أعد كتابة العدد كقوة لأساس اللوغاريتم، ثم الإجابة هي الأس`, why_important: why };
+      }
+      if ((m = t.match(/س³\s*=\s*(\d+)/))) {
+        const b = num(m[1]);
+        return { subtype: "cube-eq", strategy_tag: "cube-root",
+          idea: `معادلة تكعيبية: س³ = ${b}`,
+          fast_method: `خذ الجذر التكعيبي: س = ∛${b} = ${Math.round(Math.cbrt(b))}`, why_important: why };
+      }
+      break;
+    }
+
+    case "geometry": {
+      if ((m = t.match(/مربع طول ضلعه (\d+)/))) {
+        const s = num(m[1]);
+        if (/محيط/.test(t)) return { subtype: "square-perim", strategy_tag: "perim-square",
+          idea: `محيط مربع ضلعه ${s} سم`,
+          fast_method: `محيط المربع = 4 × الضلع = 4 × ${s} = ${4 * s} سم`, why_important: why };
+        return { subtype: "square-area", strategy_tag: "area-square",
+          idea: `مساحة مربع ضلعه ${s} سم`,
+          fast_method: `مساحة المربع = الضلع² = ${s} × ${s} = ${s * s} سم²`, why_important: why };
+      }
+      if ((m = t.match(/المستطيل الذي طوله (\d+) .*?وعرضه (\d+)/))) {
+        const L = num(m[1]), W = num(m[2]);
+        return { subtype: "rect-area", strategy_tag: "area-rect",
+          idea: `مساحة مستطيل (${L}×${W})`,
+          fast_method: `مساحة المستطيل = الطول × العرض = ${L} × ${W} = ${L * W} سم²`, why_important: why };
+      }
+      if ((m = t.match(/مثلث قاعدته (\d+) .*?وارتفاعه (\d+)/))) {
+        const b = num(m[1]), h = num(m[2]);
+        return { subtype: "tri-area", strategy_tag: "area-triangle",
+          idea: `مساحة مثلث (قاعدة ${b}، ارتفاع ${h})`,
+          fast_method: `مساحة المثلث = ½ × ${b} × ${h} = ${(b * h) / 2}`, why_important: why };
+      }
+      if ((m = t.match(/دائرة نصف قطرها (\d+)/))) {
+        const r = num(m[1]);
+        if (/مساحة/.test(t)) return { subtype: "circle-area", strategy_tag: "area-circle",
+          idea: `مساحة دائرة نصف قطرها ${r}`,
+          fast_method: `المساحة = π × ${r}² = π × ${r * r}`, why_important: why };
+        return { subtype: "circle-circ", strategy_tag: "perim-circle",
+          idea: `محيط دائرة نصف قطرها ${r}`,
+          fast_method: `المحيط = 2 × π × ${r} = ${2 * r}π`, why_important: why };
+      }
+      if (/فيثاغورس|الوتر|قائم/.test(t)) {
+        return { subtype: "pythag", strategy_tag: "pythagoras",
+          idea: `تطبيق نظرية فيثاغورس`,
+          fast_method: `الوتر² = ضلع₁² + ضلع₂²، ثم خذ الجذر التربيعي للناتج`, why_important: why };
+      }
+      if ((m = t.match(/مكعب طول ضلعه (\d+)/) ?? t.match(/مكعب الذي طول ضلعه (\d+)/))) {
+        const s = num(m[1]);
+        return { subtype: "cube-vol", strategy_tag: "volume-cube",
+          idea: `حجم مكعب ضلعه ${s}`,
+          fast_method: `حجم المكعب = الضلع³ = ${s}³ = ${s * s * s} سم³`, why_important: why };
+      }
+      if (/زاوي|زوايا/.test(t)) {
+        return { subtype: "angles", strategy_tag: "angle-sum",
+          idea: `حساب قياس زاوية`,
+          fast_method: `استخدم: مجموع زوايا المثلث 180°، الرباعي 360°، الخط المستقيم 180°`, why_important: why };
+      }
+      if (/شبه المنحرف/.test(t)) {
+        return { subtype: "trapezoid-area", strategy_tag: "area-trapezoid",
+          idea: `مساحة شبه منحرف`,
+          fast_method: `المساحة = ½ × (مجموع القاعدتين) × الارتفاع`, why_important: why };
+      }
+      break;
+    }
+
+    case "ratios": {
+      if ((m = t.match(/(\d+)%\s*من\s*(\d+)/))) {
+        const p = num(m[1]), n = num(m[2]); const r = (p / 100) * n;
+        return { subtype: "percent-of", strategy_tag: "percent-multiply",
+          idea: `حساب ${p}% من ${n}`,
+          fast_method: `اضرب ${n} في ${p}/100: ${n} × ${p / 100} = ${r}`, why_important: why };
+      }
+      if ((m = t.match(/خصم (\d+)%/))) {
+        const p = num(m[1]);
+        return { subtype: "percent-discount", strategy_tag: "percent-discount",
+          idea: `سعر بعد خصم ${p}%`,
+          fast_method: `السعر بعد الخصم = السعر × (100 − ${p})/100 = السعر × ${(100 - p) / 100}`, why_important: why };
+      }
+      if ((m = t.match(/زاد.*?(\d+)%/))) {
+        const p = num(m[1]);
+        return { subtype: "percent-increase", strategy_tag: "percent-increase",
+          idea: `حساب نسبة زيادة بمقدار ${p}%`,
+          fast_method: `القيمة الجديدة = القيمة × (1 + ${p}/100) = القيمة × ${1 + p / 100}`, why_important: why };
+      }
+      if ((m = t.match(/نسبة\s+(?:الأولاد|أ).*?(\d+)\s*:\s*(\d+).*?(\d+)/))) {
+        const a = m[1], b = m[2], v = m[3];
+        return { subtype: "ratio-apply", strategy_tag: "cross-multiply",
+          idea: `تطبيق نسبة ${a}:${b} على القيمة ${v}`,
+          fast_method: `الضرب التبادلي: ${a}/${b} = ${v}/المجهول → المجهول = (${b} × ${v}) ÷ ${a}`, why_important: why };
+      }
+      if ((m = t.match(/(\d+)\s*كم\s*في\s*(\d+)\s*ساعات/))) {
+        const d = num(m[1]), h = num(m[2]);
+        return { subtype: "speed", strategy_tag: "speed-formula",
+          idea: `سرعة: ${d} كم في ${h} ساعات`,
+          fast_method: `السرعة = المسافة ÷ الزمن = ${d} ÷ ${h} = ${d / h} كم/س`, why_important: why };
+      }
+      if ((m = t.match(/(\d+)\s*عمال.*?(\d+)\s*أيام/))) {
+        const w = num(m[1]), d = num(m[2]);
+        return { subtype: "work-inverse", strategy_tag: "work-inverse",
+          idea: `علاقة عكسية بين العمال والأيام (${w} عمال، ${d} أيام)`,
+          fast_method: `عدد العمال × عدد الأيام = ثابت = ${w * d}`, why_important: why };
+      }
+      break;
+    }
+
+    case "statistics": {
+      if (/المتوسط الحسابي/.test(t)) {
+        const list = t.match(/:\s*([\d،,\s.]+)\s*هو/);
+        const numsStr = list ? list[1].replace(/،/g, ",") : "";
+        return { subtype: "mean", strategy_tag: "mean-formula",
+          idea: numsStr ? `المتوسط الحسابي للأعداد ${numsStr.trim()}` : `حساب المتوسط الحسابي`,
+          fast_method: `اجمع كل القيم ثم اقسم على عددها`, why_important: why };
+      }
+      if (/الوسيط/.test(t)) {
+        return { subtype: "median", strategy_tag: "sort-then-middle",
+          idea: `إيجاد الوسيط`,
+          fast_method: `رتّب الأعداد تصاعدياً ثم خذ القيمة في المنتصف (أو متوسط القيمتين الوسطيتين)`, why_important: why };
+      }
+      if (/المنوال/.test(t)) {
+        return { subtype: "mode", strategy_tag: "most-frequent",
+          idea: `إيجاد المنوال`,
+          fast_method: `ابحث عن العدد الأكثر تكراراً في القائمة`, why_important: why };
+      }
+      if (/المدى/.test(t)) {
+        return { subtype: "range", strategy_tag: "max-minus-min",
+          idea: `إيجاد المدى`,
+          fast_method: `المدى = أكبر قيمة − أصغر قيمة`, why_important: why };
+      }
+      if (/التباين/.test(t)) {
+        return { subtype: "stddev", strategy_tag: "sqrt-of-variance",
+          idea: `حساب الانحراف المعياري من التباين`,
+          fast_method: `الانحراف المعياري = √التباين`, why_important: why };
+      }
+      if (/احتمال/.test(t)) {
+        return { subtype: "probability", strategy_tag: "favorable-over-total",
+          idea: `حساب احتمال حدث`,
+          fast_method: `الاحتمال = عدد النواتج المرغوبة ÷ كل النواتج الممكنة`, why_important: why };
+      }
+      if (/كم طريقة لترتيب|كم طريقة لاختيار/.test(t)) {
+        return { subtype: "permutation", strategy_tag: "factorial-or-combinations",
+          idea: `عدّ الترتيبات أو التوافيق`,
+          fast_method: `للترتيب: ن!. للاختيار بدون ترتيب: ن! ÷ (ر! × (ن−ر)!)`, why_important: why };
+      }
+      break;
+    }
+
+    case "analogy": {
+      if ((m = t.match(/^(.+?)\s*:\s*(.+?)\s*::\s*(.+?)\s*:\s*؟/))) {
+        const a = m[1].trim(), b = m[2].trim(), c = m[3].trim();
+        return { subtype: "analogy-pair", strategy_tag: "name-the-relation",
+          idea: `العلاقة بين "${a}" و "${b}" مطبّقة على "${c}"`,
+          fast_method: `صُغ العلاقة بين "${a}" و "${b}" بجملة، ثم طبّقها على "${c}" للحصول على الإجابة`, why_important: why };
+      }
+      break;
+    }
+
+    case "vocabulary": {
+      const wm = t.match(/\(([^)]+)\)/);
+      if (wm && /عكس/.test(t)) return { subtype: "antonym", strategy_tag: "antonym-lookup",
+        idea: `عكس كلمة "${wm[1]}"`,
+        fast_method: `فكّر في الجذر اللغوي لـ "${wm[1]}" وابحث عن الكلمة التي تعني نقيضها`, why_important: why };
+      if (wm && /مرادف|بمعنى/.test(t)) return { subtype: "synonym", strategy_tag: "synonym-lookup",
+        idea: `مرادف كلمة "${wm[1]}"`,
+        fast_method: `ابحث عن الكلمة الأقرب لـ "${wm[1]}" في المعنى لا في اللفظ`, why_important: why };
+      if (/المختلفة|الشاذة/.test(t)) {
+        return { subtype: "odd-one-out", strategy_tag: "shared-category",
+          idea: `تحديد الكلمة الشاذة عن المجموعة`,
+          fast_method: `جد الفئة المشتركة بين الكلمات الأخرى — الشاذة هي التي خرجت عن الفئة`, why_important: why };
+      }
+      break;
+    }
+
+    case "completion": {
+      const before = t.split(/_+/)[0]?.trim();
+      if (before) return { subtype: "fill-blank", strategy_tag: "context-fit",
+        idea: `إكمال الجملة: "${before.length > 30 ? before.slice(0, 30) + "…" : before}"`,
+        fast_method: `اقرأ الجملة كاملة، ثم جرّب كل خيار شفهياً واختر الأكثر طبيعية ومنطقية`, why_important: why };
+      break;
+    }
+  }
+
+  // Structured fallback (kept from branchMeta) — never break the flow
+  return { idea: fallback?.idea, fast_method: fallback?.fast_method, why_important: fallback?.why };
+}
+
 // Infer the branch of a question from its text + topic
 function inferBranch(q: TrainingQuestion): string | null {
   const t = q.question;
@@ -378,18 +639,59 @@ function inferBranch(q: TrainingQuestion): string | null {
   }
 }
 
-// Enrich a question with branch / is_common / idea / fast_method / why_important
+// Enrich a question with branch / subtype / strategy_tag / is_common /
+// per-question idea / fast_method / why_important (derived from question text)
 function enrichQuestion(q: TrainingQuestion): TrainingQuestion {
   const branch = q.branch ?? inferBranch(q) ?? undefined;
   const meta = branch ? branchMeta[q.topic]?.[branch] : undefined;
+  const derived = deriveSmartInfo(q, meta);
   return {
     ...q,
     branch,
+    subtype: q.subtype ?? derived.subtype,
+    strategy_tag: q.strategy_tag ?? derived.strategy_tag ?? branch,
     is_common: q.is_common ?? (q.difficulty !== "hard"),
-    idea: q.idea ?? meta?.idea,
-    fast_method: q.fast_method ?? meta?.fast_method,
-    why_important: q.why_important ?? meta?.why,
+    idea: q.idea ?? derived.idea ?? meta?.idea,
+    fast_method: q.fast_method ?? derived.fast_method ?? meta?.fast_method,
+    why_important: q.why_important ?? derived.why_important ?? meta?.why,
   };
+}
+
+// Storage key for recently-shown question IDs (anti-repetition across sessions)
+const RECENT_KEY = "practice_recent_ids";
+const RECENT_MAX = 30;
+
+function loadRecentIds(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(RECENT_KEY);
+    return raw ? (JSON.parse(raw) as string[]) : [];
+  } catch { return []; }
+}
+
+function saveRecentIds(ids: string[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(RECENT_KEY, JSON.stringify(ids.slice(0, RECENT_MAX)));
+  } catch { /* ignore */ }
+}
+
+// Reorder so consecutive questions don't share the same strategy_tag/subtype when avoidable
+function diversifyOrder(arr: TrainingQuestion[]): TrainingQuestion[] {
+  const out: TrainingQuestion[] = [];
+  const remaining = [...arr];
+  while (remaining.length > 0) {
+    const last = out[out.length - 1];
+    let pickIdx = 0;
+    if (last) {
+      const altIdx = remaining.findIndex(
+        q => q.strategy_tag !== last.strategy_tag && q.subtype !== last.subtype
+      );
+      if (altIdx >= 0) pickIdx = altIdx;
+    }
+    out.push(remaining.splice(pickIdx, 1)[0]);
+  }
+  return out;
 }
 
 // Practice Test Component
@@ -440,21 +742,41 @@ function PracticeTestContent() {
 
     // Smart selection: prioritize matching branch + is_common, then matching branch,
     // then is_common, then the rest. Falls back to topic if branch yields nothing.
+    // Anti-repetition: prefer questions NOT in the recent IDs set; if all are recent,
+    // recent ones are still allowed so the flow never breaks.
     const shuffle = <T,>(arr: T[]) => [...arr].sort(() => Math.random() - 0.5);
-    let selected: TrainingQuestion[];
+    const recentIds = loadRecentIds();
+    const recentSet = new Set(recentIds);
+    const fresh = (q: TrainingQuestion) => !recentSet.has(q.id);
+    const stale = (q: TrainingQuestion) => recentSet.has(q.id);
 
+    let selected: TrainingQuestion[];
     if (branch) {
-      const branchMatch = filtered.filter(q => q.branch === branch);
-      const tier1 = shuffle(branchMatch.filter(q => q.is_common));
-      const tier2 = shuffle(branchMatch.filter(q => !q.is_common));
-      const tier3 = shuffle(filtered.filter(q => q.branch !== branch && q.is_common));
-      const tier4 = shuffle(filtered.filter(q => q.branch !== branch && !q.is_common));
-      selected = [...tier1, ...tier2, ...tier3, ...tier4].slice(0, questionCount);
+      const inBranch = filtered.filter(q => q.branch === branch);
+      const outBranch = filtered.filter(q => q.branch !== branch);
+      const tiers = [
+        shuffle(inBranch.filter(q => q.is_common && fresh(q))),
+        shuffle(inBranch.filter(q => !q.is_common && fresh(q))),
+        shuffle(outBranch.filter(q => q.is_common && fresh(q))),
+        shuffle(outBranch.filter(q => !q.is_common && fresh(q))),
+        shuffle(inBranch.filter(stale)),
+        shuffle(outBranch.filter(stale)),
+      ];
+      selected = tiers.flat().slice(0, questionCount);
     } else {
-      const tier1 = shuffle(filtered.filter(q => q.is_common));
-      const tier2 = shuffle(filtered.filter(q => !q.is_common));
-      selected = [...tier1, ...tier2].slice(0, questionCount);
+      const tiers = [
+        shuffle(filtered.filter(q => q.is_common && fresh(q))),
+        shuffle(filtered.filter(q => !q.is_common && fresh(q))),
+        shuffle(filtered.filter(stale)),
+      ];
+      selected = tiers.flat().slice(0, questionCount);
     }
+
+    // Diversify so consecutive questions don't share the same strategy/subtype
+    selected = diversifyOrder(selected);
+
+    // Persist this session's IDs so the next session avoids them
+    saveRecentIds([...selected.map(q => q.id), ...recentIds]);
 
     setQuestions(selected);
     setAnswers(new Array(selected.length).fill(null));

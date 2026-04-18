@@ -24,9 +24,11 @@ export interface TrainingQuestion {
   variationOf?: string;
   // ===== Smart training metadata (all optional, backward compatible) =====
   branch?: string;        // e.g. "equations", "circles", "main-idea"
+  subtype?: string;       // finer-grained pattern within a branch (e.g. "linear-add", "circle-area")
+  strategy_tag?: string;  // canonical tag identifying the solving strategy (used for diversity)
   is_common?: boolean;    // true if this is a frequently-seen exam pattern
   idea?: string;          // short label: "تبسيط" / "معادلة" / "تحليل"
-  fast_method?: string;   // fastest method tied to the branch
+  fast_method?: string;   // fastest method tied to the question
   why_important?: string; // why this type appears in exams
 }
 

@@ -1,0 +1,71 @@
+Before making any changes, inspect my current training question flow and the recently added smart sections ("فكرة السؤال", "أسرع طريقة", "ليش هذا مهم").
+
+IMPORTANT RULES:
+- Do NOT redesign the UI
+- Do NOT change colors, spacing, typography, cards, or layout
+- Do NOT touch authentication or dashboard outside training
+- Keep Arabic RTL exactly as it is
+- Only improve question diversity and explanation quality
+- Keep everything production-safe
+
+GOAL:
+Fix two major problems in the training flow:
+
+1. Questions feel repetitive
+2. The explanation / fastest method text feels too generic and repeated across many questions
+
+REQUIRED IMPROVEMENTS:
+
+PART 1 — Reduce question repetition
+- Inspect how training questions are currently selected
+- Prevent repeated questions from the same exact pattern appearing too often
+- Add better diversity in selection using available metadata where possible
+- If possible, extend question metadata with:
+  - subtype
+  - strategy_tag
+  - recently_used tracking
+- When generating a training session, avoid:
+  - same question repeated
+  - same idea repeated too closely
+  - same fast method repeated for every question
+
+PART 2 — Make the explanation specific to each question
+- The current smart section should no longer feel static
+- For each question, generate or derive:
+  - "فكرة السؤال" specific to that question
+  - "أسرع طريقة" specific to that question
+  - "ليش هذا مهم" specific to that question type
+  - explanation specific to the actual numbers and logic in the question
+
+IMPORTANT:
+- Do NOT reuse the same generic sentence like "اعزل المتغير..." for all algebra questions
+- Explanation must match the exact question shown on screen
+
+PART 3 — Add AI support carefully
+- If AI integration is possible in the current app, use it only for:
+  - explanation generation
+  - fast method generation
+  - question-specific learning hint
+- Do NOT replace the whole question bank with AI
+- Keep the existing training questions, but enrich them with dynamic explanation generation
+
+PART 4 — Fallback behavior
+If AI is unavailable or fails:
+- show a structured fallback explanation from existing question data
+- never break the question flow
+
+TECHNICAL DIRECTION:
+- Keep the existing answer logic unchanged
+- Keep timer and navigation unchanged
+- Reuse current data structure if possible, but extend it safely
+- Make sure each question has enough metadata for better selection and explanation
+- Avoid introducing breaking changes
+
+DELIVERABLES:
+After finishing, tell me:
+1. how repetition was reduced
+2. what metadata was added to questions
+3. how the explanation became question-specific
+4. whether AI was added, and exactly where it is used
+5. what fallback is used if AI is unavailable
+6. confirm that UI and existing training flow were not redesigned
