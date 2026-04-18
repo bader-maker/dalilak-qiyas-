@@ -1,0 +1,72 @@
+Before making any changes, inspect the current training question bank and the recent diversity improvements already added.
+
+IMPORTANT RULES:
+- Do NOT redesign the UI
+- Do NOT change the training flow structure
+- Do NOT touch the repetition logic, option-label fix, timer, scoring, or navigation
+- Keep everything Arabic RTL and production-safe
+- Only improve the internal diversity of questions inside each branch
+
+GOAL:
+Increase real question variety inside each training branch so users do not feel they are solving the same pattern repeatedly.
+
+PROBLEM:
+Even with anti-repetition and smarter explanations, the question bank still feels limited when a branch has too few internal patterns.
+
+REQUIRED IMPROVEMENTS:
+
+1. Expand internal question diversity for each branch
+For example in algebra:
+- linear equations
+- two-step equations
+- equations with parentheses
+- equations with fractions
+- simplification
+- factorization
+- algebraic comparisons
+- pattern recognition
+
+For geometry:
+- square
+- rectangle
+- triangle
+- circle
+- perimeter
+- area
+- angles
+- Pythagorean style questions
+
+For ratios/statistics/verbal branches, apply the same idea:
+each branch should contain multiple subtypes, not one repeated pattern.
+
+2. Add richer metadata to questions where needed
+Examples:
+- subtype
+- template_family
+- skill_focus
+- strategy_tag
+- difficulty
+- wording_style
+
+3. Improve selection so a training session mixes:
+- different subtypes
+- different wording styles
+- different strategy tags
+while still respecting branch and difficulty
+
+4. If the current bank is too small, add safe seed questions or templates for variety
+BUT:
+- do not replace the whole question bank
+- do not generate random low-quality questions
+- keep quality close to exam style
+
+5. Keep existing explanation logic and smart card intact
+The new question diversity should work with the current deriveSmartInfo/enrichQuestion flow.
+
+DELIVERABLES:
+After finishing, tell me:
+1. which branches gained more internal variety
+2. what new metadata or templates were added
+3. how question selection is more diverse now
+4. whether any seed questions/templates were added
+5. confirm that UI and current training flow were unchanged
