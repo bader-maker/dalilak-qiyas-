@@ -10,8 +10,13 @@ export async function GET(request: NextRequest) {
   const error_description = requestUrl.searchParams.get("error_description");
   const next = requestUrl.searchParams.get("next") ?? "/dashboard";
 
-  // Get the origin for redirects
-  const origin = requestUrl.origin;
+  // Get the origin for redirects, honoring proxy headers so we don't leak
+  // the internal host (e.g. 0.0.0.0:5000) when behind Replit's proxy.
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const forwardedProto = request.headers.get("x-forwarded-proto");
+  const host = forwardedHost ?? request.headers.get("host") ?? requestUrl.host;
+  const proto = forwardedProto ?? (host.includes("localhost") || host.includes("0.0.0.0") ? "http" : "https");
+  const origin = `${proto}://${host}`;
 
   console.log("=== OAuth Callback ===");
   console.log("URL:", request.url);
