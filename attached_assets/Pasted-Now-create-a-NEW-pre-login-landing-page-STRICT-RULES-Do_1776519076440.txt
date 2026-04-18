@@ -1,0 +1,103 @@
+Now create a NEW pre-login landing page.
+
+STRICT RULES:
+- Do NOT modify any existing pages
+- Do NOT modify the dashboard
+- Do NOT touch authentication
+- Do NOT change global styles
+- Do NOT replace the homepage
+- Only create a NEW route (for example: /landing)
+
+GOAL:
+Create a premium Arabic landing page for my platform that appears before login, but do NOT connect it yet.
+
+VERY IMPORTANT:
+- Use ONLY the design system you just extracted from my codebase
+- Reuse the exact Tajawal typography
+- Reuse the exact green and gold palette
+- Reuse the same buttons, cards, spacing, border radius, and shadows
+- Do NOT invent any new visual style
+- Do NOT use purple branding
+- The final page must feel like a natural extension of my current dashboard/app
+
+REFERENCE INTENT:
+Use the screenshots I provided only as a reference for:
+- section order
+- page flow
+- hierarchy
+- conversion-focused structure
+
+Do NOT copy their branding.
+Do NOT clone their colors.
+Do NOT create a Cathoven clone.
+
+PAGE STRUCTURE:
+1. Header / Navbar
+   - logo/name
+   - simple nav links
+   - primary CTA button
+   - sign-in action
+
+2. Hero section
+   - strong Arabic headline
+   - short supporting paragraph
+   - primary CTA
+   - trust indicators below CTA
+   - 4 feature cards beside the hero content
+
+3. Main categories section
+   - القدرات
+   - التحصيلي
+   - القدرات العامة
+   - GAT English
+
+4. Free resources / guides section
+
+5. Testimonials section
+   - 3 cards visible
+
+6. How it works section
+   - 3 steps
+
+7. More tools section
+
+8. Score preview / performance card section
+
+9. Achievements / trust section
+   - dark green background section with 3 cards
+
+10. Pricing teaser section
+
+11. Blog preview section
+   - 3 article cards
+
+12. FAQ accordion section
+
+13. Final CTA section
+
+14. Footer
+
+CONTENT:
+All content must be in Arabic.
+Use clean, premium, student-focused marketing copy suitable for a smart exam-prep platform.
+
+Examples of tone:
+- ابدأ رحلتك نحو درجتك المستهدفة
+- تدريب ذكي مدعوم بالذكاء الاصطناعي
+- تحليل فوري للأداء
+- خطط واضحة للتحسن
+- اختبارات تحاكي الواقع
+
+TECHNICAL:
+- Reuse existing components where possible
+- Keep code production-ready
+- Make it fully responsive
+- Do NOT change backend or database
+- Only add the files needed for this new page
+
+FINAL OUTPUT:
+After finishing, tell me:
+1. what files were created
+2. what route was added
+3. confirm that no existing pages were modified
+4. how I can preview ONLY this page
