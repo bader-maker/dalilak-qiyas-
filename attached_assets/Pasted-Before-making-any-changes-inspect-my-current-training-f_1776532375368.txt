@@ -1,0 +1,101 @@
+Before making any changes, inspect my current training flow and reuse the existing design system exactly as it is.
+
+IMPORTANT RULES:
+- Do NOT redesign the whole app
+- Do NOT touch authentication
+- Do NOT modify dashboard pages outside training
+- Do NOT change global styles
+- Do NOT invent new colors, fonts, spacing, or components
+- Reuse the current Arabic RTL design, existing cards, buttons, spacing, and colors
+- Keep everything production-safe
+- Only modify the training flow UI
+
+GOAL:
+Upgrade the current "وضع التدريب" flow from a simple topic picker into a smarter structured training experience.
+
+CURRENT STATE:
+The current training flow allows:
+- choosing section (الكمي / اللفظي)
+- choosing a topic
+- setting number of questions / difficulty / timer
+- starting training
+- answering questions with immediate explanation
+
+NEW GOAL:
+Keep the current logic, but improve the training structure.
+
+I want this new structure:
+
+1) user selects section:
+- الكمي
+- اللفظي
+
+2) user selects main topic:
+Examples for الكمي:
+- الجبر
+- الهندسة
+- النسب والتناسب
+- الإحصاء
+
+Examples for اللفظي:
+- استيعاب المقروء
+- التناظر اللفظي
+- إكمال الجمل
+- المفردات والمتضادات
+- الخطأ السياقي
+
+3) AFTER selecting a main topic, do NOT immediately go to question settings.
+Instead, show a new internal training step for that topic.
+
+This new step must include:
+- عنوان الموضوع
+- وصف قصير جدًا
+- subcategories / branches inside the topic
+- a section called "الأسئلة الأكثر شيوعًا"
+- a section called "أسرع الطرق"
+- a section called "ابدأ التدريب"
+
+EXAMPLE:
+If the user selects "الجبر", show branches like:
+- المعادلات
+- تبسيط العبارات
+- الأنماط الجبرية
+- التعويض
+- المقارنات الجبرية
+
+If the user selects "استيعاب المقروء", show branches like:
+- الفكرة العامة
+- معنى المفردة
+- الاستنتاج
+- العودة للنص
+- تحديد المقصود
+
+BEHAVIOR:
+- user can choose one branch before starting training
+- current question settings should remain available, but appear AFTER branch selection
+- do not remove the existing number of questions / difficulty / timer settings
+- just move them to a later step in the flow
+
+UI REQUIREMENTS:
+- keep the same current training style
+- keep it fully Arabic and RTL
+- maintain current green/gold palette
+- use the existing cards and buttons
+- make the branch cards feel like a natural extension of the current UI
+- add no unnecessary decorations
+
+TECHNICAL REQUIREMENTS:
+- inspect existing training components first
+- reuse current components where possible
+- keep existing question engine untouched for now
+- do not change backend or database yet
+- do not break current training functionality
+- implement only the new structured selection flow
+
+DELIVERABLES:
+After finishing, tell me:
+1. which files were modified
+2. whether any new files were created
+3. what new training step was added
+4. confirm that question logic was not changed
+5. how I can preview the updated training flow
