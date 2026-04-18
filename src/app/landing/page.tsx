@@ -160,16 +160,16 @@ export default function LandingPage() {
           </nav>
 
           <div className="flex items-center gap-3">
-            <a href="#" className="hidden sm:inline text-sm font-medium text-foreground/80 hover:text-[#006C35] transition-colors">
+            <Link href="/login" className="hidden sm:inline text-sm font-medium text-foreground/80 hover:text-[#006C35] transition-colors">
               تسجيل الدخول
-            </a>
-            <a
-              href="#hero-cta"
+            </Link>
+            <Link
+              href="/login"
               className="px-5 py-2.5 bg-[#006C35] text-white text-sm font-bold rounded-xl hover:bg-[#004d26] transition-colors flex items-center gap-2 shadow-md"
             >
               <Sparkles className="w-4 h-4" />
               ابدأ مجاناً
-            </a>
+            </Link>
           </div>
         </div>
       </header>
@@ -192,13 +192,13 @@ export default function LandingPage() {
             </p>
 
             <div id="hero-cta" className="flex flex-col sm:flex-row gap-3">
-              <a
-                href="#"
+              <Link
+                href="/login"
                 className="px-6 py-4 bg-[#006C35] text-white font-bold rounded-xl hover:bg-[#004d26] transition-colors flex items-center justify-center gap-2 shadow-lg"
               >
                 <Sparkles className="w-5 h-5" />
                 ابدأ التجربة المجانية
-              </a>
+              </Link>
               <a
                 href="#how"
                 className="px-6 py-4 border-2 border-gray-200 rounded-xl hover:border-[#006C35]/30 hover:bg-gray-50 transition-all flex items-center justify-center gap-2 font-bold text-foreground"
@@ -289,9 +289,9 @@ export default function LandingPage() {
                 </div>
                 <h3 className="font-bold text-lg mb-2">{r.title}</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed mb-5">{r.desc}</p>
-                <a href="#" className="text-sm font-bold text-[#006C35] flex items-center gap-2 hover:gap-3 transition-all">
+                <Link href="/login" className="text-sm font-bold text-[#006C35] flex items-center gap-2 hover:gap-3 transition-all">
                   ابدأ الآن <ArrowLeft className="w-4 h-4" />
-                </a>
+                </Link>
               </div>
             ))}
           </div>
@@ -389,13 +389,13 @@ export default function LandingPage() {
                 لوحة تحكم تعرض لك متوسط أدائك، نقاط ضعفك، والوقت المتوقع لوصولك لهدفك —
                 بعد كل جلسة وبشكل لحظي.
               </p>
-              <a
-                href="#"
+              <Link
+                href="/login"
                 className="inline-flex items-center gap-2 px-6 py-4 bg-[#006C35] text-white font-bold rounded-xl hover:bg-[#004d26] transition-colors shadow-lg"
               >
                 <BarChart3 className="w-5 h-5" />
                 جرّب لوحة الأداء
-              </a>
+              </Link>
             </div>
 
             <div className="bg-saudi-gradient rounded-2xl p-8 text-white shadow-2xl">
@@ -505,8 +505,8 @@ export default function LandingPage() {
                     </li>
                   ))}
                 </ul>
-                <a
-                  href="#"
+                <Link
+                  href="/login"
                   className={`block text-center w-full py-3 font-bold rounded-xl transition-colors ${
                     p.highlighted
                       ? "bg-white text-[#006C35] hover:bg-[#E8C547] hover:text-white"
@@ -514,7 +514,7 @@ export default function LandingPage() {
                   }`}
                 >
                   {p.highlighted ? "ابدأ الآن" : "اختيار هذه الباقة"}
-                </a>
+                </Link>
               </div>
             ))}
           </div>
@@ -613,13 +613,13 @@ export default function LandingPage() {
                 انضم لأكثر من 50,000 طالب وطالبة يستخدمون منصتنا للوصول إلى درجاتهم المستهدفة في قياس.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
-                <a
-                  href="#"
+                <Link
+                  href="/login"
                   className="px-6 py-4 bg-white text-[#006C35] font-bold rounded-xl hover:bg-[#E8C547] hover:text-white transition-colors flex items-center justify-center gap-2 shadow-lg"
                 >
                   <Sparkles className="w-5 h-5" />
                   ابدأ مجاناً الآن
-                </a>
+                </Link>
                 <a
                   href="#pricing"
                   className="px-6 py-4 border-2 border-white/30 rounded-xl hover:bg-white/10 transition-colors flex items-center justify-center gap-2 font-bold"
