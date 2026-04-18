@@ -1,0 +1,77 @@
+Before making any changes, inspect my current training flow and the recent updates I made (branches, fastest methods, and common questions sections).
+
+IMPORTANT RULES:
+- Do NOT redesign the UI
+- Do NOT change layout or styling
+- Do NOT touch global styles
+- Do NOT break existing functionality
+- Only enhance the logic and connect the training content with the questions
+- Keep everything in Arabic and RTL
+
+GOAL:
+Make the training experience "smart" instead of static.
+
+CURRENT STATE:
+- User selects section → topic → branch
+- Sees:
+  - "أسرع الطرق"
+  - "الأسئلة الأكثر شيوعًا"
+- Then starts training
+- Questions are shown normally with explanation
+
+PROBLEM:
+These sections are not connected to the actual training questions.
+
+NEW BEHAVIOR REQUIRED:
+
+1) When the user selects a branch (e.g. "المعادلات"):
+- Save the selected branch
+- Use it to control question selection
+
+2) When starting training:
+- Prioritize questions tagged as:
+  - "common"
+  - matching the selected branch
+- If not enough, fallback to general questions of the same topic
+
+3) Enhance the question view:
+
+Above the explanation box, add a new small section that includes:
+
+- "فكرة السؤال":
+  short label describing the type (e.g. تبسيط / معادلة / تحليل)
+
+- "أسرع طريقة":
+  reuse the fastest method related to this branch
+
+- "ليش هذا مهم":
+  short sentence explaining why this type appears in exams
+
+IMPORTANT:
+- Do NOT hardcode random text
+- Use structured data where possible
+- If no data exists, show a fallback message like:
+  "هذا من الأنماط الشائعة في هذا القسم"
+
+4) Do NOT change:
+- how answers work
+- scoring
+- navigation
+- timer
+
+5) Keep everything visually consistent with current cards
+
+TECHNICAL:
+- Extend question objects with:
+  - type (idea)
+  - is_common (boolean)
+  - fast_method (string)
+- Do not break existing data
+
+DELIVERABLES:
+After finishing, tell me:
+1. what data fields were added
+2. how questions are filtered now
+3. what new UI element was added
+4. confirm no existing features were broken
+5. how to test the smart behavior

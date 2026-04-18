@@ -275,6 +275,123 @@ const trainingQuestions: TrainingQuestion[] = [
   { id: "voc-15", section: "لفظي", category: "المتضادات", topic: "vocabulary", question: "اختر عكس كلمة (النجاح):", options: ["الرسوب", "الفشل", "الخسارة", "التراجع"], correct: 1, explanation: "عكس النجاح = الفشل", difficulty: "easy" },
 ];
 
+// ===== Smart training metadata: branch → idea / fast method / why important =====
+type BranchInfo = { idea: string; fast_method: string; why: string };
+const branchMeta: Record<string, Record<string, BranchInfo>> = {
+  algebra: {
+    equations: { idea: "حل معادلة", fast_method: "اعزل المتغير في طرف واحد قبل أي خطوة حسابية", why: "المعادلات تتكرر في كل اختبار قياس تقريباً" },
+    simplify: { idea: "تبسيط عبارة", fast_method: "ابدأ بالحدود ذات الدرجة الأعلى عند التبسيط", why: "تبسيط العبارات أساس لحل أسئلة أكبر" },
+    patterns: { idea: "نمط جبري", fast_method: "احسب الفرق بين الحدود لتحديد نوع النمط", why: "أنماط الأرقام شائعة في القسم الكمي" },
+    substitution: { idea: "تعويض", fast_method: "عوّض بأرقام بسيطة بدل الحل الجبري الكامل", why: "التعويض يوفر وقتاً كبيراً في الاختبار" },
+    comparison: { idea: "مقارنة", fast_method: "وحّد الطرفين قبل المقارنة", why: "أسئلة المقارنة تختبر سرعتك في التقدير" },
+  },
+  geometry: {
+    triangles: { idea: "مثلث", fast_method: "تذكّر مجموع زوايا المثلث 180° واستخدم فيثاغورس عند الحاجة", why: "خصائص المثلث تتكرر في معظم الأسئلة الهندسية" },
+    circles: { idea: "دائرة", fast_method: "احفظ صيغة المحيط 2πر والمساحة πر²", why: "أسئلة الدائرة من الأنماط الكلاسيكية" },
+    areas: { idea: "مساحة/حجم", fast_method: "اكتب صيغة المساحة قبل الحساب لتجنب الخطأ", why: "حساب المساحات والأحجام مهارة أساسية" },
+    angles: { idea: "زاوية", fast_method: "استخدم خصائص الزوايا المتجاورة والمتقابلة", why: "الزوايا تظهر في أسئلة هندسية كثيرة" },
+    symmetry: { idea: "تشابه/تماثل", fast_method: "قارن نسب الأضلاع لتحديد التشابه", why: "التشابه يربط بين الأشكال المتعددة" },
+  },
+  ratios: {
+    percent: { idea: "نسبة مئوية", fast_method: "حوّل النسبة لكسر بسيط قبل الضرب", why: "النسب المئوية من أكثر الأسئلة تكراراً" },
+    direct: { idea: "تناسب", fast_method: "للتناسب الطردي: ضرب تبادلي مباشرة", why: "التناسب يربط بين الكميات المختلفة" },
+    rates: { idea: "معدل/سرعة", fast_method: "المسافة = السرعة × الزمن — احفظها واستخدمها", why: "أسئلة السرعة من المسائل اللفظية الشائعة" },
+    word: { idea: "مسألة لفظية", fast_method: "استخرج المعطيات أولاً ثم اكتب المعادلة", why: "المسائل اللفظية تختبر الفهم والتحليل" },
+  },
+  statistics: {
+    average: { idea: "متوسط/وسيط/منوال", fast_method: "رتّب الأرقام تصاعدياً قبل إيجاد الوسيط", why: "مقاييس النزعة المركزية أساس الإحصاء" },
+    probability: { idea: "احتمال", fast_method: "الاحتمال = الحالات المرغوبة ÷ كل الحالات", why: "الاحتمالات تظهر في أسئلة منوعة" },
+    tables: { idea: "تحليل جدول", fast_method: "اقرأ عناوين الأعمدة والصفوف أولاً", why: "قراءة الجداول مهارة عملية مهمة" },
+    charts: { idea: "قراءة مخطط", fast_method: "اقرأ عنوان المخطط ووحدات القياس قبل الإجابة", why: "المخططات تختصر معلومات كثيرة" },
+  },
+  analogy: {
+    relations: { idea: "علاقة لفظية", fast_method: "صُغ العلاقة بجملة واضحة قبل النظر للخيارات", why: "التناظر اللفظي قسم رئيسي في القدرات" },
+    "antonym-rel": { idea: "علاقة تضاد", fast_method: "حدد جذر الكلمة وابحث عن نقيضها مباشرة", why: "علاقات التضاد متكررة في التناظر" },
+    "synonym-rel": { idea: "علاقة ترادف", fast_method: "ابحث عن الكلمة الأقرب معنىً لا الأقرب لفظاً", why: "الترادف يختبر ثروتك اللغوية" },
+    category: { idea: "جزء وكل", fast_method: "حدد ما إذا كانت إحدى الكلمتين جزءاً من الأخرى", why: "علاقة الجزء بالكل من الأنماط الشائعة" },
+  },
+  completion: {
+    "missing-word": { idea: "كلمة ناقصة", fast_method: "اقرأ الجملة كاملة قبل النظر للخيارات", why: "إكمال الجمل يقيس فهم السياق" },
+    "context-fit": { idea: "كلمة مناسبة للسياق", fast_method: "حدّد علامات السياق (ولكن، لذلك، رغم...)", why: "السياق يحدد الكلمة المناسبة" },
+    "verb-choice": { idea: "فعل مناسب", fast_method: "تأكد من زمن الفعل ومطابقته للفاعل", why: "اختيار الفعل الصحيح أساسي لمعنى الجملة" },
+    joining: { idea: "ربط الجمل", fast_method: "حدد العلاقة المنطقية بين الجملتين قبل اختيار الرابط", why: "أدوات الربط تربط الأفكار بدقة" },
+  },
+  comprehension: {
+    "main-idea": { idea: "فكرة عامة", fast_method: "ابحث عن الجملة الموضوعية في بداية الفقرة", why: "الفكرة العامة من أهم أسئلة الاستيعاب" },
+    "word-meaning": { idea: "معنى مفردة", fast_method: "استنتج المعنى من السياق المحيط بالكلمة", why: "معاني المفردات تختبر فهم النص" },
+    inference: { idea: "استنتاج", fast_method: "اعتمد على ما يقوله النص لا على رأيك الشخصي", why: "الاستنتاج يقيس فهمك العميق" },
+    "back-to-text": { idea: "عودة للنص", fast_method: "ارجع للنص لكل سؤال ولا تعتمد على الذاكرة", why: "العودة للنص تجنبك الأخطاء" },
+    intent: { idea: "تحديد المقصود", fast_method: "ابحث عن كلمات مفتاحية في السؤال داخل النص", why: "تحديد المقصود يتطلب دقة في القراءة" },
+  },
+  contextual: {
+    morph: { idea: "خطأ صرفي", fast_method: "تأكد من تصريف الكلمة وموافقتها للقاعدة", why: "الأخطاء الصرفية شائعة في الكتابة" },
+    syntax: { idea: "خطأ نحوي", fast_method: "تحقق من علامات الإعراب ومطابقة الفاعل والفعل", why: "النحو أساس صحة الجملة" },
+    semantic: { idea: "خطأ دلالي", fast_method: "اقرأ الجملة بصوت منخفض لاكتشاف الخلل في المعنى", why: "الأخطاء الدلالية تخفي خللاً في المعنى" },
+  },
+  vocabulary: {
+    antonyms: { idea: "متضاد", fast_method: "حلّل جذر الكلمة لاستنتاج عكسها", why: "المتضادات تختبر معرفتك بالمعاني المقابلة" },
+    synonyms: { idea: "مرادف", fast_method: "ابحث عن الكلمة الأقرب في المعنى لا في اللفظ", why: "المرادفات تثري فهمك اللغوي" },
+    meanings: { idea: "معنى مفردة", fast_method: "استنتج المعنى من السياق إن وُجد", why: "معاني المفردات أساس الفهم اللفظي" },
+  },
+};
+
+// Infer the branch of a question from its text + topic
+function inferBranch(q: TrainingQuestion): string | null {
+  const t = q.question;
+  switch (q.topic) {
+    case "algebra":
+      if (/متباين|>|</.test(t)) return "comparison";
+      if (/بسّط|تبسيط|بسط:/.test(t)) return "simplify";
+      if (/نمط|متتالي/.test(t)) return "patterns";
+      if (/فإن\s*س²|فما قيمة\s*2س|فما قيمة\s*س²/.test(t)) return "substitution";
+      return "equations";
+    case "geometry":
+      if (/تشابه|متساوي الأضلاع|تماثل/.test(t)) return "symmetry";
+      if (/زاوي|مجموع.*زوايا/.test(t)) return "angles";
+      if (/دائرة|نصف قطر|قطر|محيط دائرة/.test(t)) return "circles";
+      if (/مثلث|الوتر|فيثاغورس/.test(t)) return "triangles";
+      return "areas";
+    case "ratios":
+      if (/سرعة|كم\/س|يقطع|ساعات|أيام|عمال/.test(t)) return "rates";
+      if (/%|نسبة مئوية|خصم|زاد.*نسبة|نقص.*نسبة/.test(t)) return "percent";
+      if (/نسبة.*:|أ:ب|ب:ج/.test(t)) return "direct";
+      return "word";
+    case "statistics":
+      if (/احتمال/.test(t)) return "probability";
+      if (/جدول/.test(t)) return "tables";
+      if (/مخطط/.test(t)) return "charts";
+      return "average";
+    case "analogy":
+      return "relations";
+    case "completion":
+      return "missing-word";
+    case "comprehension":
+      return "main-idea";
+    case "contextual":
+      return "semantic";
+    case "vocabulary":
+      if (/عكس|ضد/.test(t)) return "antonyms";
+      if (/مرادف|بمعنى/.test(t)) return "synonyms";
+      return "meanings";
+    default:
+      return null;
+  }
+}
+
+// Enrich a question with branch / is_common / idea / fast_method / why_important
+function enrichQuestion(q: TrainingQuestion): TrainingQuestion {
+  const branch = q.branch ?? inferBranch(q) ?? undefined;
+  const meta = branch ? branchMeta[q.topic]?.[branch] : undefined;
+  return {
+    ...q,
+    branch,
+    is_common: q.is_common ?? (q.difficulty !== "hard"),
+    idea: q.idea ?? meta?.idea,
+    fast_method: q.fast_method ?? meta?.fast_method,
+    why_important: q.why_important ?? meta?.why,
+  };
+}
+
 // Practice Test Component
 function PracticeTestContent() {
   const router = useRouter();
@@ -286,6 +403,7 @@ function PracticeTestContent() {
   const section = searchParams.get("section") || "quantitative";
   const questionCount = parseInt(searchParams.get("count") || "10");
   const difficulty = searchParams.get("difficulty") || "all";
+  const branch = searchParams.get("branch") || null;
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
@@ -309,18 +427,38 @@ function PracticeTestContent() {
     };
 
     const mappedTopic = topicMap[topic] || topic;
-    let filtered = trainingQuestions.filter(q => q.topic === mappedTopic);
-    
+
+    // Enrich every question with branch / is_common / idea / fast_method / why_important
+    const enrichedAll = trainingQuestions
+      .filter(q => q.topic === mappedTopic)
+      .map(enrichQuestion);
+
+    let filtered = enrichedAll;
     if (difficulty !== "all") {
       filtered = filtered.filter(q => q.difficulty === difficulty);
     }
 
-    const shuffled = [...filtered].sort(() => Math.random() - 0.5);
-    const selected = shuffled.slice(0, Math.min(questionCount, shuffled.length));
-    
+    // Smart selection: prioritize matching branch + is_common, then matching branch,
+    // then is_common, then the rest. Falls back to topic if branch yields nothing.
+    const shuffle = <T,>(arr: T[]) => [...arr].sort(() => Math.random() - 0.5);
+    let selected: TrainingQuestion[];
+
+    if (branch) {
+      const branchMatch = filtered.filter(q => q.branch === branch);
+      const tier1 = shuffle(branchMatch.filter(q => q.is_common));
+      const tier2 = shuffle(branchMatch.filter(q => !q.is_common));
+      const tier3 = shuffle(filtered.filter(q => q.branch !== branch && q.is_common));
+      const tier4 = shuffle(filtered.filter(q => q.branch !== branch && !q.is_common));
+      selected = [...tier1, ...tier2, ...tier3, ...tier4].slice(0, questionCount);
+    } else {
+      const tier1 = shuffle(filtered.filter(q => q.is_common));
+      const tier2 = shuffle(filtered.filter(q => !q.is_common));
+      selected = [...tier1, ...tier2].slice(0, questionCount);
+    }
+
     setQuestions(selected);
     setAnswers(new Array(selected.length).fill(null));
-  }, [topic, questionCount, difficulty]);
+  }, [topic, questionCount, difficulty, branch]);
 
   useEffect(() => {
     if (timeLeft > 0 && !showExplanation && !showResults && questions.length > 0) {
@@ -499,6 +637,35 @@ function PracticeTestContent() {
               );
             })}
           </div>
+
+          {showExplanation && (
+            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/40 p-4 mb-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <div className="flex items-center gap-2 mb-1 text-gray-500 dark:text-gray-400 text-xs font-bold">
+                  <span>🧠</span> فكرة السؤال
+                </div>
+                <p className="text-sm text-gray-900 dark:text-white font-medium">
+                  {currentQ.idea || "هذا من الأنماط الشائعة في هذا القسم"}
+                </p>
+              </div>
+              <div>
+                <div className="flex items-center gap-2 mb-1 text-[#006C35] dark:text-[#4ade80] text-xs font-bold">
+                  <span>⚡</span> أسرع طريقة
+                </div>
+                <p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed">
+                  {currentQ.fast_method || "اقرأ السؤال بتأنٍّ وحدّد المعطيات قبل الحل"}
+                </p>
+              </div>
+              <div>
+                <div className="flex items-center gap-2 mb-1 text-[#D4AF37] dark:text-[#fbbf24] text-xs font-bold">
+                  <span>📌</span> ليش هذا مهم
+                </div>
+                <p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed">
+                  {currentQ.why_important || "هذا من الأنماط الشائعة في هذا القسم"}
+                </p>
+              </div>
+            </div>
+          )}
 
           {showExplanation && (
             <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 mb-6">

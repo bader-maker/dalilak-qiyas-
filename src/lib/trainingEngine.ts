@@ -22,6 +22,12 @@ export interface TrainingQuestion {
   difficulty: "easy" | "medium" | "hard";
   isVariation?: boolean;
   variationOf?: string;
+  // ===== Smart training metadata (all optional, backward compatible) =====
+  branch?: string;        // e.g. "equations", "circles", "main-idea"
+  is_common?: boolean;    // true if this is a frequently-seen exam pattern
+  idea?: string;          // short label: "تبسيط" / "معادلة" / "تحليل"
+  fast_method?: string;   // fastest method tied to the branch
+  why_important?: string; // why this type appears in exams
 }
 
 export interface QuestionPool {
