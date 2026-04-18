@@ -275,6 +275,9 @@ const trainingQuestions: TrainingQuestion[] = [
   { id: "voc-15", section: "لفظي", category: "المتضادات", topic: "vocabulary", question: "اختر عكس كلمة (النجاح):", options: ["الرسوب", "الفشل", "الخسارة", "التراجع"], correct: 1, explanation: "عكس النجاح = الفشل", difficulty: "easy" },
 ];
 
+// Explicit Arabic option labels (avoids broken hamza variants from charCode math)
+const OPTION_LABELS = ["أ", "ب", "ج", "د", "هـ", "و"] as const;
+
 // ===== Smart training metadata: branch → idea / fast method / why important =====
 type BranchInfo = { idea: string; fast_method: string; why: string };
 const branchMeta: Record<string, Record<string, BranchInfo>> = {
@@ -922,19 +925,21 @@ function PracticeTestContent() {
             }`}>{currentQ.difficulty === 'easy' ? 'سهل' : currentQ.difficulty === 'medium' ? 'متوسط' : 'صعب'}</span>
           </div>
 
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">{currentQ.question}</h2>
+          <h2 dir="rtl" style={{ unicodeBidi: "isolate" }} className="text-xl font-bold text-gray-900 dark:text-white mb-6">{currentQ.question}</h2>
 
           <div className="space-y-3 mb-6">
             {currentQ.options.map((option, idx) => {
               const isSelected = selectedAnswer === idx;
               const isCorrect = idx === currentQ.correct;
               const showResult = showExplanation;
+              const label = OPTION_LABELS[idx] ?? String(idx + 1);
 
               return (
                 <button
                   key={idx}
                   onClick={() => handleAnswer(idx)}
                   disabled={showExplanation}
+                  dir="rtl"
                   className={`w-full p-4 rounded-xl border-2 text-right transition-all ${
                     showResult
                       ? isCorrect
@@ -948,12 +953,25 @@ function PracticeTestContent() {
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${
-                      showResult
-                        ? isCorrect ? "bg-green-500 text-white" : isSelected ? "bg-red-500 text-white" : "bg-gray-100 text-gray-600"
-                        : isSelected ? "bg-[#006C35] text-white" : "bg-gray-100 text-gray-600"
-                    }`}>{String.fromCharCode(1571 + idx)}</span>
-                    <span className="text-gray-900 dark:text-white">{option}</span>
+                    <span
+                      aria-hidden="true"
+                      dir="ltr"
+                      style={{ unicodeBidi: "isolate" }}
+                      className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${
+                        showResult
+                          ? isCorrect ? "bg-green-500 text-white" : isSelected ? "bg-red-500 text-white" : "bg-gray-100 text-gray-600"
+                          : isSelected ? "bg-[#006C35] text-white" : "bg-gray-100 text-gray-600"
+                      }`}
+                    >
+                      {label}
+                    </span>
+                    <span
+                      dir="rtl"
+                      style={{ unicodeBidi: "isolate" }}
+                      className="text-gray-900 dark:text-white flex-1 text-right"
+                    >
+                      {option}
+                    </span>
                   </div>
                 </button>
               );
