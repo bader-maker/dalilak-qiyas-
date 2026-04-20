@@ -6524,6 +6524,52 @@ export default function TestPage() {
     // Estimated Qiyas score (mock calculation)
     const estimatedScore = Math.round(65 + (percentage * 0.35));
 
+    // Overall level label
+    const overallLevel = percentage >= 80 ? "ممتاز" : percentage >= 60 ? "متوسط" : "ضعيف";
+
+    // Most-missed categories (common mistakes)
+    const commonMistakes = categoryPerformance
+      .map((c) => ({ ...c, wrong: c.total - c.correct }))
+      .filter((c) => c.wrong > 0)
+      .sort((a, b) => b.wrong - a.wrong)
+      .slice(0, 3);
+
+    // Fastest improvement target = weakest category overall
+    const weakest = weaknesses[0] || categoryPerformance[categoryPerformance.length - 1];
+    const fastestTip = weakest
+      ? `ركّز جلستك القادمة على «${weakest.name}» (${weakest.percentage}%). 20 سؤال موجّه + قراءة شرح كل خطأ يرفع نسبتك بسرعة.`
+      : "حافظ على وتيرتك الحالية وزد صعوبة الأسئلة تدريجياً.";
+
+    // Personalized recommended plan (2–4 steps)
+    const planSteps: { icon: string; title: string; desc: string }[] = [];
+    if (weakest) {
+      planSteps.push({
+        icon: "🎯",
+        title: `ابدأ بتقوية: ${weakest.name}`,
+        desc: `أضعف موضوع لديك (${weakest.percentage}%). خصّص له 3 جلسات هذا الأسبوع، 20 سؤالاً لكل جلسة.`,
+      });
+    }
+    if (weaknesses[1]) {
+      planSteps.push({
+        icon: "📚",
+        title: `راجع أساسيات: ${weaknesses[1].name}`,
+        desc: `أداؤك ${weaknesses[1].percentage}%. راجع القاعدة ثم حلّ 15 سؤالاً يومياً لمدة أسبوع.`,
+      });
+    }
+    if (avgTimePerQuestion > 90) {
+      planSteps.push({
+        icon: "⏱️",
+        title: "اعمل على سرعة الإجابة",
+        desc: `معدلك ${avgTimePerQuestion} ثانية للسؤال. استهدف 60-75 ثانية بتمارين موقوتة قصيرة.`,
+      });
+    }
+    planSteps.push({
+      icon: "🔁",
+      title: "راجع كل إجابة خاطئة",
+      desc: "افتح وضع المراجعة واقرأ شرح كل سؤال أخطأت فيه — لا تنتقل قبل أن تفهم سبب الخطأ.",
+    });
+    const plan = planSteps.slice(0, 4);
+
     // Results Screen
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4 transition-colors duration-300" dir="rtl">
@@ -6579,7 +6625,31 @@ export default function TestPage() {
                   <span className="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full text-sm text-gray-600 dark:text-gray-300">
                     ⚡ المعدل: {avgTimePerQuestion} ثانية/سؤال
                   </span>
+                  <span className="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full text-sm text-gray-600 dark:text-gray-300">
+                    📈 المستوى: <span className="font-bold">{overallLevel}</span>
+                  </span>
                 </div>
+              </div>
+            </div>
+
+            {/* Overall position bar */}
+            <div className="mt-6">
+              <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-2">
+                <span>ضعيف</span>
+                <span>متوسط</span>
+                <span>ممتاز</span>
+              </div>
+              <div className="relative h-3 rounded-full bg-gradient-to-r from-red-300 via-yellow-300 to-green-400 dark:from-red-500/40 dark:via-yellow-500/40 dark:to-green-500/40 overflow-visible">
+                <div
+                  className="absolute -top-1 w-5 h-5 rounded-full bg-white dark:bg-gray-100 border-2 border-[#006C35] shadow-md"
+                  style={{ right: `calc(${percentage}% - 10px)` }}
+                  aria-label={`موقعك: ${percentage}%`}
+                />
+              </div>
+              <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mt-2">
+                <span>0</span>
+                <span className="font-bold text-[#006C35] dark:text-[#4ade80]">موقعك: {percentage}/100</span>
+                <span>100</span>
               </div>
             </div>
           </div>
@@ -6710,34 +6780,61 @@ export default function TestPage() {
             </div>
           </div>
 
-          {/* Recommendations */}
-          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-2xl p-6 mb-6 border border-blue-200 dark:border-blue-800">
-            <h3 className="font-bold text-blue-800 dark:text-blue-400 mb-4 flex items-center gap-2">
-              <span>💡</span>
-              توصيات للتحسين
+          {/* Smart Analysis: Fastest Improvement + Common Mistakes */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-2xl p-5 border border-blue-200 dark:border-blue-800">
+              <h3 className="font-bold text-blue-800 dark:text-blue-400 mb-3 flex items-center gap-2">
+                <span>⚡</span>
+                أسرع طريقة للتحسن
+              </h3>
+              <p className="text-sm text-blue-700 dark:text-blue-300 leading-relaxed">{fastestTip}</p>
+            </div>
+
+            <div className="bg-orange-50 dark:bg-orange-900/20 rounded-2xl p-5 border border-orange-200 dark:border-orange-800">
+              <h3 className="font-bold text-orange-800 dark:text-orange-400 mb-3 flex items-center gap-2">
+                <span>⚠️</span>
+                أخطاؤك الشائعة
+              </h3>
+              {commonMistakes.length > 0 ? (
+                <ul className="space-y-2">
+                  {commonMistakes.map((m, i) => (
+                    <li key={i} className="flex items-center justify-between text-sm text-orange-700 dark:text-orange-300">
+                      <span>{m.name}</span>
+                      <span className="font-bold">{m.wrong} خطأ من {m.total}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-orange-700 dark:text-orange-300">لا توجد أخطاء متكررة — أداء رائع!</p>
+              )}
+            </div>
+          </div>
+
+          {/* Recommended Plan */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 mb-6 border border-gray-200 dark:border-gray-700">
+            <h3 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <span className="text-xl">🗺️</span>
+              خطة التدريب الموصى بها
             </h3>
-            <ul className="space-y-3">
-              {weaknesses.length > 0 && (
-                <li className="flex items-start gap-3 text-blue-700 dark:text-blue-300">
-                  <span className="mt-1">📚</span>
-                  <span className="text-sm">ركز على تحسين مهاراتك في: {weaknesses.map(w => w.name).join('، ')}</span>
+            <ol className="space-y-3">
+              {plan.map((step, i) => (
+                <li
+                  key={i}
+                  className="flex items-start gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-700"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-[#006C35]/10 dark:bg-[#006C35]/20 text-[#006C35] dark:text-[#4ade80] flex items-center justify-center font-bold text-sm flex-shrink-0">
+                    {i + 1}
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-bold text-gray-900 dark:text-white text-sm mb-1 flex items-center gap-2">
+                      <span>{step.icon}</span>
+                      <span>{step.title}</span>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{step.desc}</p>
+                  </div>
                 </li>
-              )}
-              {avgTimePerQuestion > 90 && (
-                <li className="flex items-start gap-3 text-blue-700 dark:text-blue-300">
-                  <span className="mt-1">⏰</span>
-                  <span className="text-sm">حاول تسريع وتيرة الإجابة - المعدل المثالي هو 60-90 ثانية للسؤال</span>
-                </li>
-              )}
-              <li className="flex items-start gap-3 text-blue-700 dark:text-blue-300">
-                <span className="mt-1">🔄</span>
-                <span className="text-sm">راجع الأسئلة الخاطئة وافهم سبب الخطأ لتجنبه مستقبلاً</span>
-              </li>
-              <li className="flex items-start gap-3 text-blue-700 dark:text-blue-300">
-                <span className="mt-1">📈</span>
-                <span className="text-sm">تدرب يومياً لمدة 30 دقيقة على الأقل للحصول على أفضل النتائج</span>
-              </li>
-            </ul>
+              ))}
+            </ol>
           </div>
 
           {/* Question Summary */}
@@ -6783,6 +6880,32 @@ export default function TestPage() {
                 <span className="text-gray-600 dark:text-gray-400">لم يُجب ({answers.filter(a => a === null).length})</span>
               </div>
             </div>
+          </div>
+
+          {/* Locked Premium CTA */}
+          <div className="bg-gradient-to-br from-[#006C35] to-[#004d26] rounded-2xl p-6 mb-6 text-white shadow-lg relative overflow-hidden">
+            <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_30%_20%,white,transparent_50%)]" />
+            <div className="relative flex flex-col md:flex-row items-center gap-5">
+              <div className="w-14 h-14 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center text-2xl flex-shrink-0">
+                🔒
+              </div>
+              <div className="flex-1 text-center md:text-right">
+                <h3 className="font-bold text-lg mb-1">ابدأ التدريب الكامل المخصص لك</h3>
+                <p className="text-sm text-white/80 leading-relaxed">
+                  افتح بنك الأسئلة الكامل، التدريب التكيّفي، ومحاكاة الاختبارات الرسمية — متاح بالاشتراك المدفوع.
+                </p>
+              </div>
+              <button
+                onClick={() => router.push("/subscriptions")}
+                className="px-6 py-3 bg-[#E8C547] text-[#004d26] font-bold rounded-xl hover:bg-white transition-colors flex items-center gap-2 shadow-md flex-shrink-0"
+              >
+                <span>🚀</span>
+                ابدأ التدريب الآن
+              </button>
+            </div>
+            <p className="relative text-xs text-white/70 text-center mt-4">
+              يتطلب اشتراكاً نشطاً • النسخة المجانية تشمل الاختبار التجريبي وتحليله فقط
+            </p>
           </div>
 
           {/* Action Buttons */}
