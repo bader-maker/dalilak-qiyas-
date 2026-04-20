@@ -14,15 +14,21 @@
     "@supabase/supabase-js": "^2.101.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "drizzle-zod": "^0.8.3",
     "lucide-react": "^0.475.0",
     "next": "15.3.7",
+    "openai": "^6.34.0",
+    "p-limit": "^7.3.0",
+    "p-retry": "^7.1.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-grab": "latest",
     "recharts": "^3.8.1",
     "same-runtime": "^0.0.1",
     "tailwind-merge": "^3.3.0",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "zod": "^4.3.6",
+    "zod-validation-error": "^5.0.0"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTheme } from "@/contexts/ThemeContext";
 import AIAssistant from "@/components/AIAssistant";
 import GeometryDiagram from "@/components/GeometryDiagram";
+import AIInsightsCard from "@/components/AIInsightsCard";
 import {
   Radar,
   RadarChart,
@@ -6947,6 +6948,30 @@ export default function TestPage() {
               {isPremium ? "✓ مفعّل" : "Premium"}
             </span>
           </div>
+
+          <AIInsightsCard
+            isPremium={isPremium}
+            input={{
+              score: percentage,
+              level: overallLevel,
+              weakTopics: weaknesses.map((c) => c.name),
+              strongTopics: strengths.map((c) => c.name),
+              slowTopics: topicTimeData
+                .filter((t) => t.pace === "slow")
+                .map((t) => t.name),
+              commonMistakes: mistakesByTopic
+                .slice(0, 5)
+                .map((m) => `${m.name} (${100 - m.percentage}% خطأ)`),
+              categoryPerformance: categoryPerformance.map((c) => ({
+                name: c.name,
+                section: c.section,
+                percentage: c.percentage,
+                correct: c.correct,
+                total: c.total,
+              })),
+              avgTimePerQuestion,
+            }}
+          />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             {[
