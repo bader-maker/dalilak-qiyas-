@@ -1,0 +1,51 @@
+Before making any changes, inspect my current landing page and the reference style I described earlier.
+
+IMPORTANT RULES:
+- Do NOT redesign the landing page from scratch
+- Do NOT change the copy/content structure
+- Do NOT change fonts, buttons, card styles, spacing system, or overall layout
+- Do NOT touch login, dashboard, auth, or global functionality
+- Keep the current Arabic RTL design system exactly as it is
+
+GOAL:
+Adjust the landing page section backgrounds so they follow the same visual rhythm as the reference style:
+
+- sections that should feel highlighted/prominent use a full-width green background
+- sections that should feel neutral stay white
+- keep the rest of the design exactly in my current style
+
+IMPORTANT:
+I do NOT want random green blocks.
+I want alternating section backgrounds similar to the reference:
+- green full-width background sections
+- white full-width background sections
+
+Use my current Saudi green palette only.
+Do NOT introduce purple or any new colors.
+
+SPECIFIC REQUIREMENTS:
+1. Inspect the landing page sections and group them visually
+2. Keep white sections where they should stay clean/light
+3. Add green full-width background sections to the major highlight areas, similar to the reference style
+4. Any section that previously would have used a colored/emphasis background in the reference should use green in my site
+5. White areas should remain white
+6. Preserve card readability inside green sections
+7. Keep all text readable and consistent with the current design system
+
+VISUAL INTENT:
+The landing page should feel more alive and premium through alternating green/white section backgrounds, not through redesigning components.
+
+DO NOT:
+- rebuild the hero
+- change navigation
+- change button styles
+- change card radius/shadows
+- rewrite content
+- invent a new layout
+
+DELIVERABLES:
+After finishing, tell me:
+1. which sections were changed to green backgrounds
+2. which sections remained white
+3. confirm that layout/components were not redesigned
+4. provide the preview route

@@ -243,12 +243,12 @@ export default function LandingPage() {
       </section>
 
       {/* ============ MAIN CATEGORIES ============ */}
-      <section id="categories" className="py-20 bg-secondary/40">
+      <section id="categories" className="py-20 bg-[#006C35] text-white">
         <div className="container mx-auto">
           <div className="text-center max-w-2xl mx-auto mb-12">
-            <span className="text-[#006C35] font-bold text-sm">الأقسام الرئيسية</span>
-            <h2 className="text-3xl lg:text-4xl font-black mt-2 mb-4">اختر الاختبار المناسب لك</h2>
-            <p className="text-muted-foreground">تغطية كاملة لجميع اختبارات قياس بمحتوى محدّث ومراجَع من مختصّين.</p>
+            <span className="text-[#E8C547] font-bold text-sm">الأقسام الرئيسية</span>
+            <h2 className="text-3xl lg:text-4xl font-black mt-2 mb-4 text-white">اختر الاختبار المناسب لك</h2>
+            <p className="text-white/80">تغطية كاملة لجميع اختبارات قياس بمحتوى محدّث ومراجَع من مختصّين.</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {categories.map((c) => (
@@ -299,12 +299,12 @@ export default function LandingPage() {
       </section>
 
       {/* ============ TESTIMONIALS ============ */}
-      <section className="py-20 bg-secondary/40">
+      <section className="py-20 bg-[#006C35] text-white">
         <div className="container mx-auto">
           <div className="text-center max-w-2xl mx-auto mb-12">
-            <span className="text-[#006C35] font-bold text-sm">آراء طلابنا</span>
-            <h2 className="text-3xl lg:text-4xl font-black mt-2 mb-4">قصص نجاح حقيقية</h2>
-            <p className="text-muted-foreground">طلاب اختاروا منصتنا ووصلوا لدرجاتهم المستهدفة.</p>
+            <span className="text-[#E8C547] font-bold text-sm">آراء طلابنا</span>
+            <h2 className="text-3xl lg:text-4xl font-black mt-2 mb-4 text-white">قصص نجاح حقيقية</h2>
+            <p className="text-white/80">طلاب اختاروا منصتنا ووصلوا لدرجاتهم المستهدفة.</p>
           </div>
           <div className="grid md:grid-cols-3 gap-5">
             {testimonials.map((t) => (
@@ -355,12 +355,12 @@ export default function LandingPage() {
       </section>
 
       {/* ============ MORE TOOLS ============ */}
-      <section id="tools" className="py-20 bg-secondary/40">
+      <section id="tools" className="py-20 bg-[#006C35] text-white">
         <div className="container mx-auto">
           <div className="text-center max-w-2xl mx-auto mb-12">
-            <span className="text-[#006C35] font-bold text-sm">أدوات إضافية</span>
-            <h2 className="text-3xl lg:text-4xl font-black mt-2 mb-4">كل ما تحتاجه في مكان واحد</h2>
-            <p className="text-muted-foreground">أدوات ذكية تساعدك تخطّط وتقيس وتتحسّن باستمرار.</p>
+            <span className="text-[#E8C547] font-bold text-sm">أدوات إضافية</span>
+            <h2 className="text-3xl lg:text-4xl font-black mt-2 mb-4 text-white">كل ما تحتاجه في مكان واحد</h2>
+            <p className="text-white/80">أدوات ذكية تساعدك تخطّط وتقيس وتتحسّن باستمرار.</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {moreTools.map((t) => (
@@ -522,15 +522,15 @@ export default function LandingPage() {
       </section>
 
       {/* ============ BLOG PREVIEW ============ */}
-      <section className="py-20 bg-secondary/40">
+      <section className="py-20 bg-[#006C35] text-white">
         <div className="container mx-auto">
           <div className="flex flex-col lg:flex-row lg:items-end justify-between mb-12 gap-4">
             <div className="max-w-xl">
-              <span className="text-[#006C35] font-bold text-sm">من المدوّنة</span>
-              <h2 className="text-3xl lg:text-4xl font-black mt-2 mb-4">نصائح ومقالات تساعدك تتقدّم</h2>
-              <p className="text-muted-foreground">محتوى مكتوب من مختصّين ومدرّبين قياس.</p>
+              <span className="text-[#E8C547] font-bold text-sm">من المدوّنة</span>
+              <h2 className="text-3xl lg:text-4xl font-black mt-2 mb-4 text-white">نصائح ومقالات تساعدك تتقدّم</h2>
+              <p className="text-white/80">محتوى مكتوب من مختصّين ومدرّبين قياس.</p>
             </div>
-            <a href="#" className="text-[#006C35] font-bold flex items-center gap-2 hover:gap-3 transition-all">
+            <a href="#" className="text-[#E8C547] font-bold flex items-center gap-2 hover:gap-3 transition-all">
               تصفّح المدوّنة <ArrowLeft className="w-4 h-4" />
             </a>
           </div>
