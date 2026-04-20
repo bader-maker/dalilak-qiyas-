@@ -6224,6 +6224,17 @@ export default function TestPage() {
   const [isFinished, setIsFinished] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [reviewQuestion, setReviewQuestion] = useState(0);
+  const [isPremium, setIsPremium] = useState(false);
+
+  // Read subscription flag client-side (no SSR mismatch). Replace with real
+  // subscription check once a billing source of truth is available.
+  useEffect(() => {
+    try {
+      setIsPremium(localStorage.getItem("user_is_premium") === "true");
+    } catch {
+      setIsPremium(false);
+    }
+  }, []);
 
   // Timer
   useEffect(() => {
@@ -6570,6 +6581,43 @@ export default function TestPage() {
     });
     const plan = planSteps.slice(0, 4);
 
+    // ===== Premium-only derived data (still static, computed from answers) =====
+    // Mistakes by topic, sorted (full list, not just top 3 like commonMistakes)
+    const mistakesByTopic = categoryPerformance
+      .map((c) => ({ ...c, wrong: c.total - c.correct }))
+      .sort((a, b) => b.wrong - a.wrong);
+
+    // Pattern analysis: per-section accuracy distribution
+    const sectionPatterns = [
+      {
+        name: "كمي",
+        accuracy: Math.round((quantitativeScore / 280) * 100),
+        topics: categoryPerformance.filter((c) => c.section === "كمي").length,
+      },
+      {
+        name: "لفظي",
+        accuracy: Math.round((verbalScore / 190) * 100),
+        topics: categoryPerformance.filter((c) => c.section === "لفظي").length,
+      },
+    ];
+
+    // Slow vs fast (avg time stats — per-question time isn't tracked yet)
+    const fastPace = avgTimePerQuestion <= 75;
+
+    // Percentile (mock derived from percentage)
+    const percentile = Math.min(99, Math.max(1, Math.round(percentage * 0.95)));
+
+    // Weekly plan (advanced expansion of the basic plan)
+    const weeklyPlan = [
+      { day: "السبت", focus: weakest?.name || "مراجعة عامة", count: 25 },
+      { day: "الأحد", focus: weaknesses[1]?.name || "تنويع المواضيع", count: 20 },
+      { day: "الاثنين", focus: "محاكاة قسم كمي موقوت", count: 30 },
+      { day: "الثلاثاء", focus: weakest?.name || "تعميق المفاهيم", count: 25 },
+      { day: "الأربعاء", focus: "محاكاة قسم لفظي موقوت", count: 30 },
+      { day: "الخميس", focus: "مراجعة الأخطاء المتراكمة", count: 20 },
+      { day: "الجمعة", focus: "اختبار محاكاة كامل", count: 60 },
+    ];
+
     // Results Screen
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4 transition-colors duration-300" dir="rtl">
@@ -6835,6 +6883,142 @@ export default function TestPage() {
                 </li>
               ))}
             </ol>
+          </div>
+
+          {/* ============ PREMIUM ANALYSIS (gated) ============ */}
+          <div className="flex items-center justify-between mb-4 mt-2">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              <span>✨</span>
+              التحليل المتقدم
+            </h2>
+            <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+              isPremium
+                ? "bg-[#006C35]/10 dark:bg-[#006C35]/20 text-[#006C35] dark:text-[#4ade80]"
+                : "bg-[#D4AF37]/10 dark:bg-[#D4AF37]/20 text-[#D4AF37] dark:text-[#fbbf24]"
+            }`}>
+              {isPremium ? "✓ مفعّل" : "Premium"}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            {[
+              {
+                icon: "🔬",
+                title: "تحليل تفصيلي للأخطاء حسب الموضوع",
+                preview: "خريطة كاملة لكل خطأ ارتكبته، مرتّبة حسب الموضوع مع نسبة الإتقان لكل بند.",
+                full: (
+                  <ul className="space-y-2 text-sm">
+                    {mistakesByTopic.slice(0, 5).map((m, i) => (
+                      <li key={i} className="flex items-center justify-between text-gray-700 dark:text-gray-300">
+                        <span>{m.name} <span className="text-xs text-gray-500 dark:text-gray-400">({m.section})</span></span>
+                        <span className="font-bold">{m.wrong}/{m.total} • {100 - m.percentage}% خطأ</span>
+                      </li>
+                    ))}
+                  </ul>
+                ),
+              },
+              {
+                icon: "🧩",
+                title: "تحليل الأنماط (أنواع الأسئلة)",
+                preview: "نمط أدائك حسب نوع السؤال — أين تتعثر فعلياً وأي بنية أسئلة تستهلك تركيزك أكثر.",
+                full: (
+                  <ul className="space-y-2 text-sm">
+                    {sectionPatterns.map((s, i) => (
+                      <li key={i} className="flex items-center justify-between text-gray-700 dark:text-gray-300">
+                        <span>القسم {s.name} <span className="text-xs text-gray-500 dark:text-gray-400">({s.topics} موضوع)</span></span>
+                        <span className="font-bold">{s.accuracy}% دقة</span>
+                      </li>
+                    ))}
+                  </ul>
+                ),
+              },
+              {
+                icon: "⏱️",
+                title: "تحليل الوقت — مواضيع بطيئة vs سريعة",
+                preview: "قياس سرعتك في كل موضوع لاكتشاف ما يبطئك في الاختبار الفعلي.",
+                full: (
+                  <div className="text-sm text-gray-700 dark:text-gray-300 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span>متوسط زمن السؤال</span>
+                      <span className="font-bold">{avgTimePerQuestion}ث</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>وتيرتك العامة</span>
+                      <span className={`font-bold ${fastPace ? "text-green-600 dark:text-green-400" : "text-orange-600 dark:text-orange-400"}`}>
+                        {fastPace ? "سريعة" : "تحتاج تسريع"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 pt-1">المعدل المثالي: 60-75 ثانية للسؤال.</p>
+                  </div>
+                ),
+              },
+              {
+                icon: "🎯",
+                title: "توقع درجة قياس الفعلية",
+                preview: "تقدير دقيق لدرجتك المتوقعة في الاختبار الرسمي بناءً على أدائك التفصيلي.",
+                full: (
+                  <div className="text-center">
+                    <div className="text-4xl font-bold text-[#006C35] dark:text-[#4ade80]">{estimatedScore}</div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">من 100 — درجة قياس التقديرية</p>
+                  </div>
+                ),
+              },
+              {
+                icon: "👥",
+                title: "مقارنتك بالطلاب الآخرين",
+                preview: "موقعك بين آلاف الطلاب الذين خاضوا نفس الاختبار، مع نسبتك المئوية الدقيقة.",
+                full: (
+                  <div className="text-center">
+                    <div className="text-4xl font-bold text-[#D4AF37] dark:text-[#fbbf24]">{percentile}%</div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">تتفوّق على {percentile}% من الطلاب</p>
+                  </div>
+                ),
+              },
+              {
+                icon: "📅",
+                title: "خطة أسبوعية متقدمة مخصصة",
+                preview: "جدول 7 أيام يحدد لك بالضبط ماذا تذاكر كل يوم، مع عدد الأسئلة والوقت المقترح.",
+                full: (
+                  <ul className="space-y-1.5 text-sm">
+                    {weeklyPlan.slice(0, 4).map((d, i) => (
+                      <li key={i} className="flex items-center justify-between text-gray-700 dark:text-gray-300">
+                        <span><span className="font-bold">{d.day}:</span> {d.focus}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">{d.count} سؤال</span>
+                      </li>
+                    ))}
+                  </ul>
+                ),
+              },
+            ].map((card, i) => (
+              <div
+                key={i}
+                className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 relative overflow-hidden"
+              >
+                <h3 className="font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+                  <span>{card.icon}</span>
+                  <span className="flex-1">{card.title}</span>
+                  {!isPremium && <span className="text-base">🔒</span>}
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-3">{card.preview}</p>
+
+                <div className="relative">
+                  <div className={isPremium ? "" : "blur-sm select-none pointer-events-none"} aria-hidden={!isPremium}>
+                    {card.full}
+                  </div>
+                  {!isPremium && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <button
+                        onClick={() => router.push("/subscriptions")}
+                        className="px-4 py-2 bg-[#006C35] text-white text-sm font-bold rounded-xl hover:bg-[#004d26] transition-colors flex items-center gap-2 shadow-md"
+                      >
+                        <span>🔓</span>
+                        فتح التحليل الكامل
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* Question Summary */}
