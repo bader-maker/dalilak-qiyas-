@@ -29,7 +29,7 @@ export type AIAnalysisResult = {
   plan: string[];
 };
 
-const CACHE_PREFIX = "qiyas_ai_analysis_v1:";
+const CACHE_PREFIX = "qiyas_ai_analysis_v2:";
 
 // Stable lightweight hash so the same result reuses the same cache entry.
 // Exported so callers (e.g. components) can dedupe requests using the same key.
