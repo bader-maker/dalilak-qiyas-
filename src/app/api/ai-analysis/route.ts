@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createClient } from "@/lib/supabase/server";
+import { reserveSlot, releaseSlot } from "@/lib/aiUsage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -140,20 +141,44 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-5.2",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: buildUserPrompt(data) },
-      ],
-      response_format: { type: "json_object" },
-    });
+    // 4. Global monthly cost cap. Reserve a slot before calling OpenAI; if the
+    //    cap is reached we return 429 and the client falls back to the
+    //    existing static analysis (AIInsightsCard renders nothing on error).
+    const slot = await reserveSlot();
+    if (!slot.allowed) {
+      return NextResponse.json(
+        {
+          error: "Monthly AI quota reached",
+          month: slot.month,
+          limit: slot.limit,
+        },
+        { status: 429 }
+      );
+    }
+
+    let completion;
+    try {
+      completion = await openai.chat.completions.create({
+        model: "gpt-5.2",
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: buildUserPrompt(data) },
+        ],
+        response_format: { type: "json_object" },
+      });
+    } catch (err) {
+      // The reserved slot wasn't actually consumed — release it so the cap
+      // only counts successful generations.
+      await releaseSlot();
+      throw err;
+    }
 
     const raw = completion.choices?.[0]?.message?.content || "";
-    let parsed: Record<string, unknown> = {};
+    let parsed: Record<string, unknown>;
     try {
       parsed = JSON.parse(raw);
     } catch {
+      await releaseSlot();
       return NextResponse.json(
         { error: "AI response was not valid JSON" },
         { status: 502 }
@@ -172,6 +197,7 @@ export async function POST(req: NextRequest) {
           ? (parsed.plan as unknown[]).map((x) => String(x)).slice(0, 6)
           : [],
       },
+      usage: { count: slot.count, month: slot.month, limit: slot.limit },
     });
   } catch (err) {
     console.error("[ai-analysis] error:", err);
