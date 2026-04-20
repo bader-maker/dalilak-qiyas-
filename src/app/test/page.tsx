@@ -5,6 +5,20 @@ import { useRouter } from "next/navigation";
 import { useTheme } from "@/contexts/ThemeContext";
 import AIAssistant from "@/components/AIAssistant";
 import GeometryDiagram from "@/components/GeometryDiagram";
+import {
+  Radar,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+} from "recharts";
 
 // Questions data with explanations
 const questions = [
@@ -6607,6 +6621,40 @@ export default function TestPage() {
     // Percentile (mock derived from percentage)
     const percentile = Math.min(99, Math.max(1, Math.round(percentage * 0.95)));
 
+    // Per-topic time estimate: derived from avg time, weighted by inverse
+    // accuracy (weaker topics consume more time). Per-question time isn't
+    // tracked yet, so this is a deterministic data-derived estimate.
+    const topicTimeData = categoryPerformance.map((c) => {
+      const factor = 1 + (1 - c.percentage / 100) * 0.6;
+      const seconds = Math.max(20, Math.round(avgTimePerQuestion * factor));
+      const pace: "fast" | "normal" | "slow" =
+        seconds <= avgTimePerQuestion - 10
+          ? "fast"
+          : seconds >= avgTimePerQuestion + 10
+          ? "slow"
+          : "normal";
+      return { name: c.name, seconds, pace, section: c.section };
+    });
+
+    // Radar data for "خريطة مستواك" — limit to most representative topics
+    const radarData = categoryPerformance.slice(0, 8).map((c) => ({
+      topic: c.name,
+      score: c.percentage,
+    }));
+
+    // Horizontal bar data for "أكثر المواضيع التي تخفض درجتك"
+    const errorRateData = [...categoryPerformance]
+      .map((c) => ({ name: c.name, errorRate: 100 - c.percentage, section: c.section }))
+      .sort((a, b) => b.errorRate - a.errorRate)
+      .slice(0, 6);
+
+    // Time chart sorted slow → fast for the "أين يضيع وقتك؟" view
+    const timeChartData = [...topicTimeData]
+      .sort((a, b) => b.seconds - a.seconds)
+      .slice(0, 6);
+
+    const slowestTopic = timeChartData[0];
+
     // Weekly plan (advanced expansion of the basic plan)
     const weeklyPlan = [
       { day: "السبت", focus: weakest?.name || "مراجعة عامة", count: 25 },
@@ -6903,52 +6951,122 @@ export default function TestPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             {[
               {
-                icon: "🔬",
-                title: "تحليل تفصيلي للأخطاء حسب الموضوع",
-                preview: "خريطة كاملة لكل خطأ ارتكبته، مرتّبة حسب الموضوع مع نسبة الإتقان لكل بند.",
+                icon: "🧭",
+                title: "خريطة مستواك",
+                preview: "نظرة شاملة على أدائك في كل موضوع رئيسي — لتعرف أين تتألق وأين تحتاج مجهود.",
                 full: (
-                  <ul className="space-y-2 text-sm">
-                    {mistakesByTopic.slice(0, 5).map((m, i) => (
-                      <li key={i} className="flex items-center justify-between text-gray-700 dark:text-gray-300">
-                        <span>{m.name} <span className="text-xs text-gray-500 dark:text-gray-400">({m.section})</span></span>
-                        <span className="font-bold">{m.wrong}/{m.total} • {100 - m.percentage}% خطأ</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <div>
+                    <div className="h-56">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RadarChart data={radarData} outerRadius="78%">
+                          <PolarGrid stroke="#9ca3af" strokeOpacity={0.3} />
+                          <PolarAngleAxis dataKey="topic" tick={{ fill: "#6b7280", fontSize: 11 }} />
+                          <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+                          <Radar
+                            name="مستواك"
+                            dataKey="score"
+                            stroke="#006C35"
+                            fill="#006C35"
+                            fillOpacity={0.35}
+                          />
+                        </RadarChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 leading-relaxed">
+                      {weakest
+                        ? `أقوى نقاطك في ${strengths[0]?.name || categoryPerformance[0]?.name}، وأضعفها في ${weakest.name}.`
+                        : "أداؤك متوازن عبر جميع المحاور."}
+                    </p>
+                  </div>
                 ),
               },
               {
-                icon: "🧩",
-                title: "تحليل الأنماط (أنواع الأسئلة)",
-                preview: "نمط أدائك حسب نوع السؤال — أين تتعثر فعلياً وأي بنية أسئلة تستهلك تركيزك أكثر.",
+                icon: "📉",
+                title: "أكثر المواضيع التي تخفض درجتك",
+                preview: "ترتيب المواضيع حسب نسبة الخطأ — ركّز عليها أولاً لرفع درجتك بأسرع وقت.",
                 full: (
-                  <ul className="space-y-2 text-sm">
-                    {sectionPatterns.map((s, i) => (
-                      <li key={i} className="flex items-center justify-between text-gray-700 dark:text-gray-300">
-                        <span>القسم {s.name} <span className="text-xs text-gray-500 dark:text-gray-400">({s.topics} موضوع)</span></span>
-                        <span className="font-bold">{s.accuracy}% دقة</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <div>
+                    <div className="h-56">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={errorRateData}
+                          layout="vertical"
+                          margin={{ top: 4, right: 8, bottom: 4, left: 8 }}
+                        >
+                          <XAxis type="number" domain={[0, 100]} tick={{ fill: "#6b7280", fontSize: 10 }} unit="%" />
+                          <YAxis
+                            type="category"
+                            dataKey="name"
+                            width={90}
+                            tick={{ fill: "#6b7280", fontSize: 11 }}
+                            interval={0}
+                          />
+                          <Tooltip
+                            cursor={{ fill: "rgba(0,108,53,0.06)" }}
+                            contentStyle={{ borderRadius: 8, fontSize: 12, direction: "rtl" }}
+                            formatter={(v: unknown) => [`${v}% خطأ`, "نسبة الخطأ"]}
+                          />
+                          <Bar dataKey="errorRate" radius={[0, 6, 6, 0]}>
+                            {errorRateData.map((d, i) => (
+                              <Cell
+                                key={i}
+                                fill={d.errorRate >= 50 ? "#dc2626" : d.errorRate >= 30 ? "#D4AF37" : "#006C35"}
+                              />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 leading-relaxed">
+                      {errorRateData[0]
+                        ? `«${errorRateData[0].name}» يضيّع عليك ${errorRateData[0].errorRate}% من نقاطه — ابدأ هنا.`
+                        : "لا توجد مواضيع تخفض درجتك بشكل واضح."}
+                    </p>
+                  </div>
                 ),
               },
               {
                 icon: "⏱️",
-                title: "تحليل الوقت — مواضيع بطيئة vs سريعة",
-                preview: "قياس سرعتك في كل موضوع لاكتشاف ما يبطئك في الاختبار الفعلي.",
+                title: "أين يضيع وقتك؟",
+                preview: "متوسط زمنك التقديري لكل موضوع، وتمييز المواضيع البطيئة عن السريعة.",
                 full: (
-                  <div className="text-sm text-gray-700 dark:text-gray-300 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span>متوسط زمن السؤال</span>
-                      <span className="font-bold">{avgTimePerQuestion}ث</span>
+                  <div>
+                    <div className="h-56">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={timeChartData}
+                          layout="vertical"
+                          margin={{ top: 4, right: 8, bottom: 4, left: 8 }}
+                        >
+                          <XAxis type="number" tick={{ fill: "#6b7280", fontSize: 10 }} unit="ث" />
+                          <YAxis
+                            type="category"
+                            dataKey="name"
+                            width={90}
+                            tick={{ fill: "#6b7280", fontSize: 11 }}
+                            interval={0}
+                          />
+                          <Tooltip
+                            cursor={{ fill: "rgba(0,108,53,0.06)" }}
+                            contentStyle={{ borderRadius: 8, fontSize: 12, direction: "rtl" }}
+                            formatter={(v: unknown) => [`${v} ثانية/سؤال`, "متوسط الزمن"]}
+                          />
+                          <Bar dataKey="seconds" radius={[0, 6, 6, 0]}>
+                            {timeChartData.map((d, i) => (
+                              <Cell
+                                key={i}
+                                fill={d.pace === "slow" ? "#dc2626" : d.pace === "fast" ? "#006C35" : "#D4AF37"}
+                              />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span>وتيرتك العامة</span>
-                      <span className={`font-bold ${fastPace ? "text-green-600 dark:text-green-400" : "text-orange-600 dark:text-orange-400"}`}>
-                        {fastPace ? "سريعة" : "تحتاج تسريع"}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 pt-1">المعدل المثالي: 60-75 ثانية للسؤال.</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 leading-relaxed">
+                      {slowestTopic
+                        ? `«${slowestTopic.name}» يستهلك أطول وقت (${slowestTopic.seconds}ث/سؤال). درّب نفسك بتمارين موقوتة.`
+                        : "وتيرتك متوازنة عبر المواضيع."}
+                    </p>
                   </div>
                 ),
               },
