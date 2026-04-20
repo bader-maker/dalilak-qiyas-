@@ -8,7 +8,15 @@ import { useAuth } from "@/contexts/AuthContext";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signIn, signInWithGoogle } = useAuth();
+  const { signIn, signInWithGoogle, user } = useAuth();
+  const nextParam = searchParams.get("next");
+  const safeNext = nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : "/dashboard";
+
+  useEffect(() => {
+    if (user) {
+      window.location.href = safeNext;
+    }
+  }, [user, safeNext]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -59,7 +67,7 @@ function LoginForm() {
         }
         setIsLoading(false);
       } else {
-        window.location.href = "/dashboard";
+        window.location.href = safeNext;
       }
     } catch (err) {
       console.error("Login exception:", err);
@@ -73,7 +81,7 @@ function LoginForm() {
     setError("");
 
     try {
-      const { error } = await signInWithGoogle();
+      const { error } = await signInWithGoogle(safeNext);
       if (error) {
         console.error("Google login error:", error);
         if (error.message?.includes("provider is not enabled")) {

@@ -164,7 +164,7 @@ export default function LandingPage() {
               تسجيل الدخول
             </Link>
             <Link
-              href="/login"
+              href="/login?next=/test"
               className="px-5 py-2.5 bg-[#006C35] text-white text-sm font-bold rounded-xl hover:bg-[#004d26] transition-colors flex items-center gap-2 shadow-md"
             >
               <Sparkles className="w-4 h-4" />
@@ -614,7 +614,7 @@ export default function LandingPage() {
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
                 <Link
-                  href="/login"
+                  href="/login?next=/test"
                   className="px-6 py-4 bg-white text-[#006C35] font-bold rounded-xl hover:bg-[#E8C547] hover:text-white transition-colors flex items-center justify-center gap-2 shadow-lg"
                 >
                   <Sparkles className="w-5 h-5" />

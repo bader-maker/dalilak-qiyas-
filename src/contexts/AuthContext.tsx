@@ -10,7 +10,7 @@ interface AuthContextType {
   loading: boolean;
   signUp: (email: string, password: string, name: string) => Promise<{ error: AuthError | null; needsEmailConfirmation?: boolean }>;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
-  signInWithGoogle: () => Promise<{ error: AuthError | null }>;
+  signInWithGoogle: (next?: string) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
   updatePassword: (newPassword: string) => Promise<{ error: AuthError | null }>;
@@ -104,9 +104,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (next?: string) => {
     try {
-      const redirectUrl = `${window.location.origin}/auth/callback`;
+      const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
+      const redirectUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeNext)}`;
       console.log("=== Google Sign In ===");
       console.log("Redirect URL:", redirectUrl);
       console.log("Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
