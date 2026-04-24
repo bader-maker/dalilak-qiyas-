@@ -10,6 +10,7 @@ import {
   getQuestions,
   getAllQuestionsForCategory,
   shuffleQuestions,
+  selectBalancedQuestions,
   getSectionLabel
 } from "@/data/questions";
 import { generateAIHint } from "@/lib/aiHint";
@@ -148,24 +149,59 @@ export default function TestEngine({
 
     // Filter out previously-used questions for this exam category.
     const used = readUsedQuestionIds(examCategory);
-    const unused = pool.filter((q) => !used.has(questionKey(q)));
 
     let testQuestions: Question[];
-    if (unused.length >= need) {
-      // Happy path: enough fresh questions available.
-      testQuestions = shuffleQuestions(unused).slice(0, need);
-    } else if (unused.length === 0) {
-      // Pool fully exhausted — reset history and start a new cycle.
-      writeUsedQuestionIds(examCategory, new Set());
-      testQuestions = shuffleQuestions(pool).slice(0, need);
+
+    if (testMode === "section") {
+      // SECTION MODE — single-section pool, no cross-section balancing
+      // needed. Existing three-branch flow (happy / fully-exhausted / partial).
+      const unused = pool.filter((q) => !used.has(questionKey(q)));
+      if (unused.length >= need) {
+        testQuestions = shuffleQuestions(unused).slice(0, need);
+      } else if (unused.length === 0) {
+        // Pool fully exhausted — reset history and start a new cycle.
+        writeUsedQuestionIds(examCategory, new Set());
+        testQuestions = shuffleQuestions(pool).slice(0, need);
+      } else {
+        // Partial exhaustion — take all unused first, then fill remainder
+        // from previously-used pool (still prioritising unused).
+        const usedFromPool = pool.filter((q) => used.has(questionKey(q)));
+        testQuestions = [
+          ...shuffleQuestions(unused),
+          ...shuffleQuestions(usedFromPool).slice(0, need - unused.length),
+        ];
+      }
     } else {
-      // Partial exhaustion — take all unused first, then fill remainder
-      // from previously-used pool (still prioritising unused).
-      const usedFromPool = pool.filter((q) => used.has(questionKey(q)));
-      testQuestions = [
-        ...shuffleQuestions(unused),
-        ...shuffleQuestions(usedFromPool).slice(0, need - unused.length),
-      ];
+      // COMPREHENSIVE MODE — multi-section pool. Use the stratified selector
+      // so each section gets its intended share of the test (Qudrat 60+60,
+      // Tahsili 25+25+25+25), regardless of how many questions the no-repeat
+      // filter has consumed in any one section.
+      const sectionsConfig = examConfig.sections.map((s) => ({
+        id: s.id,
+        questionCount: s.questionCount,
+      }));
+      // If every question in the comprehensive pool has been used, reset
+      // history first so the new test draws from a fresh slate (mirrors the
+      // section-mode fully-exhausted branch).
+      const anyUnused = pool.some((q) => !used.has(questionKey(q)));
+      if (!anyUnused) {
+        writeUsedQuestionIds(examCategory, new Set());
+        testQuestions = selectBalancedQuestions(
+          pool,
+          sectionsConfig,
+          need,
+          new Set(),
+          questionKey
+        );
+      } else {
+        testQuestions = selectBalancedQuestions(
+          pool,
+          sectionsConfig,
+          need,
+          used,
+          questionKey
+        );
+      }
     }
 
     // Re-index questions for UI display (unchanged behaviour).
@@ -179,7 +215,7 @@ export default function TestEngine({
     setSelectedAnswers(Array(testQuestions.length).fill(null));
     setTimeLeft(params.timeMinutes * 60);
     setIsLoading(false);
-  }, [getTestParameters, examCategory]);
+  }, [getTestParameters, examCategory, testMode, examConfig]);
 
   // Persist used question IDs once the test finishes (works for both the
   // user-clicked finish and the timer-triggered auto-finish).
