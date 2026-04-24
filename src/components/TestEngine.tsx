@@ -22,6 +22,47 @@ interface Question {
   section?: string;
 }
 
+// --- Per-user used-question tracking (localStorage) ---------------------------
+// Stable per-question key derived from question text via FNV-1a 32-bit hash.
+// Required because q.id is reassigned by getQuestions/getAllQuestionsForCategory
+// on every call and is therefore not a stable identifier across tests.
+const usedQuestionsStorageKey = (category: ExamCategory) =>
+  `used_questions_${category}`;
+
+function questionKey(q: { question: string }): string {
+  let h = 0x811c9dc5;
+  const s = q.question;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, "0");
+}
+
+function readUsedQuestionIds(category: ExamCategory): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = window.localStorage.getItem(usedQuestionsStorageKey(category));
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    return new Set(Array.isArray(parsed) ? parsed.filter((v) => typeof v === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writeUsedQuestionIds(category: ExamCategory, ids: Set<string>): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      usedQuestionsStorageKey(category),
+      JSON.stringify(Array.from(ids))
+    );
+  } catch {
+    // Quota exceeded or storage unavailable — silently fall back (test still runs).
+  }
+}
+
 interface TestEngineProps {
   examCategory: ExamCategory;
   testMode: "comprehensive" | "section";
@@ -82,12 +123,32 @@ export default function TestEngine({
   // Initialize test
   useEffect(() => {
     const params = getTestParameters();
+    const pool = params.questions;
+    const need = params.questionCount;
 
-    // Shuffle and limit questions
-    let testQuestions = shuffleQuestions(params.questions);
-    testQuestions = testQuestions.slice(0, params.questionCount);
+    // Filter out previously-used questions for this exam category.
+    const used = readUsedQuestionIds(examCategory);
+    const unused = pool.filter((q) => !used.has(questionKey(q)));
 
-    // Re-index questions
+    let testQuestions: Question[];
+    if (unused.length >= need) {
+      // Happy path: enough fresh questions available.
+      testQuestions = shuffleQuestions(unused).slice(0, need);
+    } else if (unused.length === 0) {
+      // Pool fully exhausted — reset history and start a new cycle.
+      writeUsedQuestionIds(examCategory, new Set());
+      testQuestions = shuffleQuestions(pool).slice(0, need);
+    } else {
+      // Partial exhaustion — take all unused first, then fill remainder
+      // from previously-used pool (still prioritising unused).
+      const usedFromPool = pool.filter((q) => used.has(questionKey(q)));
+      testQuestions = [
+        ...shuffleQuestions(unused),
+        ...shuffleQuestions(usedFromPool).slice(0, need - unused.length),
+      ];
+    }
+
+    // Re-index questions for UI display (unchanged behaviour).
     testQuestions = testQuestions.map((q, index) => ({
       ...q,
       id: index + 1,
@@ -98,7 +159,16 @@ export default function TestEngine({
     setSelectedAnswers(Array(testQuestions.length).fill(null));
     setTimeLeft(params.timeMinutes * 60);
     setIsLoading(false);
-  }, [getTestParameters]);
+  }, [getTestParameters, examCategory]);
+
+  // Persist used question IDs once the test finishes (works for both the
+  // user-clicked finish and the timer-triggered auto-finish).
+  useEffect(() => {
+    if (!showResults || questions.length === 0) return;
+    const used = readUsedQuestionIds(examCategory);
+    questions.forEach((q) => used.add(questionKey(q)));
+    writeUsedQuestionIds(examCategory, used);
+  }, [showResults, questions, examCategory]);
 
   // Timer
   useEffect(() => {
