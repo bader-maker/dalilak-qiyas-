@@ -1,6 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  allowedDevOrigins: ["*.preview.same-app.com"],
+  allowedDevOrigins: [
+    "*.preview.same-app.com",
+    "*.replit.dev",
+    "*.worf.replit.dev",
+    "*.kirk.replit.dev",
+    "*.picard.replit.dev",
+    "*.janeway.replit.dev",
+    "*.riker.replit.dev",
+    "*.spock.replit.dev",
+    "*.sisko.replit.dev",
+  ],
   images: {
     unoptimized: true,
     domains: [
