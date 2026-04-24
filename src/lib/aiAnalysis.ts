@@ -18,6 +18,19 @@ export type AIAnalysisInput = {
     total?: number;
   }>;
   avgTimePerQuestion?: number;
+  // ===== Optional full-exam context (additive). When examType is "full",
+  // the API switches to a deeper, more structured prompt and — if previous
+  // exam data is supplied — explicitly compares progress. Training calls
+  // omit these fields and behave exactly as before, including using the
+  // same cache entries (since hashKey treats undefined as null).
+  examType?: "training" | "full";
+  previousScore?: number;
+  previousCategoryPerformance?: Array<{
+    name: string;
+    percentage: number;
+  }>;
+  mostImprovedTopic?: { name: string; delta: number };
+  mostDeclinedTopic?: { name: string; delta: number };
 };
 
 export type AIAnalysisResult = {
@@ -55,6 +68,21 @@ export function hashKey(input: AIAnalysisInput): string {
       .map((c) => `${c.name}:${c.percentage}`)
       .sort(),
     t: input.avgTimePerQuestion ?? null,
+    // Include the new full-exam fields so a "full" analysis with previous
+    // context gets its own cache entry and isn't served a training response.
+    et: input.examType ?? null,
+    ps: input.previousScore ?? null,
+    pc: input.previousCategoryPerformance
+      ? [...input.previousCategoryPerformance]
+          .map((c) => `${c.name}:${c.percentage}`)
+          .sort()
+      : null,
+    mi: input.mostImprovedTopic
+      ? `${input.mostImprovedTopic.name}:${input.mostImprovedTopic.delta}`
+      : null,
+    md: input.mostDeclinedTopic
+      ? `${input.mostDeclinedTopic.name}:${input.mostDeclinedTopic.delta}`
+      : null,
   });
   let h = 5381;
   for (let i = 0; i < normalized.length; i++) {

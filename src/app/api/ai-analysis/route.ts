@@ -31,9 +31,20 @@ type AnalysisInput = {
     total?: number;
   }>;
   avgTimePerQuestion?: number;
+  // Optional full-exam context. When examType is "full" the system prompt
+  // switches to the deeper coaching mode and the user prompt injects the
+  // previous-exam comparison block. Older callers (training, diagnostic) omit
+  // these fields and behave exactly as before.
+  examType?: "training" | "full";
+  previousScore?: number;
+  previousCategoryPerformance?: Array<{ name: string; percentage: number }>;
+  mostImprovedTopic?: { name: string; delta: number };
+  mostDeclinedTopic?: { name: string; delta: number };
 };
 
-const SYSTEM_PROMPT =
+// Default coaching prompt — kept verbatim from the previous version so
+// training calls return the same shape & tone they did before.
+const SYSTEM_PROMPT_TRAINING =
   "You are an expert Qiyas exam coach. " +
   "Your job is to deeply analyze the student's performance and give a realistic, " +
   "personalized, and insightful report.\n\n" +
@@ -49,8 +60,72 @@ const SYSTEM_PROMPT =
   "- Speak like a smart coach, not a textbook\n" +
   "- Avoid generic phrases";
 
+// Deeper, more structured coaching prompt for the full exam result. The
+// student has invested ~1 hour and expects a meaningful report — not a quick
+// tip. Outputs the SAME 6 JSON keys (so the existing UI keeps working) but
+// each section is denser and explicitly references progress when available.
+const SYSTEM_PROMPT_FULL_EXAM =
+  "You are an expert Qiyas exam coach reviewing a FULL mock exam (not a " +
+  "short training session). The student spent ~1 hour and deserves a deeper " +
+  "report than a normal training analysis.\n\n" +
+  "MANDATORY DEPTH RULES:\n" +
+  "- Write in Arabic, RTL, exam-coach tone — NEVER textbook tone.\n" +
+  "- Each section must add NEW information. Do not repeat the same idea.\n" +
+  "- Mention actual topic names (الجبر، النسب، المفردات، التناظر اللفظي…).\n" +
+  "- If previous exam data is supplied, EXPLICITLY compare progress " +
+  "(improved? declined? plateaued?) and name the responsible topics.\n" +
+  "- Diagnose PATTERNS not just stats: time pressure, careless errors in " +
+  "easy topics, conceptual gaps in specific subtypes, slow-section drag, etc.\n" +
+  "- Give a REALISTIC improvement path — short-term (this week) and " +
+  "medium-term (2-3 weeks) — not vague encouragement.\n" +
+  "- The plan items MUST be concrete and measurable: include the topic, " +
+  "the number of questions, and when to retest. Examples in user message.\n" +
+  "- Keep the writing concise and dense — no filler, no praise without basis.";
+
+function buildPreviousExamBlock(d: AnalysisInput): string {
+  if (typeof d.previousScore !== "number") return "";
+  const lines: string[] = [
+    "",
+    "PREVIOUS FULL EXAM (for progress comparison):",
+    `- النتيجة السابقة: ${d.previousScore}%`,
+    `- الفرق الحالي: ${d.score - d.previousScore > 0 ? "+" : ""}${
+      d.score - d.previousScore
+    }%`,
+  ];
+  if (d.mostImprovedTopic) {
+    lines.push(
+      `- أكثر موضوع تحسّن: ${d.mostImprovedTopic.name} (+${d.mostImprovedTopic.delta}%)`,
+    );
+  }
+  if (d.mostDeclinedTopic) {
+    lines.push(
+      `- أكثر موضوع تراجع: ${d.mostDeclinedTopic.name} (${d.mostDeclinedTopic.delta}%)`,
+    );
+  }
+  if (
+    Array.isArray(d.previousCategoryPerformance) &&
+    d.previousCategoryPerformance.length > 0
+  ) {
+    lines.push("- الأداء السابق حسب الموضوع:");
+    for (const c of d.previousCategoryPerformance.slice(0, 12)) {
+      lines.push(`  • ${c.name}: ${c.percentage}%`);
+    }
+  }
+  return lines.join("\n");
+}
+
 function buildUserPrompt(d: AnalysisInput) {
+  const isFullExam = d.examType === "full";
+  const previousBlock = isFullExam ? buildPreviousExamBlock(d) : "";
+  const planExamples = isFullExam
+    ? `\nPLAN ITEMS MUST FOLLOW THIS SHAPE (concrete, measurable, with retest timing):
+- "حل 15 سؤال نسب خلال يومين، ثم اختبر نفسك بـ 5 أسئلة سريعة"
+- "راجع المفردات اللفظية 20 دقيقة يومياً لمدة 5 أيام"
+- "أعد اختبار محاكاة كامل بعد أسبوع لقياس التحسن"`
+    : "";
+
   return `DATA:
+- نوع الجلسة: ${isFullExam ? "اختبار شامل (full exam)" : "تدريب قصير (training)"}
 - النتيجة الكلية: ${d.score}%
 - المستوى الحالي: ${d.level}
 - نقاط القوة (مواضيع متقنة): ${d.strongTopics.join("، ") || "لا يوجد"}
@@ -66,7 +141,7 @@ ${d.categoryPerformance
         c.correct != null && c.total != null ? ` — ${c.correct}/${c.total}` : ""
       }`
   )
-  .join("\n")}
+  .join("\n")}${previousBlock}${planExamples}
 
 أعد الإجابة بصيغة JSON فقط، تتبع هذا التنسيق:
 - تحليل الأداء (performance)
@@ -74,7 +149,9 @@ ${d.categoryPerformance
 - نقاط الضعف (weaknesses)
 - سبب الأخطاء (mistakeReasons)
 - أسرع طريقة للتحسن (fastestImprovement)
-- خطة مقترحة (plan: مصفوفة من 3-5 خطوات محددة)
+- خطة مقترحة (plan: مصفوفة من 3-5 خطوات محددة${
+    isFullExam ? "، كل خطوة تتضمن الموضوع وعدد الأسئلة وموعد إعادة القياس" : ""
+  })
 
 JSON schema:
 {
@@ -161,7 +238,13 @@ export async function POST(req: NextRequest) {
       completion = await openai.chat.completions.create({
         model: "gpt-5.2",
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          {
+            role: "system",
+            content:
+              data.examType === "full"
+                ? SYSTEM_PROMPT_FULL_EXAM
+                : SYSTEM_PROMPT_TRAINING,
+          },
           { role: "user", content: buildUserPrompt(data) },
         ],
         response_format: { type: "json_object" },

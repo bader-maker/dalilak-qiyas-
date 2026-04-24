@@ -1,11 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "@/contexts/ThemeContext";
 import AIAssistant from "@/components/AIAssistant";
 import GeometryDiagram from "@/components/GeometryDiagram";
 import AIInsightsCard from "@/components/AIInsightsCard";
+import {
+  saveExamResult,
+  getPreviousExam,
+  diffExams,
+  type ExamHistoryEntry,
+} from "@/lib/examHistory";
 import {
   Radar,
   RadarChart,
@@ -6251,6 +6257,67 @@ export default function TestPage() {
     }
   }, []);
 
+  // ===== Full-exam history (persisted in localStorage only — no fake data).
+  // savedEntry is the entry just written for THIS finished exam (used as
+  // excludeId so the previous-exam lookup never returns the current one).
+  // savedRef ensures we save exactly once per finish, even with React's
+  // double-effect in StrictMode.
+  const [savedEntry, setSavedEntry] = useState<ExamHistoryEntry | null>(null);
+  const [previousEntry, setPreviousEntry] = useState<ExamHistoryEntry | null>(null);
+  const savedRef = useRef(false);
+
+  // The moment the exam finishes, snapshot the result, write it to history,
+  // and capture the most-recent OTHER entry of the same kind for comparison.
+  // Guarded by `savedRef` so StrictMode double-invocation cannot save twice.
+  // Fires only after `questions` is populated (defensive).
+  // CRITICAL: every metric written here uses the SAME denominator (530) and
+  // SAME reduction logic as the canonical result-screen math (see line ~6366
+  // and line ~6611) so saved history is byte-equivalent to what the user sees.
+  // Any drift would corrupt future progress comparisons.
+  useEffect(() => {
+    if (!isFinished) return;
+    if (savedRef.current) return;
+    if (!questions || questions.length === 0) return;
+    savedRef.current = true;
+
+    // Mirror the canonical categoryStats loop from the result block.
+    const stats: { [key: string]: { correct: number; total: number; section: string } } = {};
+    questions.forEach((q, index) => {
+      const k = `${q.section}-${q.category}`;
+      if (!stats[k]) stats[k] = { correct: 0, total: 0, section: q.section };
+      stats[k].total += 1;
+      if (answers[index] === q.correct) stats[k].correct += 1;
+    });
+    const cats = Object.entries(stats).map(([key, s]) => ({
+      name: key.split("-")[1],
+      section: s.section,
+      percentage: Math.round((s.correct / s.total) * 100),
+    }));
+
+    // Use the canonical 530 denominator (matches `percentage = score / 530`
+    // and `avgTimePerQuestion = timeSpent / 530` in the result block).
+    let correct = 0;
+    for (let i = 0; i < questions.length; i++) {
+      if (answers[i] === questions[i].correct) correct += 1;
+    }
+    const pct = Math.round((correct / 530) * 100);
+    const spent = 60 * 60 - timeLeft;
+    const examKind = "qudrat-gat"; // This page hosts the GAT/Qudrat 530-q mock.
+
+    // Read previous BEFORE writing the new entry so we never compare to ourselves.
+    const prev = getPreviousExam(examKind);
+    setPreviousEntry(prev);
+
+    const entry = saveExamResult({
+      examKind,
+      score: pct,
+      estimatedScore: Math.round(65 + pct * 0.35),
+      avgTimePerQuestion: Math.round(spent / 530),
+      categoryPerformance: cats,
+    });
+    setSavedEntry(entry);
+  }, [isFinished, questions, answers, timeLeft]);
+
   // Timer
   useEffect(() => {
     if (timeLeft <= 0 || isFinished) {
@@ -6566,35 +6633,45 @@ export default function TestPage() {
       ? `ركّز جلستك القادمة على «${weakest.name}» (${weakest.percentage}%). 20 سؤال موجّه + قراءة شرح كل خطأ يرفع نسبتك بسرعة.`
       : "حافظ على وتيرتك الحالية وزد صعوبة الأسئلة تدريجياً.";
 
-    // Personalized recommended plan (2–4 steps)
+    // ===== Dynamic study plan (3–5 actionable steps) =====
+    // Each step is concrete: WHAT to study, HOW MANY questions, and WHEN to
+    // retest. Built from the actual weakest topics + measured pace + a
+    // mandatory final retest checkpoint. Replaces the old generic plan.
     const planSteps: { icon: string; title: string; desc: string }[] = [];
+
     if (weakest) {
+      const target = Math.min(20, Math.max(10, weakest.total * 2));
       planSteps.push({
         icon: "🎯",
-        title: `ابدأ بتقوية: ${weakest.name}`,
-        desc: `أضعف موضوع لديك (${weakest.percentage}%). خصّص له 3 جلسات هذا الأسبوع، 20 سؤالاً لكل جلسة.`,
+        title: `تدرب على ${target} سؤال «${weakest.name}» خلال يومين`,
+        desc: `أضعف موضوع لديك (${weakest.percentage}%). قسّمها على جلستين، واقرأ شرح كل خطأ فور وقوعه.`,
       });
     }
     if (weaknesses[1]) {
       planSteps.push({
         icon: "📚",
-        title: `راجع أساسيات: ${weaknesses[1].name}`,
-        desc: `أداؤك ${weaknesses[1].percentage}%. راجع القاعدة ثم حلّ 15 سؤالاً يومياً لمدة أسبوع.`,
+        title: `راجع أساسيات «${weaknesses[1].name}» 20 دقيقة يومياً`,
+        desc: `ثاني أضعف موضوع (${weaknesses[1].percentage}%). راجع القاعدة 5 أيام ثم حلّ 10 أسئلة موقوتة لكل يوم.`,
       });
     }
     if (avgTimePerQuestion > 90) {
       planSteps.push({
         icon: "⏱️",
-        title: "اعمل على سرعة الإجابة",
-        desc: `معدلك ${avgTimePerQuestion} ثانية للسؤال. استهدف 60-75 ثانية بتمارين موقوتة قصيرة.`,
+        title: "تمرين سرعة: 10 أسئلة في 10 دقائق يومياً",
+        desc: `معدلك ${avgTimePerQuestion} ثانية للسؤال — أبطأ من المستهدف. استخدم مؤقت صارم لأسبوع كامل.`,
       });
     }
     planSteps.push({
       icon: "🔁",
-      title: "راجع كل إجابة خاطئة",
-      desc: "افتح وضع المراجعة واقرأ شرح كل سؤال أخطأت فيه — لا تنتقل قبل أن تفهم سبب الخطأ.",
+      title: "راجع كل إجابة خاطئة قبل النهاية",
+      desc: "افتح وضع المراجعة واقرأ شرح كل سؤال أخطأت فيه — لا تنتقل قبل أن تفهم سبب الخطأ بالضبط.",
     });
-    const plan = planSteps.slice(0, 4);
+    planSteps.push({
+      icon: "📊",
+      title: "أعد اختبار محاكاة كامل بعد 7-10 أيام",
+      desc: "هذه هي الطريقة الوحيدة لقياس التحسن الفعلي. قارن النتيجة مع هذا التقرير.",
+    });
+    const plan = planSteps.slice(0, 5);
 
     // ===== Premium-only derived data (still static, computed from answers) =====
     // Mistakes by topic, sorted (full list, not just top 3 like commonMistakes)
@@ -6666,6 +6743,43 @@ export default function TestPage() {
       { day: "الخميس", focus: "مراجعة الأخطاء المتراكمة", count: 20 },
       { day: "الجمعة", focus: "اختبار محاكاة كامل", count: 60 },
     ];
+
+    // ===== Progress vs previous full exam (real data only — no fabrication).
+    // `previousEntry` is set by the on-finish save effect; if no prior exam
+    // exists in localStorage it stays null and the UI shows the empty state.
+    const examDiff =
+      previousEntry
+        ? diffExams(categoryPerformance, previousEntry.categoryPerformance)
+        : null;
+    const scoreDelta = previousEntry ? percentage - previousEntry.score : null;
+
+    // ===== Deep behavioral insights (Section 2 — derived only from data
+    // that's already on this page, never fabricated).
+    // 1. "أكثر نمط يكرر أخطاءك" — section-level comparison (which section
+    //    drags you down more) + the worst topic INSIDE that section. We use
+    //    section as the "نمط" axis because the per-question subtype is not
+    //    tracked on this exam — fallback message is shown when both sections
+    //    are tied / data is too sparse.
+    const quantitativeAcc = Math.round((quantitativeScore / 280) * 100);
+    const verbalAcc = Math.round((verbalScore / 190) * 100);
+    let mistakePattern: { section: string; topic: string; rate: number } | null = null;
+    if (Math.abs(quantitativeAcc - verbalAcc) >= 5) {
+      const weakerSection = quantitativeAcc < verbalAcc ? "كمي" : "لفظي";
+      const worstInSection = [...categoryPerformance]
+        .filter((c) => c.section === weakerSection)
+        .sort((a, b) => a.percentage - b.percentage)[0];
+      if (worstInSection) {
+        mistakePattern = {
+          section: weakerSection,
+          topic: worstInSection.name,
+          rate: 100 - worstInSection.percentage,
+        };
+      }
+    }
+
+    // 2. "القسم الذي يبطئك أكثر" — already computed: slowestTopic.
+
+    // 3. "أكثر قسم تحسّن لديك" — taken straight from examDiff (real history).
 
     // Results Screen
     return (
@@ -6907,6 +7021,116 @@ export default function TestPage() {
             </div>
           </div>
 
+          {/* ===== Progress vs previous full exam (real history only) ===== */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 mb-6 border border-gray-200 dark:border-gray-700">
+            <h3 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <span className="text-xl">📈</span>
+              تطورك عبر الاختبارات الشاملة
+            </h3>
+            {previousEntry && scoreDelta != null ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-700">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">السابق</div>
+                    <div className="text-2xl font-bold text-gray-700 dark:text-gray-200">
+                      {previousEntry.score}%
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-700">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">الحالي</div>
+                    <div className="text-2xl font-bold text-[#006C35] dark:text-[#4ade80]">
+                      {percentage}%
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-700">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">الفرق</div>
+                    <div
+                      className={`text-2xl font-bold ${
+                        scoreDelta > 0
+                          ? "text-[#006C35] dark:text-[#4ade80]"
+                          : scoreDelta < 0
+                          ? "text-red-600 dark:text-red-400"
+                          : "text-gray-500 dark:text-gray-400"
+                      }`}
+                    >
+                      {scoreDelta > 0 ? "+" : ""}
+                      {scoreDelta}%
+                    </div>
+                  </div>
+                </div>
+                {(examDiff?.mostImproved || examDiff?.mostDeclined) && (
+                  <ul className="text-sm space-y-1.5">
+                    {examDiff?.mostImproved && (
+                      <li className="text-gray-700 dark:text-gray-300">
+                        <span className="text-[#006C35] dark:text-[#4ade80] font-bold">↑ أكثر تحسن:</span>{" "}
+                        «{examDiff.mostImproved.name}» (+{examDiff.mostImproved.delta}%)
+                      </li>
+                    )}
+                    {examDiff?.mostDeclined && (
+                      <li className="text-gray-700 dark:text-gray-300">
+                        <span className="text-red-600 dark:text-red-400 font-bold">↓ أكثر تراجع:</span>{" "}
+                        «{examDiff.mostDeclined.name}» ({examDiff.mostDeclined.delta}%)
+                      </li>
+                    )}
+                  </ul>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                سيظهر تطورك هنا بعد إكمال أكثر من اختبار شامل.
+              </p>
+            )}
+          </div>
+
+          {/* ===== Deep behavioral insights (text-only — uses real data) ===== */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 mb-6 border border-gray-200 dark:border-gray-700">
+            <h3 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <span className="text-xl">🧠</span>
+              رؤى سلوكية متقدمة
+            </h3>
+            <ul className="space-y-3 text-sm">
+              <li className="flex items-start gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-700">
+                <span className="text-lg shrink-0">🎯</span>
+                <div>
+                  <div className="font-bold text-gray-900 dark:text-white mb-0.5">
+                    أكثر نمط يكرر أخطاءك
+                  </div>
+                  <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
+                    {mistakePattern
+                      ? `أخطاؤك تتركّز في القسم ${mistakePattern.section}، وأبرز موضوع متعثّر فيه «${mistakePattern.topic}» بنسبة خطأ ${mistakePattern.rate}%.`
+                      : "لا يوجد نمط واضح يفصل بين القسمين — أخطاؤك موزّعة بشكل متوازن."}
+                  </p>
+                </div>
+              </li>
+              <li className="flex items-start gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-700">
+                <span className="text-lg shrink-0">⏳</span>
+                <div>
+                  <div className="font-bold text-gray-900 dark:text-white mb-0.5">
+                    القسم الذي يبطئك أكثر
+                  </div>
+                  <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
+                    {slowestTopic
+                      ? `«${slowestTopic.name}» يستهلك حوالي ${slowestTopic.seconds} ثانية للسؤال — أعلى من متوسطك (${avgTimePerQuestion}ث).`
+                      : "وتيرتك متوازنة عبر المواضيع، لا يوجد قسم يبطئك بشكل ملحوظ."}
+                  </p>
+                </div>
+              </li>
+              <li className="flex items-start gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-700">
+                <span className="text-lg shrink-0">🚀</span>
+                <div>
+                  <div className="font-bold text-gray-900 dark:text-white mb-0.5">
+                    أكثر قسم تحسّن لديك
+                  </div>
+                  <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
+                    {examDiff?.mostImproved
+                      ? `تحسّنت في «${examDiff.mostImproved.name}» بمقدار +${examDiff.mostImproved.delta}% منذ اختبارك الشامل السابق.`
+                      : "يحتاج هذا التحليل اختباراً شاملاً سابقاً للمقارنة."}
+                  </p>
+                </div>
+              </li>
+            </ul>
+          </div>
+
           {/* Recommended Plan */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 mb-6 border border-gray-200 dark:border-gray-700">
             <h3 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
@@ -6949,29 +7173,63 @@ export default function TestPage() {
             </span>
           </div>
 
-          <AIInsightsCard
-            isPremium={isPremium}
-            input={{
-              score: percentage,
-              level: overallLevel,
-              weakTopics: weaknesses.map((c) => c.name),
-              strongTopics: strengths.map((c) => c.name),
-              slowTopics: topicTimeData
-                .filter((t) => t.pace === "slow")
-                .map((t) => t.name),
-              commonMistakes: mistakesByTopic
-                .slice(0, 5)
-                .map((m) => `${m.name} (${100 - m.percentage}% خطأ)`),
-              categoryPerformance: categoryPerformance.map((c) => ({
-                name: c.name,
-                section: c.section,
-                percentage: c.percentage,
-                correct: c.correct,
-                total: c.total,
-              })),
-              avgTimePerQuestion,
-            }}
-          />
+          {/* Gate the AI card on `savedEntry` — set in the same effect that
+              resolves `previousEntry`. This guarantees the card mounts ONCE
+              with the final input shape (including any prior-exam context),
+              so its hashKey-based dedupe fires exactly one /api/ai-analysis
+              request per finished exam. Without this gate the card would
+              first render with previousEntry=null then re-render once the
+              effect resolved, producing two distinct hashKeys and two
+              billable calls. */}
+          {savedEntry ? (
+            <AIInsightsCard
+              isPremium={isPremium}
+              input={{
+                score: percentage,
+                level: overallLevel,
+                weakTopics: weaknesses.map((c) => c.name),
+                strongTopics: strengths.map((c) => c.name),
+                slowTopics: topicTimeData
+                  .filter((t) => t.pace === "slow")
+                  .map((t) => t.name),
+                commonMistakes: mistakesByTopic
+                  .slice(0, 5)
+                  .map((m) => `${m.name} (${100 - m.percentage}% خطأ)`),
+                categoryPerformance: categoryPerformance.map((c) => ({
+                  name: c.name,
+                  section: c.section,
+                  percentage: c.percentage,
+                  correct: c.correct,
+                  total: c.total,
+                })),
+                avgTimePerQuestion,
+                // ===== Full-exam-only enrichment (additive). Switches the
+                // server prompt to the deeper coaching mode and — when prior
+                // history exists — feeds it real progress data so the AI can
+                // explicitly reference improvement / decline.
+                examType: "full",
+                previousScore: previousEntry?.score,
+                previousCategoryPerformance: previousEntry?.categoryPerformance.map((c) => ({
+                  name: c.name,
+                  percentage: c.percentage,
+                })),
+                mostImprovedTopic: examDiff?.mostImproved,
+                mostDeclinedTopic: examDiff?.mostDeclined,
+              }}
+            />
+          ) : (
+            <div
+              className="bg-white dark:bg-gray-800 rounded-2xl p-6 mb-6 border border-gray-200 dark:border-gray-700"
+              aria-busy="true"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-5 h-5 border-2 border-[#006C35] border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  جاري تحضير التحليل المتقدم…
+                </span>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             {[
@@ -6999,8 +7257,8 @@ export default function TestPage() {
                     </div>
                     <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 leading-relaxed">
                       {weakest
-                        ? `أقوى نقاطك في ${strengths[0]?.name || categoryPerformance[0]?.name}، وأضعفها في ${weakest.name}.`
-                        : "أداؤك متوازن عبر جميع المحاور."}
+                        ? `الفجوة بين أقوى محاورك «${strengths[0]?.name || categoryPerformance[0]?.name}» (${strengths[0]?.percentage ?? categoryPerformance[0]?.percentage}%) وأضعفها «${weakest.name}» (${weakest.percentage}%) تبلغ ${(strengths[0]?.percentage ?? categoryPerformance[0]?.percentage ?? 0) - weakest.percentage} نقطة. كلّما ضاقت الفجوة، ارتفعت درجتك الإجمالية بثبات.`
+                        : "خريطتك متوازنة — لا يوجد محور يخفض درجتك بشكل لافت."}
                     </p>
                   </div>
                 ),
@@ -7044,7 +7302,14 @@ export default function TestPage() {
                     </div>
                     <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 leading-relaxed">
                       {errorRateData[0]
-                        ? `«${errorRateData[0].name}» يضيّع عليك ${errorRateData[0].errorRate}% من نقاطه — ابدأ هنا.`
+                        ? `أعلى 3 مواضيع تخفض درجتك: ${errorRateData
+                            .slice(0, 3)
+                            .map((d) => `«${d.name}» (${d.errorRate}%)`)
+                            .join("، ")}. علاج هذه الثلاثة وحدها قد يرفع نتيجتك بنحو ${Math.round(
+                            errorRateData
+                              .slice(0, 3)
+                              .reduce((s, d) => s + d.errorRate, 0) / Math.max(categoryPerformance.length, 1),
+                          )} نقطة.`
                         : "لا توجد مواضيع تخفض درجتك بشكل واضح."}
                     </p>
                   </div>
@@ -7089,8 +7354,8 @@ export default function TestPage() {
                     </div>
                     <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 leading-relaxed">
                       {slowestTopic
-                        ? `«${slowestTopic.name}» يستهلك أطول وقت (${slowestTopic.seconds}ث/سؤال). درّب نفسك بتمارين موقوتة.`
-                        : "وتيرتك متوازنة عبر المواضيع."}
+                        ? `«${slowestTopic.name}» يستهلك ${slowestTopic.seconds}ث/سؤال (متوسطك ${avgTimePerQuestion}ث). الهدف ≤ 60-75ث للسؤال — كل ثانية فوق ذلك تكلّفك أسئلة في النهاية. درّب نفسك بـ 10 أسئلة موقوتة يومياً.`
+                        : "وتيرتك متوازنة عبر المواضيع — حافظ على نفس الإيقاع في الاختبار الفعلي."}
                     </p>
                   </div>
                 ),

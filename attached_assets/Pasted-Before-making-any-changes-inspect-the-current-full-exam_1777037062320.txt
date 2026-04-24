@@ -1,0 +1,144 @@
+Before making any changes, inspect the current full exam result page, existing charts, and AI analysis system.
+
+IMPORTANT RULES:
+- Do NOT redesign UI
+- Do NOT change layout, colors, spacing, or components
+- Do NOT break existing diagnostic or training flows
+- Only enhance logic and analysis depth
+- Keep everything Arabic and RTL
+- All changes must be additive and production-safe
+
+GOAL:
+Make full exam analysis significantly more advanced, insightful, and valuable than the diagnostic analysis.
+
+--------------------------------------------------
+SECTION 1 — Progress Tracking (Retention Core)
+--------------------------------------------------
+
+1. Add comparison with previous full exams:
+
+- If previous exam data exists:
+  - show:
+    - previous score
+    - current score
+    - difference (+ / -)
+
+- If no previous data:
+  - show empty state:
+    "سيظهر تطورك هنا بعد إكمال أكثر من اختبار شامل"
+
+2. Add improvement insight:
+- detect:
+  - most improved topic
+  - most declined topic
+
+--------------------------------------------------
+SECTION 2 — Deep Behavioral Insights
+--------------------------------------------------
+
+Using existing result data (answers, categoryStats, time):
+
+Add:
+
+1. "أكثر نمط يكرر أخطاءك"
+- identify subtype or strategy_tag with highest error rate
+
+2. "القسم الذي يبطئك أكثر"
+- detect topic with highest average time
+
+3. "أكثر قسم تحسّن لديك"
+- compare with previous exam (if exists)
+
+If data not available → show fallback message (do NOT fake data)
+
+--------------------------------------------------
+SECTION 3 — Advanced AI Analysis
+--------------------------------------------------
+
+Use existing AI system (do NOT create new endpoints)
+
+Enhance AI analysis for full exams:
+
+- deeper than training AI
+- more structured
+- still concise
+
+Add to prompt:
+
+- compare with past performance if available
+- highlight patterns (not just stats)
+- give realistic improvement path
+
+OUTPUT must include:
+- تحليل الأداء
+- نقاط القوة
+- نقاط الضعف
+- سبب الأخطاء
+- أسرع طريقة للتحسن
+- خطة مقترحة
+
+Ensure:
+- one AI call per exam (reuse caching system)
+- no repeated calls
+
+--------------------------------------------------
+SECTION 4 — Dynamic Study Plan
+--------------------------------------------------
+
+Upgrade the plan to be more actionable:
+
+Instead of generic advice:
+
+Generate:
+
+- 3–5 clear steps
+- based on weakest topics
+- include:
+  - what to study
+  - how many questions
+  - when to retest
+
+Example:
+- "تدرب على 15 سؤال نسب خلال يومين"
+- "راجع المفردات لمدة 20 دقيقة يوميًا"
+
+--------------------------------------------------
+SECTION 5 — Chart Interpretation Upgrade
+--------------------------------------------------
+
+Keep existing charts:
+- Radar
+- Error bar
+- Time chart
+
+Enhance ONLY the text below them:
+
+- make it more insightful
+- connect data to action
+
+Example:
+- "أداءك في الجبر جيد، لكن النسب هي العامل الأكبر في خفض درجتك"
+
+--------------------------------------------------
+SECTION 6 — Data Safety
+--------------------------------------------------
+
+- Do NOT generate fake history
+- If no previous exams → show empty state
+- Reuse existing data structures
+- Keep performance fast
+
+--------------------------------------------------
+DELIVERABLES
+--------------------------------------------------
+
+After implementation, explain:
+
+1. what new insights were added
+2. how progress tracking works
+3. how previous exams are used (or empty state)
+4. how AI analysis was enhanced
+5. how study plan became more actionable
+6. confirm:
+   - no UI redesign
+   - no extra AI calls
