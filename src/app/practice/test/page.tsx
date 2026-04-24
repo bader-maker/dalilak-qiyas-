@@ -20,8 +20,10 @@ import {
   saveUserProfile,
   applySessionToProfile,
   getStudyRecommendations,
+  reconcileExamHistoryToProfile,
   type SessionAnswer,
 } from "@/lib/userProfile";
+import { loadHistory } from "@/lib/examHistory";
 import TrainingAICoachCard from "@/components/TrainingAICoachCard";
 import TestPatternIndicator from "@/components/TestPatternIndicator";
 import type { AIAnalysisInput } from "@/lib/aiAnalysis";
@@ -1334,7 +1336,20 @@ function PracticeTestContent() {
         // categoryNameToSlug, then keep only the ones present in this
         // section's pool.
         try {
-          const rec = getStudyRecommendations(loadUserProfile());
+          // Load profile and reconcile any past full-exam attempts into
+          // the per-topic timeline before reading recommendations. This
+          // is the "previous exams" leg of the data combine: it lets
+          // historical exam data influence today's training even though
+          // exam history lives in a separate storage key. The call is
+          // idempotent (only genuinely-new (timestamp, topic) pairs
+          // grow the series), so doing it on every page load is cheap.
+          let profile = loadUserProfile();
+          const reconciled = reconcileExamHistoryToProfile(profile, loadHistory());
+          if (reconciled !== profile) {
+            saveUserProfile(reconciled);
+            profile = reconciled;
+          }
+          const rec = getStudyRecommendations(profile);
           if (rec.source === "diagnostic" && rec.recommendedTopics.length > 0) {
             const sectionTopicSlugs = new Set(filtered.map((q) => q.topic));
             const mapped = rec.recommendedTopics

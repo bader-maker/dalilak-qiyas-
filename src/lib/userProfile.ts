@@ -35,6 +35,8 @@
  * so future signal changes don't require migrating historical data.
  */
 
+import { categoryNameToSlug } from "./topicMap";
+
 const STORAGE_KEY = "user_profile";
 const PROFILE_VERSION = 1;
 
@@ -47,6 +49,31 @@ const TOPIC_MIN_SAMPLES = 5;
 
 /** Number of topics surfaced in the strongest/weakest lists. */
 const TOP_N = 3;
+
+/**
+ * Per-topic progress timeline cap. Each completed exam contributes one
+ * point per category, each completed practice session contributes one
+ * point per touched topic — so 30 points per topic comfortably covers
+ * dozens of exams + sessions while keeping the serialized profile small.
+ * Oldest points are dropped first when the cap is exceeded.
+ */
+const MAX_TOPIC_HISTORY = 30;
+
+/**
+ * A practice session must include at least this many questions for the
+ * given topic before we record a timeline point for it. Without this
+ * guard a 1-question topic with 0% / 100% accuracy would flood the
+ * timeline with noise that swamps the real exam-derived signal.
+ */
+const MIN_SESSION_SAMPLES_FOR_SNAPSHOT = 3;
+
+/**
+ * Percentage-point delta required to call a trend "improving" or
+ * "declining" rather than "stable". Mirrors the threshold already used
+ * by `examHistory.summarizeProgress` so the two systems describe the
+ * same change consistently.
+ */
+const PROGRESS_TREND_THRESHOLD = 5;
 
 export interface TopicCounters {
   /** Total answered for this topic across all sessions. */
@@ -116,6 +143,56 @@ export interface DiagnosticSnapshot {
   categoryPerformance: DiagnosticCategoryInput[];
 }
 
+/**
+ * One measurement event for a topic, captured from a single source. The
+ * timeline is the union of all such events across diagnostic, exam-history,
+ * and practice-session sources — that union is what enables "improvement
+ * over time" insights.
+ *
+ * Stored as raw events (not pre-aggregated rates) so future trend formulas
+ * can re-derive without losing precision.
+ */
+export interface TopicProgressPoint {
+  /** Epoch ms of the event. */
+  at: number;
+  /** Where this measurement came from. */
+  source: "diagnostic" | "session" | "exam";
+  /** Topic-level accuracy at this event, 0–100. */
+  accuracy: number;
+  /**
+   * Number of questions backing this measurement, when known. Set by
+   * session events (we count answered questions in the topic). Diagnostic
+   * and exam events leave this undefined — those snapshots already
+   * represent broad samples and the per-category sample count isn't
+   * recorded by the exam pages today.
+   */
+  sampleSize?: number;
+}
+
+/** Coarse "where is this student right now" label per topic. */
+export type TopicLevelLabel = "weak" | "developing" | "strong";
+
+/**
+ * Latest known level for a topic, derived from the most recent
+ * `TopicProgressPoint`. Stored alongside the timeline so consumers
+ * (recommendation engine, future insights UI) can read it directly
+ * without re-deriving on every call.
+ *
+ * Always recomputed at write time from the timeline so it can never
+ * drift out of sync with the underlying snapshots.
+ */
+export interface TopicLevel {
+  topic: string;
+  /** 0–100, copied from the latest snapshot. */
+  accuracy: number;
+  /** Mirrors the same <50 / 50–80 / >80 boundaries used elsewhere. */
+  level: TopicLevelLabel;
+  /** The source of the latest snapshot. */
+  source: "diagnostic" | "session" | "exam";
+  /** Epoch ms of the latest snapshot. */
+  at: number;
+}
+
 export interface UserProfile {
   version: number;
   updatedAt: number;
@@ -128,6 +205,23 @@ export interface UserProfile {
    * historical attempts live in `examHistory.ts`.
    */
   diagnostic?: DiagnosticSnapshot;
+  /**
+   * Per-topic timeline of measurement events. Optional — absent on legacy
+   * v1 profiles, populated lazily as new events arrive (and via
+   * `reconcileExamHistoryToProfile` on demand). Each topic's array is kept
+   * sorted ascending by `at` and capped at MAX_TOPIC_HISTORY.
+   *
+   * Topic keys are normalized via `categoryNameToSlug` when possible so
+   * exam categories ("الجبر") and session topics ("algebra") fold into
+   * one timeline.
+   */
+  topicProgress?: Record<string, TopicProgressPoint[]>;
+  /**
+   * Latest known level per topic, derived from the head of each timeline.
+   * Optional and recomputed deterministically from `topicProgress` — never
+   * accept it as input on its own; it's always rebuilt to match.
+   */
+  lastKnownLevel?: Record<string, TopicLevel>;
 }
 
 /**
@@ -298,6 +392,46 @@ function coerceDiagnostic(raw: unknown): DiagnosticSnapshot | undefined {
   };
 }
 
+function coerceProgressPoint(raw: unknown): TopicProgressPoint | null {
+  if (!isPlainObject(raw)) return null;
+  const at = Number(raw.at);
+  const accuracy = Number(raw.accuracy);
+  if (!Number.isFinite(at) || at < 0) return null;
+  if (!Number.isFinite(accuracy)) return null;
+  const source = raw.source;
+  if (source !== "diagnostic" && source !== "session" && source !== "exam") {
+    return null;
+  }
+  const sampleSizeRaw = Number(raw.sampleSize);
+  const sampleSize = Number.isFinite(sampleSizeRaw) && sampleSizeRaw > 0
+    ? Math.floor(sampleSizeRaw)
+    : undefined;
+  const out: TopicProgressPoint = {
+    at: Math.floor(at),
+    source,
+    accuracy: Math.min(100, Math.max(0, accuracy)),
+  };
+  if (sampleSize !== undefined) out.sampleSize = sampleSize;
+  return out;
+}
+
+function coerceTopicProgress(raw: unknown): Record<string, TopicProgressPoint[]> | undefined {
+  if (!isPlainObject(raw)) return undefined;
+  const out: Record<string, TopicProgressPoint[]> = {};
+  for (const [topic, listRaw] of Object.entries(raw)) {
+    if (typeof topic !== "string" || !topic.trim()) continue;
+    if (!Array.isArray(listRaw)) continue;
+    const points = (listRaw as unknown[])
+      .map(coerceProgressPoint)
+      .filter((p): p is TopicProgressPoint => p !== null);
+    if (points.length === 0) continue;
+    // Re-normalize on load: sort ascending, dedupe, cap. The writer keeps
+    // these invariants too, but coerce makes a corrupted blob safe.
+    out[topic.trim()] = capTopicHistory(dedupeAndSort(points));
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 function coerceProfile(raw: unknown): UserProfile {
   if (!isPlainObject(raw)) return createEmptyProfile();
   const version = Number(raw.version);
@@ -325,8 +459,17 @@ function coerceProfile(raw: unknown): UserProfile {
   // tolerate corruption by simply dropping the field rather than wiping
   // the whole profile.
   const diagnostic = coerceDiagnostic(raw.diagnostic);
+  // `topicProgress` is also additive. `lastKnownLevel` is intentionally
+  // NOT read from the raw blob — it's always recomputed from the timeline
+  // so the two structures cannot drift out of sync (a freshly-edited
+  // localStorage entry can't lie about the level).
+  const topicProgress = coerceTopicProgress(raw.topicProgress);
   const out: UserProfile = { version: PROFILE_VERSION, updatedAt, sessionsCompleted, totals, topics };
   if (diagnostic) out.diagnostic = diagnostic;
+  if (topicProgress) {
+    out.topicProgress = topicProgress;
+    out.lastKnownLevel = recomputeLastKnownLevels(topicProgress);
+  }
   return out;
 }
 
@@ -427,7 +570,7 @@ export function applySessionToProfile(
   // field (and any future optional fields) survives session aggregation.
   // Without this spread, every session save would silently wipe out the
   // diagnostic snapshot the practice page relies on for recommendations.
-  return {
+  const aggregated: UserProfile = {
     ...profile,
     version: PROFILE_VERSION,
     updatedAt: now,
@@ -435,6 +578,11 @@ export function applySessionToProfile(
     totals,
     topics,
   };
+  // Also record a per-topic timeline point so improvement tracking works
+  // off the same write. Session snapshots are gated by
+  // MIN_SESSION_SAMPLES_FOR_SNAPSHOT — short sessions with 1–2 questions
+  // in a topic are skipped to avoid noise.
+  return recordSessionSnapshots(aggregated, session, now);
 }
 
 function accuracyOf(c: { answered: number; correct: number }): number {
@@ -664,11 +812,367 @@ export function applyDiagnosticToProfile(
   if (!Number.isFinite(input.score)) {
     return profile;
   }
-  return {
+  const takenAt = input.takenAt ?? Date.now();
+  const withDiagnostic: UserProfile = {
     ...profile,
     version: PROFILE_VERSION,
-    updatedAt: input.takenAt ?? Date.now(),
+    updatedAt: takenAt,
     diagnostic: deriveDiagnosticSnapshot(input),
+  };
+  // Also fan out one timeline point per category so diagnostic events
+  // contribute to the same per-topic series that sessions and exam
+  // history feed. This is what enables cross-source improvement
+  // tracking off a single field on the profile.
+  return recordDiagnosticSnapshots(withDiagnostic, input, takenAt);
+}
+
+// =============================================================================
+// Topic progress timeline — combines diagnostic, exam-history, and session
+// signals into a single per-topic series. The series is the substrate that
+// makes "improvement over time", "last known level per topic", and stronger
+// recommendation decisions possible without relying on any single source.
+// =============================================================================
+
+/** Map a 0–100 accuracy to a coarse level label. */
+function levelFromAccuracy(accuracy: number): TopicLevelLabel {
+  if (accuracy < 50) return "weak";
+  if (accuracy <= 80) return "developing";
+  return "strong";
+}
+
+/**
+ * Normalize a topic identifier coming from any source. Sessions already
+ * use slugs; diagnostic / exam categoryPerformance entries use display
+ * labels that the topic map can resolve to slugs. When neither path
+ * yields a slug we fall back to the trimmed raw label so the snapshot is
+ * never lost — at worst it lives under its own key until the topic map
+ * learns the label.
+ */
+function normalizeTopicKey(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const slug = categoryNameToSlug(trimmed);
+  return slug ?? trimmed;
+}
+
+/**
+ * Sort ascending by `at`, then dedupe events at the same instant + source.
+ * The most recently appended event wins on collision (callers compose
+ * "fresh first" by pushing then calling this).
+ */
+function dedupeAndSort(points: TopicProgressPoint[]): TopicProgressPoint[] {
+  const seen = new Map<string, TopicProgressPoint>();
+  for (const p of points) {
+    seen.set(`${p.at}|${p.source}`, p);
+  }
+  return Array.from(seen.values()).sort((a, b) => {
+    if (a.at !== b.at) return a.at - b.at;
+    // Tiebreak by source for deterministic ordering when two sources
+    // legitimately fire at the same epoch ms (rare but possible).
+    return a.source.localeCompare(b.source);
+  });
+}
+
+/** Drop oldest points so the series never exceeds MAX_TOPIC_HISTORY. */
+function capTopicHistory(points: TopicProgressPoint[]): TopicProgressPoint[] {
+  if (points.length <= MAX_TOPIC_HISTORY) return points;
+  return points.slice(points.length - MAX_TOPIC_HISTORY);
+}
+
+/**
+ * Add a single measurement event to the per-topic timeline. Pure — returns
+ * a fresh `topicProgress` map with the topic's series updated. Idempotent
+ * by `{at, source}` so calling twice with the same event is a no-op.
+ */
+function appendTopicSnapshot(
+  progress: Record<string, TopicProgressPoint[]> | undefined,
+  topic: string,
+  point: TopicProgressPoint,
+): Record<string, TopicProgressPoint[]> {
+  const next: Record<string, TopicProgressPoint[]> = { ...(progress ?? {}) };
+  const existing = next[topic] ?? [];
+  next[topic] = capTopicHistory(dedupeAndSort([...existing, point]));
+  return next;
+}
+
+/**
+ * Recompute `lastKnownLevel` from the full `topicProgress` map. Always run
+ * after a write — single source of truth keeps the level table from
+ * drifting if a new snapshot lands earlier in time than an existing one
+ * (rare, but possible during exam-history backfill).
+ */
+function recomputeLastKnownLevels(
+  progress: Record<string, TopicProgressPoint[]>,
+): Record<string, TopicLevel> {
+  const out: Record<string, TopicLevel> = {};
+  for (const [topic, series] of Object.entries(progress)) {
+    if (series.length === 0) continue;
+    const latest = series[series.length - 1];
+    out[topic] = {
+      topic,
+      accuracy: latest.accuracy,
+      level: levelFromAccuracy(latest.accuracy),
+      source: latest.source,
+      at: latest.at,
+    };
+  }
+  return out;
+}
+
+/**
+ * PURE: append diagnostic-derived snapshots (one per category) to the
+ * per-topic timeline, then refresh `lastKnownLevel`. Called automatically
+ * by `applyDiagnosticToProfile` so callers don't need to invoke it.
+ */
+export function recordDiagnosticSnapshots(
+  profile: UserProfile,
+  input: DiagnosticInput,
+  takenAt?: number,
+): UserProfile {
+  if (!input || !Array.isArray(input.categoryPerformance)) return profile;
+  const at = takenAt ?? input.takenAt ?? Date.now();
+  let progress = profile.topicProgress ? { ...profile.topicProgress } : undefined;
+  for (const cat of input.categoryPerformance) {
+    if (!cat || typeof cat.name !== "string" || !Number.isFinite(cat.percentage)) continue;
+    const key = normalizeTopicKey(cat.name);
+    if (!key) continue;
+    progress = appendTopicSnapshot(progress, key, {
+      at,
+      source: "diagnostic",
+      accuracy: Math.min(100, Math.max(0, cat.percentage)),
+    });
+  }
+  if (!progress) return profile;
+  return {
+    ...profile,
+    topicProgress: progress,
+    lastKnownLevel: recomputeLastKnownLevels(progress),
+  };
+}
+
+/**
+ * PURE: append session-derived snapshots (one per topic that meets the
+ * minimum-sample guard) to the per-topic timeline, then refresh
+ * `lastKnownLevel`. Called automatically by `applySessionToProfile`.
+ */
+export function recordSessionSnapshots(
+  profile: UserProfile,
+  session: SessionAnswer[],
+  at: number = Date.now(),
+): UserProfile {
+  if (!Array.isArray(session) || session.length === 0) return profile;
+  // Group session answers by topic — only topics that meet
+  // MIN_SESSION_SAMPLES_FOR_SNAPSHOT contribute a point.
+  const byTopic = new Map<string, { answered: number; correct: number }>();
+  for (const a of session) {
+    const key = normalizeTopicKey(a.topic ?? null);
+    if (!key) continue;
+    const cur = byTopic.get(key) ?? { answered: 0, correct: 0 };
+    cur.answered += 1;
+    if (a.isCorrect) cur.correct += 1;
+    byTopic.set(key, cur);
+  }
+  let progress = profile.topicProgress ? { ...profile.topicProgress } : undefined;
+  let touched = false;
+  for (const [topic, { answered, correct }] of byTopic.entries()) {
+    if (answered < MIN_SESSION_SAMPLES_FOR_SNAPSHOT) continue;
+    progress = appendTopicSnapshot(progress, topic, {
+      at,
+      source: "session",
+      accuracy: (correct / answered) * 100,
+      sampleSize: answered,
+    });
+    touched = true;
+  }
+  if (!touched || !progress) return profile;
+  return {
+    ...profile,
+    topicProgress: progress,
+    lastKnownLevel: recomputeLastKnownLevels(progress),
+  };
+}
+
+/**
+ * Minimal shape needed to ingest one past exam from `examHistory.ts`
+ * without importing it (keeps userProfile testable in isolation and
+ * avoids a runtime dependency on storage we don't own).
+ */
+export interface ExamHistoryEntryLike {
+  timestamp: number;
+  examKind?: string;
+  categoryPerformance: DiagnosticCategoryInput[];
+}
+
+/**
+ * PURE: ingest an array of past exams (newest- or oldest-first; order
+ * doesn't matter — the timeline is normalized). Each (topic, timestamp)
+ * pair is idempotent so calling this on every page load is safe — only
+ * truly new events grow the series.
+ *
+ * This is the "previous exams" leg of the data combine: it lets
+ * historical attempts contribute to improvement tracking even though
+ * exam history lives in a separate storage key.
+ */
+export function reconcileExamHistoryToProfile(
+  profile: UserProfile,
+  history: ExamHistoryEntryLike[],
+): UserProfile {
+  if (!Array.isArray(history) || history.length === 0) return profile;
+  let progress = profile.topicProgress ? { ...profile.topicProgress } : undefined;
+  let touched = false;
+  for (const entry of history) {
+    if (!entry || !Array.isArray(entry.categoryPerformance)) continue;
+    if (!Number.isFinite(entry.timestamp)) continue;
+    const at = Math.floor(entry.timestamp);
+    for (const cat of entry.categoryPerformance) {
+      if (!cat || typeof cat.name !== "string" || !Number.isFinite(cat.percentage)) continue;
+      const key = normalizeTopicKey(cat.name);
+      if (!key) continue;
+      // Pre-check existence by {at, source} — length growth is NOT a
+      // reliable novelty signal, because at MAX_TOPIC_HISTORY a genuinely
+      // new event displaces the oldest and length stays constant. Cheap
+      // because each series is bounded at MAX_TOPIC_HISTORY (30).
+      const existing = progress?.[key];
+      if (existing) {
+        if (existing.some((p) => p.at === at && p.source === "exam")) continue;
+        // At cap with an older-than-head incoming event: it would be
+        // displaced immediately on append. Treat as a no-op so reconcile
+        // stays idempotent across page loads — otherwise a previously-
+        // displaced event would be re-added every time, evicting the
+        // newest tail and thrashing the series.
+        if (existing.length >= MAX_TOPIC_HISTORY && at < existing[0].at) continue;
+      }
+      progress = appendTopicSnapshot(progress, key, {
+        at,
+        source: "exam",
+        accuracy: Math.min(100, Math.max(0, cat.percentage)),
+      });
+      touched = true;
+    }
+  }
+  if (!touched || !progress) return profile;
+  return {
+    ...profile,
+    topicProgress: progress,
+    lastKnownLevel: recomputeLastKnownLevels(progress),
+  };
+}
+
+// =============================================================================
+// Improvement & insight helpers — read-only views over the timeline.
+// =============================================================================
+
+export interface TopicImprovement {
+  topic: string;
+  /** Earliest snapshot in the series. */
+  first: { at: number; accuracy: number; source: TopicProgressPoint["source"] };
+  /** Latest snapshot in the series. */
+  latest: { at: number; accuracy: number; source: TopicProgressPoint["source"] };
+  /** latest.accuracy - first.accuracy. Positive = improving. */
+  deltaPct: number;
+  /** ±PROGRESS_TREND_THRESHOLD bucketed into one of three labels. */
+  trend: "improving" | "declining" | "stable";
+  /** Total snapshots backing this calculation. */
+  sampleCount: number;
+}
+
+/**
+ * Compute first-vs-latest improvement for a single topic. Returns null
+ * when the topic has fewer than 2 snapshots — a single point can't show
+ * a trend.
+ */
+export function getTopicImprovement(
+  profile: UserProfile,
+  topic: string,
+): TopicImprovement | null {
+  const series = profile.topicProgress?.[topic];
+  if (!series || series.length < 2) return null;
+  const first = series[0];
+  const latest = series[series.length - 1];
+  const deltaPct = latest.accuracy - first.accuracy;
+  let trend: TopicImprovement["trend"];
+  if (deltaPct >= PROGRESS_TREND_THRESHOLD) trend = "improving";
+  else if (deltaPct <= -PROGRESS_TREND_THRESHOLD) trend = "declining";
+  else trend = "stable";
+  return {
+    topic,
+    first: { at: first.at, accuracy: first.accuracy, source: first.source },
+    latest: { at: latest.at, accuracy: latest.accuracy, source: latest.source },
+    deltaPct,
+    trend,
+    sampleCount: series.length,
+  };
+}
+
+/** All topics with ≥2 snapshots, ranked by deltaPct descending (best first). */
+export function getMostImproved(profile: UserProfile, n: number = TOP_N): TopicImprovement[] {
+  const all = collectImprovements(profile).filter((i) => i.deltaPct > 0);
+  all.sort((a, b) => {
+    if (b.deltaPct !== a.deltaPct) return b.deltaPct - a.deltaPct;
+    return a.topic.localeCompare(b.topic);
+  });
+  return all.slice(0, n);
+}
+
+/** All topics with ≥2 snapshots, ranked by deltaPct ascending (worst first). */
+export function getMostDeclined(profile: UserProfile, n: number = TOP_N): TopicImprovement[] {
+  const all = collectImprovements(profile).filter((i) => i.deltaPct < 0);
+  all.sort((a, b) => {
+    if (a.deltaPct !== b.deltaPct) return a.deltaPct - b.deltaPct;
+    return a.topic.localeCompare(b.topic);
+  });
+  return all.slice(0, n);
+}
+
+function collectImprovements(profile: UserProfile): TopicImprovement[] {
+  const progress = profile.topicProgress;
+  if (!progress) return [];
+  const out: TopicImprovement[] = [];
+  for (const topic of Object.keys(progress)) {
+    const imp = getTopicImprovement(profile, topic);
+    if (imp) out.push(imp);
+  }
+  return out;
+}
+
+export interface ProgressInsights {
+  /** Topics where the student has gained the most ground. */
+  mostImproved: TopicImprovement[];
+  /** Topics where the student has lost the most ground. */
+  mostDeclined: TopicImprovement[];
+  /** Latest known level for every tracked topic. */
+  lastKnownLevels: Record<string, TopicLevel>;
+  /** Number of distinct topics with at least one snapshot. */
+  topicsTracked: number;
+  /** True when at least one topic has ≥2 snapshots — needed for trend talk. */
+  hasTrendData: boolean;
+}
+
+/** One-call summary suitable for "insights" surfaces or recommendation logic. */
+export function getProgressInsights(profile: UserProfile): ProgressInsights {
+  const lastKnownLevels = profile.lastKnownLevel ?? {};
+  const all = collectImprovements(profile);
+  const mostImproved = all
+    .filter((i) => i.deltaPct > 0)
+    .sort((a, b) => {
+      if (b.deltaPct !== a.deltaPct) return b.deltaPct - a.deltaPct;
+      return a.topic.localeCompare(b.topic);
+    })
+    .slice(0, TOP_N);
+  const mostDeclined = all
+    .filter((i) => i.deltaPct < 0)
+    .sort((a, b) => {
+      if (a.deltaPct !== b.deltaPct) return a.deltaPct - b.deltaPct;
+      return a.topic.localeCompare(b.topic);
+    })
+    .slice(0, TOP_N);
+  return {
+    mostImproved,
+    mostDeclined,
+    lastKnownLevels,
+    topicsTracked: Object.keys(profile.topicProgress ?? {}).length,
+    hasTrendData: all.length > 0,
   };
 }
 
@@ -678,4 +1182,7 @@ export const __profileConstants = {
   PROFILE_VERSION,
   TOPIC_MIN_SAMPLES,
   TOP_N,
+  MAX_TOPIC_HISTORY,
+  MIN_SESSION_SAMPLES_FOR_SNAPSHOT,
+  PROGRESS_TREND_THRESHOLD,
 };

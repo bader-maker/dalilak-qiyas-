@@ -9,12 +9,14 @@ import {
   saveExamResult,
   getPreviousExam,
   summarizeProgress,
+  loadHistory,
   type ExamHistoryEntry,
 } from "@/lib/examHistory";
 import {
   loadUserProfile,
   saveUserProfile,
   applyDiagnosticToProfile,
+  reconcileExamHistoryToProfile,
 } from "@/lib/userProfile";
 
 // GAT Questions in English
@@ -2011,12 +2013,17 @@ export default function GATTestPage() {
     // try/catch so any storage failure cannot break the results screen —
     // the existing examHistory write above already succeeded.
     try {
-      const next = applyDiagnosticToProfile(loadUserProfile(), {
+      let next = applyDiagnosticToProfile(loadUserProfile(), {
         examKind: "gat",
         score: percentage,
         avgTimePerQuestion,
         categoryPerformance: histCats,
       });
+      // Backfill the per-topic timeline from any previous full exams the
+      // student has taken. Idempotent — only genuinely-new (timestamp,
+      // topic) pairs grow the series. This is the "previous exams" leg
+      // of the data combine.
+      next = reconcileExamHistoryToProfile(next, loadHistory());
       saveUserProfile(next);
     } catch {
       /* best-effort persistence — profile bias just won't update this round */

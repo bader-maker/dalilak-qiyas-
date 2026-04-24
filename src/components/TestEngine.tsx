@@ -18,12 +18,14 @@ import {
   saveExamResult,
   getPreviousExam,
   summarizeProgress,
+  loadHistory,
   type ExamHistoryEntry,
 } from "@/lib/examHistory";
 import {
   loadUserProfile,
   saveUserProfile,
   applyDiagnosticToProfile,
+  reconcileExamHistoryToProfile,
 } from "@/lib/userProfile";
 
 interface Question {
@@ -292,12 +294,17 @@ export default function TestEngine({
     // private-mode) cannot break the results screen — the existing
     // examHistory write above already succeeded by this point.
     try {
-      const next = applyDiagnosticToProfile(loadUserProfile(), {
+      let next = applyDiagnosticToProfile(loadUserProfile(), {
         examKind,
         score: percentage,
         avgTimePerQuestion,
         categoryPerformance: historyCategories,
       });
+      // Backfill the per-topic timeline from any previous full exams the
+      // student has taken. Idempotent — only genuinely-new (timestamp,
+      // topic) pairs grow the series. This is the "previous exams" leg
+      // of the data combine.
+      next = reconcileExamHistoryToProfile(next, loadHistory());
       saveUserProfile(next);
     } catch {
       /* best-effort persistence — profile bias just won't update this round */
