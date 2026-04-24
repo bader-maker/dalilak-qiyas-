@@ -30,6 +30,16 @@ export type AIAnalysisResult = {
 };
 
 const CACHE_PREFIX = "qiyas_ai_analysis_v2:";
+// sessionStorage key prefix for "we already attempted this hash this session
+// and it failed". Used to honor strict one-call-per-session semantics even
+// when the AI provider is misconfigured / returns errors. Cleared when the
+// browser tab closes — i.e. a true new session can retry.
+const ATTEMPTED_PREFIX = "qiyas_ai_attempted_v2:";
+
+// Module-scope in-flight promise map. Concurrent / StrictMode-remounted
+// callers asking for the same hash share a single fetch — preventing
+// duplicate /api/ai-analysis POSTs that would each consume an OpenAI slot.
+const inflight = new Map<string, Promise<AIAnalysisResult | null>>();
 
 // Stable lightweight hash so the same result reuses the same cache entry.
 // Exported so callers (e.g. components) can dedupe requests using the same key.
@@ -75,25 +85,70 @@ function writeCache(key: string, value: AIAnalysisResult): void {
   }
 }
 
+function wasAttemptedThisSession(key: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.sessionStorage.getItem(ATTEMPTED_PREFIX + key) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markAttemptedThisSession(key: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(ATTEMPTED_PREFIX + key, "1");
+  } catch {
+    /* ignore */
+  }
+}
+
 export async function generateAIAnalysis(
   input: AIAnalysisInput
 ): Promise<AIAnalysisResult | null> {
   const key = hashKey(input);
+
+  // 1. Successful prior result for this exact hash → return cached, no network.
   const cached = readCache(key);
   if (cached) return cached;
 
-  try {
-    const res = await fetch("/api/ai-analysis", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { ok?: boolean; analysis?: AIAnalysisResult };
-    if (!data?.ok || !data.analysis) return null;
-    writeCache(key, data.analysis);
-    return data.analysis;
-  } catch {
-    return null;
-  }
+  // 2. Concurrent / StrictMode-remounted caller waiting on the same fetch →
+  //    share their promise so we only ever issue one POST per hash at a time.
+  const existing = inflight.get(key);
+  if (existing) return existing;
+
+  // 3. We already tried this hash this session and it failed (or was
+  //    rate-limited / unconfigured) — do NOT retry. This honors the strict
+  //    "1 AI call per session, do not regenerate" contract even when the
+  //    provider returns errors. Cleared automatically on tab close.
+  if (wasAttemptedThisSession(key)) return null;
+
+  const promise = (async (): Promise<AIAnalysisResult | null> => {
+    try {
+      const res = await fetch("/api/ai-analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      if (!res.ok) {
+        markAttemptedThisSession(key);
+        return null;
+      }
+      const data = (await res.json()) as { ok?: boolean; analysis?: AIAnalysisResult };
+      if (!data?.ok || !data.analysis) {
+        markAttemptedThisSession(key);
+        return null;
+      }
+      writeCache(key, data.analysis);
+      return data.analysis;
+    } catch {
+      markAttemptedThisSession(key);
+      return null;
+    } finally {
+      inflight.delete(key);
+    }
+  })();
+
+  inflight.set(key, promise);
+  return promise;
 }

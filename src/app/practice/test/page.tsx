@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useTraining } from "@/contexts/TrainingContext";
@@ -11,6 +11,8 @@ import {
   type TrainingQuestion,
   type SelectedQuestion
 } from "@/lib/trainingEngine";
+import TrainingAICoachCard from "@/components/TrainingAICoachCard";
+import type { AIAnalysisInput } from "@/lib/aiAnalysis";
 
 // Complete question bank for training
 const trainingQuestions: TrainingQuestion[] = [
@@ -1028,6 +1030,71 @@ function PracticeTestContent() {
   // Pool of all enriched questions for the current topic — used by "تدرب على نفس النمط".
   const [topicPool, setTopicPool] = useState<TrainingQuestion[]>([]);
 
+  // ----- Mid-session AI coaching (1 call per session, after Q5) -----
+  // The snapshot is captured ONCE (frozen) the first time the student has
+  // answered 5 questions. From then on the same `coachInput` reference is
+  // passed to the card, so even if `answers`/`questions` change later there is
+  // no re-render storm and definitely no second API call.
+  const [coachInput, setCoachInput] = useState<AIAnalysisInput | null>(null);
+  const coachTriggered = useRef(false);
+  // Premium check (matches existing convention used by AIInsightsCard / dev flag).
+  const [isPremium, setIsPremium] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setIsPremium(window.localStorage.getItem("user_is_premium") === "true");
+  }, []);
+
+  // Trigger threshold — one call per session, fires the moment we have ≥5
+  // answered questions. We rebuild the snapshot from the in-flight session
+  // (NOT from global TrainingContext) so the AI sees only what the student
+  // just did. The threshold sits inside the spec window of 5–10.
+  const COACH_TRIGGER_AT = 5;
+  useEffect(() => {
+    if (coachTriggered.current) return;
+    if (!isPremium) return;
+    if (questions.length === 0) return;
+
+    const answeredPairs = answers
+      .map((a, i) => ({ a, q: questions[i] }))
+      .filter((p): p is { a: number; q: TrainingQuestion } => p.a != null && !!p.q);
+    if (answeredPairs.length < COACH_TRIGGER_AT) return;
+
+    // Build per-category aggregates from the answered slice only.
+    type Agg = { name: string; section?: string; correct: number; total: number; time: number };
+    const byCat = new Map<string, Agg>();
+    for (const { a, q } of answeredPairs) {
+      const key = q.category;
+      const agg = byCat.get(key) || { name: key, section: q.section, correct: 0, total: 0, time: 0 };
+      agg.total += 1;
+      if (a === q.correct) agg.correct += 1;
+      byCat.set(key, agg);
+    }
+    const categoryPerformance = Array.from(byCat.values()).map((c) => ({
+      name: c.name,
+      section: c.section,
+      percentage: Math.round((c.correct / c.total) * 100),
+      correct: c.correct,
+      total: c.total,
+    }));
+    const correctTotal = answeredPairs.filter((p) => p.a === p.q.correct).length;
+    const score = Math.round((correctTotal / answeredPairs.length) * 100);
+    const level = score >= 80 ? "متقدم" : score >= 50 ? "متوسط" : "مبتدئ";
+    const weakTopics = categoryPerformance.filter((c) => c.percentage < 50).map((c) => c.name);
+    const strongTopics = categoryPerformance.filter((c) => c.percentage >= 80).map((c) => c.name);
+
+    const snapshot: AIAnalysisInput = {
+      score,
+      level,
+      weakTopics,
+      strongTopics,
+      slowTopics: [],
+      commonMistakes: [],
+      categoryPerformance,
+    };
+    coachTriggered.current = true;
+    setCoachInput(snapshot);
+  }, [answers, questions, isPremium]);
+
   useEffect(() => {
     const topicMap: Record<string, string> = {
       algebra: "algebra",
@@ -1258,6 +1325,9 @@ function PracticeTestContent() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-6">
+        {coachInput && (
+          <TrainingAICoachCard input={coachInput} isPremium={isPremium} />
+        )}
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-2 mb-4">
             <span className={`px-3 py-1 rounded-full text-xs font-medium ${
