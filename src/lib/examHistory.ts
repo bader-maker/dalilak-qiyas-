@@ -140,3 +140,100 @@ export function diffExams(
     mostDeclined: bestDown && bestDown.delta < 0 ? bestDown : undefined,
   };
 }
+
+// =============================================================================
+// summarizeProgress
+//
+// One-line, user-facing progress sentence comparing the just-finished exam
+// against the most recent previous exam of the same examKind. Returns null
+// when there's nothing meaningful to say (no prior data, or change is too
+// small to be informative).
+//
+// Why a separate helper (vs reusing diffExams directly):
+//   - Result pages get a single Arabic / English string they can drop into a
+//     tiny badge without re-deriving the "is it improvement or decline?",
+//     "do we have any signal?", or "fall back to overall score?" logic each
+//     time. Centralizing it guarantees consistent thresholds and copy across
+//     /test-gat, the shared TestEngine (Tahsili + SAAT), and any future page.
+//
+// Selection rule (single-message constraint per spec — "Keep it short"):
+//   1. If no previous entry → null (no comparison possible).
+//   2. Compute per-category diff. Pick the category with the LARGEST
+//      absolute delta (improvement OR decline). Threshold: |delta| ≥ 5.
+//      This avoids reporting a 1–2% wobble that's basically noise on a
+//      short test.
+//   3. If no per-category signal qualifies (categories don't overlap, or
+//      every change is < 5%), fall back to overall score delta. Threshold:
+//      |scoreDelta| ≥ 3. Lower because the overall score is averaged over
+//      all questions and is statistically more stable.
+//   4. If even the score change is below threshold → null. The user
+//      maintained roughly the same performance; saying "you went up 1%"
+//      is misleading.
+// =============================================================================
+type ProgressSummaryArgs = {
+  current: ExamHistoryCategory[];
+  previous: ExamHistoryCategory[];
+  currentScore: number;
+  previousScore: number;
+  locale: "ar" | "en";
+};
+
+export function summarizeProgress(args: ProgressSummaryArgs): {
+  message: string;
+  direction: "up" | "down";
+} | null {
+  const { current, previous, currentScore, previousScore, locale } = args;
+
+  // Per-category dominant signal — pick the single biggest absolute change.
+  const prevMap = new Map(previous.map((p) => [p.name, p.percentage]));
+  let dominant: { name: string; delta: number } | null = null;
+  for (const c of current) {
+    const prev = prevMap.get(c.name);
+    if (typeof prev !== "number") continue;
+    const delta = c.percentage - prev;
+    if (!dominant || Math.abs(delta) > Math.abs(dominant.delta)) {
+      dominant = { name: c.name, delta };
+    }
+  }
+
+  const TOPIC_THRESHOLD = 5;
+  const SCORE_THRESHOLD = 3;
+
+  if (dominant && Math.abs(dominant.delta) >= TOPIC_THRESHOLD) {
+    const up = dominant.delta > 0;
+    // Always render the magnitude in the sentence ("by 15%", not "by -15%").
+    // Direction is conveyed by the verb ("Improved" / "Declined" / "تحسّنت" /
+    // "تراجعت") and by the up/down arrow added by the consumer using the
+    // returned `direction`. This keeps the copy grammatical in both AR and EN.
+    const magnitude = `${Math.abs(Math.round(dominant.delta))}%`;
+    const msg =
+      locale === "ar"
+        ? up
+          ? `تحسّنت في ${dominant.name} بنسبة ${magnitude} منذ المحاولة السابقة`
+          : `تراجعت في ${dominant.name} بنسبة ${magnitude} منذ المحاولة السابقة`
+        : up
+          ? `Improved in ${dominant.name} by ${magnitude} since your last attempt`
+          : `Declined in ${dominant.name} by ${magnitude} since your last attempt`;
+    return { message: msg, direction: up ? "up" : "down" };
+  }
+
+  // Fallback: overall score change when no per-category signal qualifies.
+  const scoreDelta = currentScore - previousScore;
+  if (Math.abs(scoreDelta) >= SCORE_THRESHOLD) {
+    const up = scoreDelta > 0;
+    const magnitude = `${Math.abs(Math.round(scoreDelta))}%`;
+    const msg =
+      locale === "ar"
+        ? up
+          ? `تحسّن أداؤك العام بنسبة ${magnitude} منذ المحاولة السابقة`
+          : `تراجع أداؤك العام بنسبة ${magnitude} منذ المحاولة السابقة`
+        : up
+          ? `Overall score improved by ${magnitude} since your last attempt`
+          : `Overall score declined by ${magnitude} since your last attempt`;
+    return { message: msg, direction: up ? "up" : "down" };
+  }
+
+  // Same performance (within thresholds) — surface nothing rather than a
+  // misleading "you went up 1%" message.
+  return null;
+}

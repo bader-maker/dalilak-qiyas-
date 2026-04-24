@@ -1,10 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "@/contexts/ThemeContext";
 import AIAssistant from "@/components/AIAssistant";
 import { categoryNameToSlug } from "@/lib/topicMap";
+import {
+  saveExamResult,
+  getPreviousExam,
+  summarizeProgress,
+  type ExamHistoryEntry,
+} from "@/lib/examHistory";
 
 // GAT Questions in English
 const questions = [
@@ -1933,6 +1939,13 @@ export default function GATTestPage() {
   const [timeLeft, setTimeLeft] = useState(60 * 60); // 60 minutes
   const [showExplanation, setShowExplanation] = useState(false);
 
+  // Snapshot of the previous GAT attempt (if any), captured ONCE at finish-
+  // time before saving the new entry. Drives the short progress message
+  // shown at the top of the results page. Stays null when this is the
+  // user's first GAT attempt — the message is then simply not rendered.
+  const [previousEntry, setPreviousEntry] = useState<ExamHistoryEntry | null>(null);
+  const savedRef = useRef(false);
+
   useEffect(() => {
     if (timeLeft > 0 && !showResults) {
       const timer = setInterval(() => setTimeLeft((prev) => prev - 1), 1000);
@@ -1941,6 +1954,53 @@ export default function GATTestPage() {
       setShowResults(true);
     }
   }, [timeLeft, showResults]);
+
+  // Save this attempt to exam history (for next-attempt comparison) and
+  // capture the previous GAT attempt into local state. Idempotent via the
+  // ref guard — re-renders, theme toggles, and tab focus must not produce
+  // duplicate history entries.
+  //
+  // ORDER MATTERS: read previous BEFORE writing the new entry; otherwise
+  // the just-saved entry would itself be the "previous" and every diff
+  // would collapse to 0%.
+  useEffect(() => {
+    if (!showResults) return;
+    if (savedRef.current) return;
+    savedRef.current = true;
+
+    const correct = selectedAnswers.filter(
+      (a, i) => a === questions[i]?.correct,
+    ).length;
+    const percentage = questions.length > 0
+      ? Math.round((correct / questions.length) * 100)
+      : 0;
+
+    const stats: { [key: string]: { correct: number; total: number } } = {};
+    questions.forEach((q, index) => {
+      const key = `${q.section}-${q.category}`;
+      if (!stats[key]) stats[key] = { correct: 0, total: 0 };
+      stats[key].total++;
+      if (selectedAnswers[index] === q.correct) stats[key].correct++;
+    });
+    const histCats = Object.entries(stats).map(([key, s]) => ({
+      name: key.split("-")[1],
+      section: key.split("-")[0],
+      percentage: Math.round((s.correct / s.total) * 100),
+    }));
+
+    setPreviousEntry(getPreviousExam("gat"));
+    saveExamResult({
+      examKind: "gat",
+      score: percentage,
+      estimatedScore: Math.round(65 + percentage * 0.35),
+      avgTimePerQuestion:
+        questions.length > 0
+          ? Math.round((60 * 60 - timeLeft) / questions.length)
+          : 0,
+      categoryPerformance: histCats,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showResults]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -2025,6 +2085,24 @@ export default function GATTestPage() {
       total: stats.total,
     })).sort((a, b) => b.percentage - a.percentage);
 
+    // Single-line progress message (improvement / decline) vs previous GAT.
+    // `previousEntry` is populated by the on-finish save effect below. On the
+    // very first render after finishing, previousEntry is still null so this
+    // is null and nothing extra renders; on the next tick the effect fires,
+    // sets previousEntry, and the badge appears (same pattern as /test).
+    const progress = previousEntry
+      ? summarizeProgress({
+          current: categoryPerformance.map((c) => ({
+            name: c.name,
+            percentage: c.percentage,
+          })),
+          previous: previousEntry.categoryPerformance,
+          currentScore: percentage,
+          previousScore: previousEntry.score,
+          locale: "en",
+        })
+      : null;
+
     const strengths = categoryPerformance.filter(c => c.percentage >= 70).slice(0, 3);
     const weaknesses = categoryPerformance.filter(c => c.percentage < 70).slice(-3).reverse();
 
@@ -2062,6 +2140,25 @@ export default function GATTestPage() {
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Detailed Test Report</h1>
             <p className="text-gray-500 dark:text-gray-400">GAT Practice Test</p>
+            {/* Single-line progress vs previous GAT attempt. Renders only when
+                a comparable prior attempt exists AND the change clears the
+                noise threshold — otherwise the header looks identical to a
+                first-time attempt. Color reuses existing semantic palette
+                (green for improvement, red for decline) — no new design. */}
+            {progress && (
+              <div className="mt-3 flex justify-center">
+                <span
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+                    progress.direction === "up"
+                      ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+                      : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
+                  }`}
+                >
+                  <span aria-hidden>{progress.direction === "up" ? "↑" : "↓"}</span>
+                  {progress.message}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Main Score Card */}
@@ -2406,6 +2503,15 @@ export default function GATTestPage() {
                 setCurrentQuestion(0);
                 setSelectedAnswers(Array(questions.length).fill(null));
                 setTimeLeft(60 * 60);
+                // Reset the exam-history save guard so the NEXT finish saves
+                // a fresh entry. Without this, the in-place retry would skip
+                // saving (savedRef stays true from the prior attempt) and
+                // the progress badge would compare against stale data.
+                // Also clear previousEntry so the badge doesn't briefly
+                // flash old comparison data on the next results screen
+                // before the new save effect refreshes it.
+                savedRef.current = false;
+                setPreviousEntry(null);
               }}
               className="flex-1 py-3 border-2 border-[#006C35] text-[#006C35] dark:text-[#4ade80] font-bold rounded-xl hover:bg-[#006C35]/5 transition-colors"
             >

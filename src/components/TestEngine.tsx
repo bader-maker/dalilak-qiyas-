@@ -14,6 +14,12 @@ import {
   getSectionLabel
 } from "@/data/questions";
 import { generateAIHint } from "@/lib/aiHint";
+import {
+  saveExamResult,
+  getPreviousExam,
+  summarizeProgress,
+  type ExamHistoryEntry,
+} from "@/lib/examHistory";
 
 interface Question {
   id: number;
@@ -118,6 +124,12 @@ export default function TestEngine({
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<(number | null)[]>([]);
   const [showResults, setShowResults] = useState(false);
+  // Snapshot of the previous attempt of the SAME examKind (category +
+  // mode + section). Captured once at finish-time before saving the new
+  // entry. Drives the short progress message at the top of the results
+  // panel; null = no comparable prior attempt → message simply not shown.
+  const [previousEntry, setPreviousEntry] = useState<ExamHistoryEntry | null>(null);
+  const examHistorySavedRef = useRef(false);
   const [timeLeft, setTimeLeft] = useState(0);
   const [showExplanation, setShowExplanation] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -225,6 +237,51 @@ export default function TestEngine({
     questions.forEach((q) => used.add(questionKey(q)));
     writeUsedQuestionIds(examCategory, used);
   }, [showResults, questions, examCategory]);
+
+  // Save this attempt to exam history (for next-attempt comparison) and
+  // capture the previous comparable attempt into local state. Runs once
+  // per finished test — re-renders, theme toggles, and tab focus changes
+  // can re-fire this effect, so the ref guard makes the side effect
+  // strictly idempotent.
+  //
+  // ORDER MATTERS: read previous BEFORE writing the new entry, otherwise
+  // the freshly-saved entry would itself be returned as "previous" and
+  // every comparison would show 0% delta.
+  useEffect(() => {
+    if (!showResults || questions.length === 0) return;
+    if (examHistorySavedRef.current) return;
+    examHistorySavedRef.current = true;
+
+    const percentage =
+      Math.round(
+        (selectedAnswers.filter((a, i) => a === questions[i]?.correct).length /
+          questions.length) *
+          100,
+      );
+    const sectionScores = getSectionScores();
+    const historyCategories = Object.entries(sectionScores).map(([sid, s]) => ({
+      name: getSectionLabel(examCategory, sid, isArabic ? "ar" : "en"),
+      section: sid,
+      percentage: s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0,
+    }));
+    const examKind =
+      testMode === "section" && selectedSection
+        ? `${examCategory}-section-${selectedSection}`
+        : `${examCategory}-comprehensive`;
+
+    setPreviousEntry(getPreviousExam(examKind));
+    saveExamResult({
+      examKind,
+      score: percentage,
+      estimatedScore: Math.round(65 + percentage * 0.35),
+      avgTimePerQuestion:
+        questions.length > 0
+          ? Math.round(((testParams?.timeMinutes || 60) * 60 - timeLeft) / questions.length)
+          : 0,
+      categoryPerformance: historyCategories,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showResults]);
 
   // Timer
   useEffect(() => {
@@ -374,6 +431,48 @@ export default function TestEngine({
     const avgTimePerQuestion = questions.length > 0 ? Math.round(timeSpent / questions.length) : 0;
     const estimatedScore = Math.round(65 + (percentage * 0.35));
 
+    // ===== Build per-section history payload =====
+    // The shared exam-history layer compares attempts by category NAME, not
+    // by section id. We translate sectionId → human label HERE (e.g.
+    // "physics_ar" → "الفيزياء" / "Physics") so the saved entry matches
+    // exactly what the result UI shows AND so the next-attempt comparison
+    // produces a phrase the user can read directly: "تحسّنت في الفيزياء…".
+    // Locale follows the test's locale so AR exams persist Arabic names
+    // and EN exams persist English names — they never get mixed in one
+    // examKind because examKind embeds the category (which embeds language).
+    const historyCategories = Object.entries(sectionScores).map(([sid, s]) => ({
+      name: getSectionLabel(examCategory, sid, isArabic ? "ar" : "en"),
+      section: sid,
+      percentage: s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0,
+    }));
+
+    // ===== examKind discriminator =====
+    // Comprehensive vs section attempts must NEVER be compared (very
+    // different question counts and section coverage → misleading deltas).
+    // Section attempts must also be scoped to their section so that doing
+    // a Physics test today vs a Chemistry test yesterday doesn't get
+    // diffed. examKind embeds all three axes so reads via getPreviousExam
+    // only return truly comparable attempts.
+    const examKind =
+      testMode === "section" && selectedSection
+        ? `${examCategory}-section-${selectedSection}`
+        : `${examCategory}-comprehensive`;
+
+    // Single-line progress message vs the previous comparable attempt.
+    // `previousEntry` is populated by the on-finish save effect (defined
+    // earlier in this component). On the very first render after finishing
+    // it's still null so progress is null and nothing extra renders; on the
+    // next tick the effect fires, sets previousEntry, and the badge appears.
+    const progress = previousEntry
+      ? summarizeProgress({
+          current: historyCategories,
+          previous: previousEntry.categoryPerformance,
+          currentScore: percentage,
+          previousScore: previousEntry.score,
+          locale: isArabic ? "ar" : "en",
+        })
+      : null;
+
     return (
       <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4 transition-colors duration-300`} dir={isArabic ? "rtl" : "ltr"}>
         <div className="max-w-4xl mx-auto">
@@ -385,6 +484,24 @@ export default function TestEngine({
             <p className="text-gray-500 dark:text-gray-400">
               {examConfig.name} {isTrialTest ? (isArabic ? "(تجريبي)" : "(Trial)") : ""}
             </p>
+            {/* Progress badge — only visible when a comparable previous
+                attempt exists AND the change is non-trivial. Reuses the
+                existing semantic palette (green = improvement, red =
+                decline) and existing pill shape; no new design tokens. */}
+            {progress && (
+              <div className="mt-3 flex justify-center">
+                <span
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+                    progress.direction === "up"
+                      ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+                      : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
+                  }`}
+                >
+                  <span aria-hidden>{progress.direction === "up" ? "↑" : "↓"}</span>
+                  {progress.message}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Main Score Card */}
