@@ -22,8 +22,19 @@ bun run dev -- -p 5000
   Speed thresholds (`FAST_SECONDS=15`, `SLOW_SECONDS=45`) are tuned to the practice page's 90-second timer and exported for future tuning.
 - **Full exams** (`src/components/TestEngine.tsx`, `/test`, `/test-gat`) use a separate engine and are intentionally NOT touched by the practice-page adaptive logic.
 
+## Persistent user profile
+
+Long-running, cross-session aggregate of the student's practice performance, stored under the `user_profile` localStorage key (separate from `TrainingContext`'s per-question history under `dalilak_training_state`).
+
+- **Module:** `src/lib/userProfile.ts` (pure data layer — SSR-safe, corruption-safe, versioned).
+- **Stored:** raw counters only (totals + per-topic counters: `answered`, `correct`, `timeSeconds`, `timedAnswered`, `hintsUsed`) plus `version`, `updatedAt`, `sessionsCompleted`. Storing counters (not pre-computed rates) means future signal additions don't require migrating historical data.
+- **Updated:** at session end (when the practice page flips to results) — `applySessionToProfile(loadUserProfile(), payload)` then `saveUserProfile(...)`. A ref-based guard ensures one save per session reference; on a transient storage failure the guard stays clear so the next re-render retries.
+- **Derived signals (`summarizeProfile`):** strongest topics (top 3 by accuracy with ≥5 answered), weakest topics (bottom 3 same gating), average accuracy, average speed (seconds per timed answer), hint usage rate.
+- **Recommendations (`getStudyRecommendations`):** returns weakest topics as `recommendedTopics` and a starting `recommendedDifficulty` (using the same <50 / 50–80 / >80 boundaries as the per-session adaptive engine), gated by `hasEnoughData` (≥1 session AND ≥5 total answers).
+- **Future use:** the picker and training engine can call `getStudyRecommendations(loadUserProfile())` at session-start to bias topic selection toward weak areas and pick a sensible starting difficulty.
+
 ## Conventions
 
 - All UI strings are Arabic; layout is RTL by default. Use `dir="rtl"` and `unicodeBidi: "isolate"` when mixing numerals/Latin text inside Arabic strings.
 - Brand colors are referenced as Tailwind arbitrary values (`text-[#006C35]`, `bg-[#D4AF37]/10`, etc.).
-- Per-question signal state (`answers`, `times`, `hints`) MUST be kept index-parallel through every mutation — including the in-session `practiceSimilar` insertion and both session-build branches.
+- Per-question signal state (`answers`, `times`, `hints`) MUST be kept index-parallel through every mutation — including the in-session `practiceSimilar` insertion and both session-build branches. The session-end profile-save effect relies on this.

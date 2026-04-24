@@ -15,6 +15,12 @@ import {
   summarizePerformance,
   composeUpcomingByDifficulty,
 } from "@/lib/adaptiveDifficulty";
+import {
+  loadUserProfile,
+  saveUserProfile,
+  applySessionToProfile,
+  type SessionAnswer,
+} from "@/lib/userProfile";
 import TrainingAICoachCard from "@/components/TrainingAICoachCard";
 import TestPatternIndicator from "@/components/TestPatternIndicator";
 import type { AIAnalysisInput } from "@/lib/aiAnalysis";
@@ -1575,6 +1581,59 @@ function PracticeTestContent() {
     requestedTopicsKey,
     adaptiveShuffle,
   ]);
+
+  // ===== Persistent user profile (long-running aggregate) =====
+  // When a session ends (showResults flips to true) we fold the answered
+  // questions into the `user_profile` localStorage entry: per-topic
+  // counters, totals, and hint usage. The profile drives strongest/weakest
+  // topic detection, average accuracy/speed, and the recommended next
+  // difficulty for future sessions.
+  //
+  // The save MUST run exactly once per completed session — re-renders or
+  // user navigation must not double-count. We key the guard to the
+  // `questions` array identity so a brand-new session (questions array
+  // replaced) re-arms the guard, while in-place re-renders of the same
+  // session don't.
+  const profileSavedForSessionRef = useRef<TrainingQuestion[] | null>(null);
+  useEffect(() => {
+    if (!showResults) return;
+    if (questions.length === 0) return;
+    // Already persisted for this exact session reference — no double-save.
+    if (profileSavedForSessionRef.current === questions) return;
+
+    // Build the per-question session payload, skipping unanswered slots.
+    // `answers`, `times`, `hints` are kept index-parallel everywhere they
+    // mutate, so reading at `i` is safe.
+    const payload: SessionAnswer[] = [];
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i];
+      const a = answers[i];
+      // Skip unanswered questions — they shouldn't affect averages.
+      if (!q || a == null) continue;
+      payload.push({
+        topic: q.topic,
+        isCorrect: a === q.correct,
+        timeSpent: times[i] ?? null,
+        hintUsed: hints[i] === true,
+      });
+    }
+    if (payload.length === 0) return;
+
+    // Persist first, then pin the guard ONLY on success. If the write
+    // fails (quota, private-mode, etc.), the guard stays clear so a
+    // subsequent re-render of the results screen will retry — this is
+    // best-effort persistence without losing data on transient failures.
+    try {
+      const next = applySessionToProfile(loadUserProfile(), payload);
+      const ok = saveUserProfile(next);
+      if (ok) {
+        profileSavedForSessionRef.current = questions;
+      }
+    } catch {
+      // Aggregation/serialization failures shouldn't break the results
+      // screen. Leaving the guard unset allows a retry on next render.
+    }
+  }, [showResults, questions, answers, times, hints]);
 
   useEffect(() => {
     if (timeLeft > 0 && !showExplanation && !showResults && questions.length > 0) {
