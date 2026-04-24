@@ -12,6 +12,7 @@ import {
   shuffleQuestions,
   getSectionLabel
 } from "@/data/questions";
+import { generateAIHint } from "@/lib/aiHint";
 
 interface Question {
   id: number;
@@ -119,6 +120,14 @@ export default function TestEngine({
   const [timeLeft, setTimeLeft] = useState(0);
   const [showExplanation, setShowExplanation] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  // AI hint cache: keyed by per-question content hash so the same question
+  // never triggers more than one API call, even across navigation back/forth.
+  // Value is the hint string; presence in the map = "shown".
+  const [hintCache, setHintCache] = useState<Record<string, string>>({});
+  // Stable key of the question currently being requested (null when idle).
+  const [hintLoadingKey, setHintLoadingKey] = useState<string | null>(null);
+  // Per-question error message (transient, shown until the user navigates).
+  const [hintErrors, setHintErrors] = useState<Record<string, string>>({});
 
   // Initialize test
   useEffect(() => {
@@ -209,6 +218,44 @@ export default function TestEngine({
 
   const finishTest = () => {
     setShowResults(true);
+  };
+
+  // AI hint request — strictly one network call per question. Subsequent
+  // clicks (or revisits of the same question) read from local + persistent
+  // cache. Cost cap is enforced server-side via the shared monthly quota.
+  const requestHint = async () => {
+    const q = questions[currentQuestion];
+    if (!q) return;
+    const key = questionKey(q);
+    if (hintCache[key]) return; // already have it for this question
+    if (hintLoadingKey === key) return; // request in flight
+    setHintLoadingKey(key);
+    setHintErrors((prev) => {
+      if (!(key in prev)) return prev;
+      const { [key]: _omit, ...rest } = prev;
+      return rest;
+    });
+    try {
+      const hint = await generateAIHint({
+        question: q.question,
+        options: q.options,
+        section: (q as Question & { section?: string }).section,
+        category: examConfig.nameEn,
+        language: isArabic ? "ar" : "en",
+      });
+      if (hint) {
+        setHintCache((prev) => ({ ...prev, [key]: hint }));
+      } else {
+        setHintErrors((prev) => ({
+          ...prev,
+          [key]: isArabic
+            ? "تعذّر توليد التلميح حالياً."
+            : "Couldn't generate a hint right now.",
+        }));
+      }
+    } finally {
+      setHintLoadingKey((current) => (current === key ? null : current));
+    }
   };
 
   const calculateScore = () => {
@@ -601,6 +648,50 @@ export default function TestEngine({
               );
             })}
           </div>
+
+          {/* AI Hint — optional, one network call per question, hidden once
+              the answer is revealed (the explanation supersedes it). */}
+          {!showExplanation && (() => {
+            const qKey = questionKey(currentQ);
+            const cachedHint = hintCache[qKey];
+            const isLoadingHint = hintLoadingKey === qKey;
+            const errorMsg = hintErrors[qKey];
+            return (
+              <div className="mb-6">
+                {!cachedHint && (
+                  <button
+                    type="button"
+                    onClick={requestHint}
+                    disabled={isLoadingHint}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-[#D4AF37]/40 dark:border-[#D4AF37]/30 bg-[#D4AF37]/10 dark:bg-[#D4AF37]/10 text-[#8a6d12] dark:text-[#E8C547] text-sm font-medium hover:bg-[#D4AF37]/20 dark:hover:bg-[#D4AF37]/20 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 18h6M10 22h4M12 2a7 7 0 00-4 12.7c.6.5 1 1.2 1 2V17h6v-.3c0-.8.4-1.5 1-2A7 7 0 0012 2z" />
+                    </svg>
+                    {isLoadingHint
+                      ? (isArabic ? "جارٍ توليد التلميح…" : "Generating hint…")
+                      : (isArabic ? "إظهار تلميح" : "Show Hint")}
+                  </button>
+                )}
+                {cachedHint && (
+                  <div className="p-3 rounded-xl border border-[#D4AF37]/40 bg-[#D4AF37]/10 dark:bg-[#D4AF37]/10">
+                    <div className="flex items-center gap-2 mb-1">
+                      <svg className="w-4 h-4 text-[#8a6d12] dark:text-[#E8C547]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 18h6M10 22h4M12 2a7 7 0 00-4 12.7c.6.5 1 1.2 1 2V17h6v-.3c0-.8.4-1.5 1-2A7 7 0 0012 2z" />
+                      </svg>
+                      <span className="text-sm font-bold text-[#8a6d12] dark:text-[#E8C547]">
+                        {isArabic ? "تلميح" : "Hint"}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed">{cachedHint}</p>
+                  </div>
+                )}
+                {errorMsg && !cachedHint && (
+                  <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">{errorMsg}</p>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Explanation */}
           {showExplanation && selectedAnswers[currentQuestion] !== null && (
