@@ -1178,6 +1178,12 @@ function PracticeTestContent() {
   const [showResults, setShowResults] = useState(false);
   const [timeLeft, setTimeLeft] = useState(90);
   const [questions, setQuestions] = useState<TrainingQuestion[]>([]);
+  // Per-question hint-usage flags (parallel to `answers` and `times`).
+  // True at index `i` means the user revealed the hint while working on
+  // question `i`. Used by the adaptive-difficulty engine as a "needs help"
+  // signal — heavy hint usage pulls the next batch toward easier questions.
+  // Local to this session only; never sent to the server.
+  const [hints, setHints] = useState<boolean[]>([]);
   // Lightweight per-question state — cleared on every advance.
   const [showHint, setShowHint] = useState(false);
   // Pool of all enriched questions for the current topic — used by "تدرب على نفس النمط".
@@ -1345,6 +1351,7 @@ function PracticeTestContent() {
       setQuestions(selected);
       setAnswers(new Array(selected.length).fill(null));
       setTimes(new Array(selected.length).fill(null));
+      setHints(new Array(selected.length).fill(false));
       setTopicPool(enrichedAll);
       return;
     }
@@ -1409,6 +1416,7 @@ function PracticeTestContent() {
     setQuestions(selected);
     setAnswers(new Array(selected.length).fill(null));
     setTimes(new Array(selected.length).fill(null));
+    setHints(new Array(selected.length).fill(false));
     setTopicPool(enrichedAll);
   }, [topic, questionCount, difficulty, branch, focus, requestedTopicsKey]);
 
@@ -1488,7 +1496,17 @@ function PracticeTestContent() {
       return;
     }
 
-    const perf = summarizePerformance(answers, questions, ADAPT_EVERY);
+    // Pass the per-question signal arrays so the helper can apply
+    // speed-based and hint-based adjustments on top of the accuracy
+    // base. Both arrays are parallel to `answers` (same indexing); the
+    // helper safely treats missing entries as "no signal".
+    const perf = summarizePerformance(
+      answers,
+      questions,
+      times,
+      hints,
+      ADAPT_EVERY,
+    );
 
     // Build the exclusion set: every question already in front of the
     // upcoming slice (answered or current) must NOT be reintroduced.
@@ -1548,6 +1566,8 @@ function PracticeTestContent() {
   }, [
     answers,
     questions,
+    times,
+    hints,
     currentIndex,
     topicPool,
     difficulty,
@@ -1626,6 +1646,10 @@ function PracticeTestContent() {
     const newQs = [...questions.slice(0, insertAt), next, ...questions.slice(insertAt)];
     const newAns = [...answers.slice(0, insertAt), null, ...answers.slice(insertAt)];
     const newTimes = [...times.slice(0, insertAt), null, ...times.slice(insertAt)];
+    // Keep `hints` parallel to `answers`/`times` after the in-session insert
+    // so the adaptive engine can keep reading per-question signals at the
+    // correct indices.
+    const newHints = [...hints.slice(0, insertAt), false, ...hints.slice(insertAt)];
     // Pin the new array identity into the adaptive-difficulty session ref
     // BEFORE committing it, so the adaptive effect's identity-based
     // session detector treats this in-session insert as the SAME session
@@ -1636,6 +1660,7 @@ function PracticeTestContent() {
     setQuestions(newQs);
     setAnswers(newAns);
     setTimes(newTimes);
+    setHints(newHints);
     setCurrentIndex(insertAt);
     setSelectedAnswer(null);
     setShowExplanation(false);
@@ -1757,7 +1782,23 @@ function PracticeTestContent() {
             <div className="mb-4">
               {!showHint ? (
                 <button
-                  onClick={() => setShowHint(true)}
+                  onClick={() => {
+                    setShowHint(true);
+                    // Record that the user revealed the hint for this
+                    // question. Functional updater so we don't race with
+                    // any other in-flight state changes (e.g. rapid taps).
+                    // Index check guards against the unlikely case where
+                    // the question array length doesn't yet match `hints`.
+                    setHints((prev) => {
+                      if (currentIndex < 0 || currentIndex >= prev.length) {
+                        return prev;
+                      }
+                      if (prev[currentIndex]) return prev;
+                      const next = prev.slice();
+                      next[currentIndex] = true;
+                      return next;
+                    });
+                  }}
                   className="px-4 py-2 rounded-xl border-2 border-dashed border-[#D4AF37] text-[#D4AF37] dark:text-[#fbbf24] text-sm font-bold hover:bg-[#D4AF37]/10 transition"
                 >
                   💡 عرض تلميح
