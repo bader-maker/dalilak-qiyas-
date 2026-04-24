@@ -185,15 +185,15 @@ export default function Dashboard() {
   const goToTest = () => {
     if (examType === "qudurat") {
       if (quduratType === "general") {
-        router.push("/test");
+        router.push("/test/qudrat-ar");
       } else {
-        router.push("/test-gat");
+        router.push("/test/gat-en");
       }
     } else {
       if (tahsiliType === "tahsili") {
-        router.push("/test-tahsili");
+        router.push("/test/tahsili-ar");
       } else {
-        router.push("/test-saat");
+        router.push("/test/saat-en");
       }
     }
   };
@@ -759,8 +759,8 @@ export default function Dashboard() {
             </div>
             <Link
               href={examType === "qudurat"
-                ? `/test/${quduratType === "general" ? quduratGeneralFreeTest.id : gatFreeTest.id}`
-                : (tahsiliType === "tahsili" ? "/test-tahsili" : "/test-saat")
+                ? (quduratType === "general" ? "/test/qudrat-ar" : "/test/gat-en")
+                : (tahsiliType === "tahsili" ? "/test/tahsili-ar" : "/test/saat-en")
               }
               className="bg-[#D4AF37] text-black font-bold py-2 px-6 rounded-lg hover:bg-[#E8C547] transition-colors mr-auto"
             >
