@@ -118,6 +118,59 @@ export function categoryNameToSlug(label: string | undefined | null): TopicSlug 
 }
 
 // =============================================================================
+// Slug → display label (reverse direction)
+//
+// The forward map (TOPIC_LABEL_TO_SLUG) is intentionally many-to-one — both
+// "الجبر" and "Algebra" point to the same slug "algebra". For UI display
+// we need the OPPOSITE: given a stable slug, what is the canonical Arabic
+// or English label to show the user? These two maps pick one canonical
+// label per slug per language. Used by the result-page progress-insights
+// card to render messages like "تحسنت في الجبر بنسبة 20%" without each
+// caller having to hand-code its own slug-to-label mapping.
+// =============================================================================
+const SLUG_TO_AR_LABEL: Record<TopicSlug, string> = {
+  algebra: "الجبر",
+  geometry: "الهندسة",
+  ratios: "النسب والتناسب",
+  statistics: "الإحصاء",
+  analogy: "التناظر اللفظي",
+  completion: "إكمال الجمل",
+  comprehension: "استيعاب المقروء",
+  contextual: "الخطأ السياقي",
+  vocabulary: "معاني المفردات",
+  antonyms: "المتضادات",
+  odd_word: "المفردة الشاذة",
+};
+
+const SLUG_TO_EN_LABEL: Record<TopicSlug, string> = {
+  algebra: "Algebra",
+  geometry: "Geometry",
+  ratios: "Ratios",
+  statistics: "Statistics",
+  analogy: "Analogies",
+  completion: "Sentence Completion",
+  comprehension: "Reading Comprehension",
+  contextual: "Contextual Error",
+  vocabulary: "Vocabulary",
+  antonyms: "Antonyms",
+  odd_word: "Odd Word Out",
+};
+
+/**
+ * Render a topic slug as a human label in the requested language.
+ *
+ * Falls back to the raw slug for unknown values (e.g. an exam-history
+ * entry that landed under an unmapped category name). Never returns
+ * empty — caller can render the result directly.
+ */
+export function slugToDisplayLabel(slug: string, lang: "ar" | "en"): string {
+  if (isKnownTopicSlug(slug)) {
+    return lang === "ar" ? SLUG_TO_AR_LABEL[slug] : SLUG_TO_EN_LABEL[slug];
+  }
+  return slug;
+}
+
+// =============================================================================
 // Exam-bank index → topic layout
 //
 // Each entry describes the order of sub-topic blocks within ONE bank section.

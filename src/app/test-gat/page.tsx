@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "@/contexts/ThemeContext";
 import AIAssistant from "@/components/AIAssistant";
-import { categoryNameToSlug } from "@/lib/topicMap";
+import { categoryNameToSlug, slugToDisplayLabel } from "@/lib/topicMap";
 import {
   saveExamResult,
   getPreviousExam,
@@ -17,6 +17,9 @@ import {
   saveUserProfile,
   applyDiagnosticToProfile,
   reconcileExamHistoryToProfile,
+  getMostImproved,
+  getMostDeclined,
+  type TopicImprovement,
 } from "@/lib/userProfile";
 
 // GAT Questions in English
@@ -1951,6 +1954,14 @@ export default function GATTestPage() {
   // shown at the top of the results page. Stays null when this is the
   // user's first GAT attempt — the message is then simply not rendered.
   const [previousEntry, setPreviousEntry] = useState<ExamHistoryEntry | null>(null);
+  // Captured at the moment of the diagnostic save effect so the result JSX
+  // can render a small "progress over time" card without re-reading
+  // localStorage. Top entries from getMostImproved/getMostDeclined applied
+  // to the freshly-reconciled profile. Null until the effect has run.
+  const [progressInsightsCard, setProgressInsightsCard] = useState<{
+    improved: TopicImprovement | null;
+    declined: TopicImprovement | null;
+  } | null>(null);
   const savedRef = useRef(false);
 
   useEffect(() => {
@@ -2025,6 +2036,14 @@ export default function GATTestPage() {
       // of the data combine.
       next = reconcileExamHistoryToProfile(next, loadHistory());
       saveUserProfile(next);
+      // Capture the top mover in each direction off the freshly-reconciled
+      // profile. This is the data the small "progress over time" card on
+      // the results screen renders. Cheap (O(topics) over a bounded
+      // timeline) and runs at most once per result-screen mount.
+      setProgressInsightsCard({
+        improved: getMostImproved(next, 1)[0] ?? null,
+        declined: getMostDeclined(next, 1)[0] ?? null,
+      });
     } catch {
       /* best-effort persistence — profile bias just won't update this round */
     }
@@ -2476,6 +2495,43 @@ export default function GATTestPage() {
               </li>
             </ul>
           </div>
+
+          {/* ===== Progress over time (combine of diagnostic + sessions + previous exams) =====
+              Renders only when the per-topic timeline has at least one
+              topic crossing the ±PROGRESS_TREND_THRESHOLD bar in either
+              direction. Same card style as the Smart Insights card above;
+              uses the existing red/green pill treatment. Pure additive —
+              when there isn't enough trend data yet, the card is omitted
+              and the surrounding layout is unchanged. */}
+          {progressInsightsCard && (
+            (progressInsightsCard.improved?.trend === "improving" ||
+              progressInsightsCard.declined?.trend === "declining") && (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 mb-6 border border-gray-200 dark:border-gray-700">
+                <h3 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                  <span>📊</span>
+                  Your Progress Over Time
+                </h3>
+                <div className="space-y-3">
+                  {progressInsightsCard.improved?.trend === "improving" && (
+                    <div className="flex items-start gap-3 p-3 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                      <span className="text-lg shrink-0">📈</span>
+                      <p className="text-sm text-green-800 dark:text-green-300 leading-relaxed">
+                        {`You improved in ${slugToDisplayLabel(progressInsightsCard.improved.topic, 'en')} by ${Math.round(progressInsightsCard.improved.deltaPct)}%`}
+                      </p>
+                    </div>
+                  )}
+                  {progressInsightsCard.declined?.trend === "declining" && (
+                    <div className="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                      <span className="text-lg shrink-0">📉</span>
+                      <p className="text-sm text-red-800 dark:text-red-300 leading-relaxed">
+                        {`Your performance in ${slugToDisplayLabel(progressInsightsCard.declined.topic, 'en')} declined by ${Math.round(Math.abs(progressInsightsCard.declined.deltaPct))}%`}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          )}
 
           {/* Question Summary */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 mb-6 border border-gray-200 dark:border-gray-700">
