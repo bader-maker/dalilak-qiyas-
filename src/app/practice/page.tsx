@@ -1,24 +1,43 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "@/contexts/ThemeContext";
 
-// Maps a `focus` query-param value (sent from full-exam result pages)
-// to the practice page's section state.
-//   - quantitative_ar / quantitative_en → "quantitative"
-//   - verbal_ar / verbal_en → "verbal"
-//   - Tahsili values (math_ar, physics_ar, chemistry_ar, biology_ar
-//     and their _en variants) have no matching section in this page —
-//     return null so the existing default ("quantitative") is used.
+// `focusToSection` maps a `focus` query-param value to the practice
+// page's tab state. Only Qudrat-AR values map here — they are the only
+// sections this page's topic grid actually has content for. Every other
+// supported focus value (GAT-EN, Tahsili-AR, SAAT-EN) is handled by a
+// direct redirect to /practice/test (see EXAM_BANK_FOCUS_VALUES below)
+// because the topic grid has no matching topics for those banks.
 function focusToSection(focus: string | null): "quantitative" | "verbal" | null {
   if (!focus) return null;
   const f = focus.toLowerCase();
-  if (f === "quantitative_ar" || f === "quantitative_en") return "quantitative";
-  if (f === "verbal_ar" || f === "verbal_en") return "verbal";
+  if (f === "quantitative_ar") return "quantitative";
+  if (f === "verbal_ar") return "verbal";
   return null;
 }
+
+// Focus values that drive a session straight from one of the four
+// exam banks (handled inside /practice/test). For these we skip the
+// Qudrat topic-selection UI on /practice — the user came in with a
+// specific weakest section and just wants questions from that bank.
+const EXAM_BANK_FOCUS_VALUES = new Set<string>([
+  // GAT (English)
+  "quantitative_en",
+  "verbal_en",
+  // Tahsili (Arabic)
+  "math_ar",
+  "physics_ar",
+  "chemistry_ar",
+  "biology_ar",
+  // SAAT (English)
+  "math_en",
+  "physics_en",
+  "chemistry_en",
+  "biology_en",
+]);
 
 // Practice categories with question counts
 const practiceCategories = {
@@ -265,6 +284,29 @@ function PracticePageInner() {
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all");
   const [questionCount, setQuestionCount] = useState(10);
   const [showSettings, setShowSettings] = useState(false);
+
+  // For exam-bank focus values (GAT-EN, Tahsili-AR, SAAT-EN), the
+  // topic grid below has no matching topics, so we skip it entirely
+  // and deep-link straight into a training session that pulls from
+  // the appropriate exam bank. Guarded by a ref so the redirect runs
+  // exactly once and never on later renders. Qudrat-AR focus values
+  // (and missing/unsupported values) are NOT redirected — they keep
+  // the original tab + topic-picker flow.
+  const redirectedToExamBank = useRef(false);
+  useEffect(() => {
+    if (redirectedToExamBank.current) return;
+    const focus = searchParams.get("focus");
+    if (!focus) return;
+    const normalized = focus.toLowerCase();
+    if (!EXAM_BANK_FOCUS_VALUES.has(normalized)) return;
+    redirectedToExamBank.current = true;
+    const params = new URLSearchParams({
+      focus: normalized,
+      count: "10",
+      difficulty: "all",
+    });
+    router.replace(`/practice/test?${params.toString()}`);
+  }, [searchParams, router]);
 
   const currentSection = practiceCategories[selectedSection];
   const selectedTopicData = currentSection.topics.find(t => t.id === selectedTopic);

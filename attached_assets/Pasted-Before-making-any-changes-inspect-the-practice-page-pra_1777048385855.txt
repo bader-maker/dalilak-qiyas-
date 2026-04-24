@@ -1,0 +1,113 @@
+Before making any changes, inspect the practice page, practice/test page, training engine, and question banks.
+
+IMPORTANT:
+- Do NOT redesign UI
+- Do NOT change colors, layout, spacing, typography, cards, or buttons
+- Do NOT break existing Qudrat training
+- Only extend logic to support all exam categories
+- Keep changes additive and production-safe
+
+GOAL:
+Extend the training system so it supports all four exam categories:
+
+1. Qudrat / قدرات
+- quantitative_ar
+- verbal_ar
+
+2. GAT
+- quantitative_en
+- verbal_en
+
+3. Tahsili / تحصيلي
+- math_ar
+- physics_ar
+- chemistry_ar
+- biology_ar
+
+4. SAAT
+- math_en
+- physics_en
+- chemistry_en
+- biology_en
+
+CURRENT ISSUE:
+The practice page currently supports only:
+- quantitative
+- verbal
+
+And focus params like:
+- physics_ar
+- chemistry_ar
+- math_en
+- verbal_en
+
+are not fully handled.
+
+TASK:
+
+1. Inspect current practice page state:
+- selectedSection
+- selectedTopic
+- selectedBranch
+- focus param handling
+- route to /practice/test
+
+2. Extend supported training sections safely.
+
+Supported focus values:
+- quantitative_ar → Qudrat quantitative
+- verbal_ar → Qudrat verbal
+- quantitative_en → GAT quantitative
+- verbal_en → GAT verbal
+- math_ar → Tahsili math
+- physics_ar → Tahsili physics
+- chemistry_ar → Tahsili chemistry
+- biology_ar → Tahsili biology
+- math_en → SAAT math
+- physics_en → SAAT physics
+- chemistry_en → SAAT chemistry
+- biology_en → SAAT biology
+
+3. Update focus mapping:
+When user visits:
+/practice?focus=<value>
+
+The practice page should select the correct training category/section if supported.
+
+4. Update question filtering:
+Training sessions must only show questions from the selected category/section.
+
+Examples:
+- focus=physics_ar → only Tahsili Arabic physics questions
+- focus=verbal_en → only GAT verbal questions
+- focus=biology_en → only SAAT biology questions
+
+5. Reuse existing question banks where possible:
+- src/data/questions/qudrat-ar.ts
+- src/data/questions/gat-en.ts
+- src/data/questions/tahsili-ar.ts
+- src/data/questions/saat-en.ts
+
+6. Do NOT:
+- create a new design
+- create unrelated pages
+- change TestEngine
+- change full exam result pages
+- modify subscriptions
+- modify AI analysis routes unless absolutely necessary
+
+7. If a training category is not fully supported yet:
+- add a safe fallback
+- do not crash
+- explain clearly what remains unsupported
+
+8. Preserve existing Qudrat training behavior:
+- quantitative_ar and verbal_ar must continue working exactly as before
+
+DELIVERABLES:
+1. what files were modified
+2. what training sections are now supported
+3. how focus values map to training sections
+4. how questions are filtered per section
+5. what fallback behavior exists
+6. confirm no UI redesign

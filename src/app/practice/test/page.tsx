@@ -14,6 +14,68 @@ import {
 import TrainingAICoachCard from "@/components/TrainingAICoachCard";
 import TestPatternIndicator from "@/components/TestPatternIndicator";
 import type { AIAnalysisInput } from "@/lib/aiAnalysis";
+import { getQuestions } from "@/data/questions";
+import type { ExamCategory, ExamSection } from "@/data/exam-config";
+
+// ===== Exam-bank focus support =====
+// When the URL contains `?focus=<value>`, the training session is
+// sourced from one of the four full-exam question banks instead of the
+// in-file legacy `trainingQuestions` array (which is Qudrat-AR only).
+// This lets a single page serve all 12 supported sections without any
+// UI redesign — the existing rendering, scoring, AI coach card, and
+// results screen all work as-is because each exam-bank question is
+// shaped into the same `TrainingQuestion` interface.
+//
+// The legacy Qudrat-AR flow (no `?focus=` param, or `?focus=quantitative_ar`
+// / `?focus=verbal_ar`) is not handled here — it stays on the legacy
+// in-file pool with full topic/branch/subtype metadata.
+type ExamBankMapping = {
+  category: ExamCategory;
+  section: ExamSection;
+  // Display labels used inside each shaped TrainingQuestion. These end
+  // up in the AI coach's per-category aggregates and in `q.section` /
+  // `q.category` references throughout the engine.
+  sectionLabel: string;
+  categoryLabel: string;
+};
+
+const FOCUS_TO_EXAM_BANK: Record<string, ExamBankMapping> = {
+  // GAT (English) — separate bank from Qudrat
+  quantitative_en: { category: "gat_en",     section: "quantitative_en", sectionLabel: "GAT",     categoryLabel: "Quantitative" },
+  verbal_en:       { category: "gat_en",     section: "verbal_en",       sectionLabel: "GAT",     categoryLabel: "Verbal" },
+  // Tahsili (Arabic)
+  math_ar:         { category: "tahsili_ar", section: "math_ar",         sectionLabel: "تحصيلي", categoryLabel: "الرياضيات" },
+  physics_ar:      { category: "tahsili_ar", section: "physics_ar",      sectionLabel: "تحصيلي", categoryLabel: "الفيزياء" },
+  chemistry_ar:    { category: "tahsili_ar", section: "chemistry_ar",    sectionLabel: "تحصيلي", categoryLabel: "الكيمياء" },
+  biology_ar:      { category: "tahsili_ar", section: "biology_ar",      sectionLabel: "تحصيلي", categoryLabel: "الأحياء" },
+  // SAAT (English)
+  math_en:         { category: "saat_en",    section: "math_en",         sectionLabel: "SAAT",    categoryLabel: "Math" },
+  physics_en:      { category: "saat_en",    section: "physics_en",      sectionLabel: "SAAT",    categoryLabel: "Physics" },
+  chemistry_en:    { category: "saat_en",    section: "chemistry_en",    sectionLabel: "SAAT",    categoryLabel: "Chemistry" },
+  biology_en:      { category: "saat_en",    section: "biology_en",      sectionLabel: "SAAT",    categoryLabel: "Biology" },
+};
+
+// Convert raw exam-bank questions into the engine's TrainingQuestion
+// shape. Difficulty is normalized to "medium" because the four banks
+// don't carry a difficulty tag — this keeps the difficulty filter
+// well-defined ("all" returns everything; "easy"/"hard" return nothing
+// and the loader falls back to the unfiltered set, see below).
+function loadExamBankQuestions(focus: string): TrainingQuestion[] {
+  const mapping = FOCUS_TO_EXAM_BANK[focus];
+  if (!mapping) return [];
+  const raw = getQuestions(mapping.category, mapping.section);
+  return raw.map((q, idx) => ({
+    id: `${focus}-${idx}-${q.id}`,
+    section: mapping.sectionLabel,
+    category: mapping.categoryLabel,
+    topic: focus, // unique topic key per focus value
+    question: q.question,
+    options: q.options,
+    correct: q.correct,
+    explanation: q.explanation || "",
+    difficulty: "medium" as const,
+  }));
+}
 
 // Complete question bank for training
 const trainingQuestions: TrainingQuestion[] = [
@@ -1018,6 +1080,13 @@ function PracticeTestContent() {
   const questionCount = parseInt(searchParams.get("count") || "10");
   const difficulty = searchParams.get("difficulty") || "all";
   const branch = searchParams.get("branch") || null;
+  // `focus` selects an exam-bank section directly (GAT-EN, Tahsili-AR,
+  // SAAT-EN). When set and recognized, the loader bypasses the legacy
+  // in-file Qudrat-AR pool and reads from the matching bank instead.
+  const rawFocus = searchParams.get("focus");
+  const focus = rawFocus && FOCUS_TO_EXAM_BANK[rawFocus.toLowerCase()]
+    ? rawFocus.toLowerCase()
+    : null;
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
@@ -1100,6 +1169,48 @@ function PracticeTestContent() {
   }, [answers, questions, isPremium]);
 
   useEffect(() => {
+    // Shared helpers reused by both the exam-bank branch and the legacy
+    // Qudrat-AR branch below. Defined once here so behavior stays
+    // identical across both code paths.
+    const shuffle = <T,>(arr: T[]) => [...arr].sort(() => Math.random() - 0.5);
+    const recentIds = loadRecentIds();
+    const recentSet = new Set(recentIds);
+    const fresh = (q: TrainingQuestion) => !recentSet.has(q.id);
+    const stale = (q: TrainingQuestion) => recentSet.has(q.id);
+
+    // ===== Exam-bank branch =====
+    // When `focus` is set to a recognized value, source questions from
+    // the matching exam bank instead of the in-file `trainingQuestions`
+    // pool. The bank's questions don't carry branch / is_common /
+    // strategy_tag metadata, so the smart-tier selection collapses to a
+    // single "fresh-then-stale" pass — but `enrichQuestion` still adds
+    // best-effort hints / fast methods so the per-question UI works.
+    if (focus) {
+      const enrichedAll = loadExamBankQuestions(focus).map(enrichQuestion);
+
+      let filtered = enrichedAll;
+      if (difficulty !== "all") {
+        const byDiff = enrichedAll.filter(q => q.difficulty === difficulty);
+        // Exam-bank questions are normalized to "medium"; fall back to
+        // the unfiltered pool rather than show an empty session.
+        filtered = byDiff.length > 0 ? byDiff : enrichedAll;
+      }
+
+      let selected: TrainingQuestion[] = [
+        ...shuffle(filtered.filter(fresh)),
+        ...shuffle(filtered.filter(stale)),
+      ].slice(0, questionCount);
+      selected = diversifyOrder(selected);
+
+      saveRecentIds([...selected.map(q => q.id), ...recentIds]);
+      setQuestions(selected);
+      setAnswers(new Array(selected.length).fill(null));
+      setTimes(new Array(selected.length).fill(null));
+      setTopicPool(enrichedAll);
+      return;
+    }
+
+    // ===== Legacy Qudrat-AR branch (unchanged) =====
     const topicMap: Record<string, string> = {
       algebra: "algebra",
       geometry: "geometry", 
@@ -1128,12 +1239,6 @@ function PracticeTestContent() {
     // then is_common, then the rest. Falls back to topic if branch yields nothing.
     // Anti-repetition: prefer questions NOT in the recent IDs set; if all are recent,
     // recent ones are still allowed so the flow never breaks.
-    const shuffle = <T,>(arr: T[]) => [...arr].sort(() => Math.random() - 0.5);
-    const recentIds = loadRecentIds();
-    const recentSet = new Set(recentIds);
-    const fresh = (q: TrainingQuestion) => !recentSet.has(q.id);
-    const stale = (q: TrainingQuestion) => recentSet.has(q.id);
-
     let selected: TrainingQuestion[];
     if (branch) {
       const inBranch = filtered.filter(q => q.branch === branch);
@@ -1166,7 +1271,7 @@ function PracticeTestContent() {
     setAnswers(new Array(selected.length).fill(null));
     setTimes(new Array(selected.length).fill(null));
     setTopicPool(enrichedAll);
-  }, [topic, questionCount, difficulty, branch]);
+  }, [topic, questionCount, difficulty, branch, focus]);
 
   useEffect(() => {
     if (timeLeft > 0 && !showExplanation && !showResults && questions.length > 0) {
