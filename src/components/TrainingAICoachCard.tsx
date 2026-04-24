@@ -23,7 +23,10 @@ import {
 } from "@/lib/aiAnalysis";
 
 type Props = {
-  input: AIAnalysisInput;
+  // Null while the parent hasn't yet captured the mid-session snapshot
+  // (e.g. <5 questions answered). The card self-gates on this so the parent
+  // can render it unconditionally.
+  input: AIAnalysisInput | null;
   isPremium: boolean;
 };
 
@@ -34,6 +37,7 @@ export default function TrainingAICoachCard({ input, isPremium }: Props) {
 
   useEffect(() => {
     if (!isPremium) return;
+    if (!input) return;
 
     // Stable per-input dedup so a re-render with the same snapshot never
     // re-calls the API. The helper itself also caches in localStorage by
@@ -66,8 +70,9 @@ export default function TrainingAICoachCard({ input, isPremium }: Props) {
     };
   }, [isPremium, input]);
 
-  // Per spec: on failure, render nothing — keep normal training flow intact.
-  if (!isPremium || state === "error") return null;
+  // Per spec: render nothing while still gathering data, on failure, or for
+  // non-premium — keeps the normal training flow visually unchanged.
+  if (!input || !isPremium || state === "error") return null;
 
   // Match the existing question-card visual language exactly: same radius,
   // same surface, same border tokens. This is intentionally NOT a redesign.

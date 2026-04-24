@@ -12,6 +12,7 @@ import {
   type SelectedQuestion
 } from "@/lib/trainingEngine";
 import TrainingAICoachCard from "@/components/TrainingAICoachCard";
+import TestPatternIndicator from "@/components/TestPatternIndicator";
 import type { AIAnalysisInput } from "@/lib/aiAnalysis";
 
 // Complete question bank for training
@@ -1022,6 +1023,9 @@ function PracticeTestContent() {
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
   const [answers, setAnswers] = useState<(number | null)[]>([]);
+  // Per-question seconds spent (parallel to `answers`). Local to this session
+  // only — used by the deterministic test-pattern classifier.
+  const [times, setTimes] = useState<(number | null)[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [timeLeft, setTimeLeft] = useState(90);
   const [questions, setQuestions] = useState<TrainingQuestion[]>([]);
@@ -1160,6 +1164,7 @@ function PracticeTestContent() {
 
     setQuestions(selected);
     setAnswers(new Array(selected.length).fill(null));
+    setTimes(new Array(selected.length).fill(null));
     setTopicPool(enrichedAll);
   }, [topic, questionCount, difficulty, branch]);
 
@@ -1179,6 +1184,11 @@ function PracticeTestContent() {
     newAnswers[currentIndex] = index;
     setAnswers(newAnswers);
 
+    const spent = 90 - timeLeft;
+    const newTimes = [...times];
+    newTimes[currentIndex] = spent;
+    setTimes(newTimes);
+
     const q = questions[currentIndex];
     recordAnswer({
       questionId: q.id,
@@ -1186,7 +1196,7 @@ function PracticeTestContent() {
       category: q.category,
       difficulty: q.difficulty,
       isCorrect: index === q.correct,
-      timeSpent: 90 - timeLeft,
+      timeSpent: spent,
     });
   };
 
@@ -1227,8 +1237,10 @@ function PracticeTestContent() {
     const insertAt = currentIndex + 1;
     const newQs = [...questions.slice(0, insertAt), next, ...questions.slice(insertAt)];
     const newAns = [...answers.slice(0, insertAt), null, ...answers.slice(insertAt)];
+    const newTimes = [...times.slice(0, insertAt), null, ...times.slice(insertAt)];
     setQuestions(newQs);
     setAnswers(newAns);
+    setTimes(newTimes);
     setCurrentIndex(insertAt);
     setSelectedAnswer(null);
     setShowExplanation(false);
@@ -1325,9 +1337,12 @@ function PracticeTestContent() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-6">
-        {coachInput && (
-          <TrainingAICoachCard input={coachInput} isPremium={isPremium} />
-        )}
+        <TestPatternIndicator
+          answers={answers}
+          correctAnswers={questions.map(q => q.correct)}
+          times={times}
+        />
+        <TrainingAICoachCard input={coachInput} isPremium={isPremium} />
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-2 mb-4">
             <span className={`px-3 py-1 rounded-full text-xs font-medium ${
