@@ -1343,6 +1343,187 @@ export function getProgressInsights(profile: UserProfile): ProgressInsights {
   };
 }
 
+// =============================================================================
+// Cross-session reinforcement — surfaces topics that should be repeated
+// in the next training session because they're declining or stuck weak,
+// AND haven't yet shown improvement. The cap prevents infinite repetition.
+// =============================================================================
+
+/**
+ * Hard cap on consecutive sessions a topic can be a reinforcement
+ * candidate without showing improvement. Once a topic's
+ * `reinforcementStreak` reaches this value it is dropped from the
+ * candidate list and normal selection takes over for the next session.
+ *
+ * Rationale: 3 reinforced sessions ≈ 30+ targeted questions. If a
+ * student still hasn't improved after that, more drills probably won't
+ * fix it — they need a different format (lesson, hint, AI coach), so
+ * we hand control back to the default flow rather than loop forever.
+ */
+const MAX_REINFORCEMENT_STREAK = 3;
+
+export interface ReinforcementCandidate {
+  /** Topic slug (already normalized through the same map sessions use). */
+  topic: string;
+  /**
+   * Why this topic was picked.
+   *   - `declining`             — accuracy is trending down across recent sessions
+   *   - `weak-no-improvement`   — latest session level is weak AND no recent session
+   *                               showed an improvement step
+   */
+  reason: "declining" | "weak-no-improvement";
+  /**
+   * Number of consecutive recent session-source snapshots WITHOUT an
+   * improvement step (delta ≥ PROGRESS_TREND_THRESHOLD over the prior
+   * snapshot). Used by the cap — when it hits MAX_REINFORCEMENT_STREAK
+   * the topic is dropped from candidacy.
+   */
+  reinforcementStreak: number;
+  /** Latest session-derived accuracy, exposed for sort + diagnostics. */
+  latestAccuracy: number;
+  /** Total session-source snapshots backing the calculation. */
+  sessionSampleCount: number;
+}
+
+/**
+ * Walk the session-source snapshots backwards counting consecutive
+ * steps WITHOUT improvement. An "improvement step" is a positive
+ * accuracy delta of at least PROGRESS_TREND_THRESHOLD over the prior
+ * session snapshot. Returns 0 when the most recent transition was an
+ * improvement.
+ */
+function computeReinforcementStreak(sessionSnapshots: TopicProgressPoint[]): number {
+  if (sessionSnapshots.length < 2) return 0;
+  let streak = 0;
+  for (let i = sessionSnapshots.length - 1; i > 0; i--) {
+    const cur = sessionSnapshots[i];
+    const prev = sessionSnapshots[i - 1];
+    if (cur.accuracy - prev.accuracy >= PROGRESS_TREND_THRESHOLD) break;
+    streak++;
+  }
+  return streak;
+}
+
+/**
+ * Topics that should be repeated in the next session because they're
+ * either trending down or stuck weak, AND haven't yet shown improvement.
+ *
+ * - "Declined in last 2 sessions" is operationalized as: ≥3 session
+ *   snapshots where the last two transitions are both negative
+ *   (S3 < S2 AND S2 < S1), OR the net 2-session change is at least
+ *   PROGRESS_TREND_THRESHOLD downward (S3 - S1 ≤ -PROGRESS_TREND_THRESHOLD).
+ *   With exactly 2 session snapshots, a single significant drop
+ *   (S2 - S1 ≤ -PROGRESS_TREND_THRESHOLD) qualifies — we don't wait
+ *   another session before reacting.
+ * - "Weak with no improvement" picks up topics that aren't actively
+ *   declining but are stuck at the weak level (accuracy < 50) for at
+ *   least 2 consecutive session snapshots without any improvement step.
+ *
+ * Reinforcement is gated by the cap: when a topic's streak reaches
+ * MAX_REINFORCEMENT_STREAK we stop reinforcing it (no infinite
+ * repetition) and the next call returns it only if the streak has
+ * since been reset by an improvement step.
+ *
+ * Sorted by streak DESC (most stuck first), then latestAccuracy ASC
+ * (weakest first), then topic for deterministic tie-breaks. Capped at
+ * `n` results so callers can compose this with other prioritization
+ * sources without flooding the preferred-topic list.
+ */
+export function getReinforcementTopics(
+  profile: UserProfile,
+  n: number = TOP_N,
+): ReinforcementCandidate[] {
+  const progress = profile.topicProgress;
+  if (!progress) return [];
+
+  const candidates: ReinforcementCandidate[] = [];
+  for (const [topic, series] of Object.entries(progress)) {
+    // Practice sessions are the relevant signal for cross-session
+    // reinforcement — exam / diagnostic snapshots fire too rarely to
+    // drive a per-session decision and would hijack the streak math.
+    const sessionSnapshots = series.filter((p) => p.source === "session");
+    if (sessionSnapshots.length < 2) continue;
+
+    const latest = sessionSnapshots[sessionSnapshots.length - 1];
+    const prior = sessionSnapshots[sessionSnapshots.length - 2];
+    const earlier = sessionSnapshots.length >= 3
+      ? sessionSnapshots[sessionSnapshots.length - 3]
+      : null;
+
+    const streak = computeReinforcementStreak(sessionSnapshots);
+    // Cap — once we've been a candidate for MAX_REINFORCEMENT_STREAK
+    // sessions in a row without improvement, we step aside so the user
+    // gets variety. Normal selection (diagnostic / weakest topics) will
+    // still surface the topic if appropriate; we just stop forcing it.
+    if (streak >= MAX_REINFORCEMENT_STREAK) continue;
+
+    // Improvement-detected gate. `computeReinforcementStreak` returns 0
+    // when the most recent transition was an improvement step
+    // (delta ≥ PROGRESS_TREND_THRESHOLD). When that happens, the topic
+    // must drop from candidacy — even if a non-monotonic earlier dip
+    // would otherwise satisfy the net-drop branch below (e.g.
+    // S1=90, S2=20, S3=30 → +10 latest step → streak 0 → drop). This
+    // is the "repeat WEAK topics until improvement detected" guarantee.
+    if (streak === 0) continue;
+
+    let reason: ReinforcementCandidate["reason"] | null = null;
+
+    // ----- "Declining in last 2 sessions" detection -----
+    // The streak === 0 short-circuit above guarantees the most recent
+    // transition was NOT an improvement, so any decline rule that
+    // matches here describes a real ongoing problem (not a rebound).
+    if (earlier) {
+      const monotonicDecline =
+        latest.accuracy < prior.accuracy && prior.accuracy < earlier.accuracy;
+      const netDrop =
+        latest.accuracy - earlier.accuracy <= -PROGRESS_TREND_THRESHOLD;
+      if (monotonicDecline || netDrop) reason = "declining";
+    } else {
+      // Only 2 session snapshots — a single significant drop counts so
+      // we don't wait another session before reinforcing.
+      const singleDrop =
+        latest.accuracy - prior.accuracy <= -PROGRESS_TREND_THRESHOLD;
+      if (singleDrop) reason = "declining";
+    }
+
+    // ----- "Weak with no improvement" detection -----
+    // Catches plateaued-low topics that aren't actively declining but
+    // are stuck below the weak threshold. The streak >= 1 invariant
+    // is already established by the short-circuit above, so the only
+    // remaining check is that both recent snapshots are at the weak
+    // level — preventing a brand-new weak datapoint from triggering.
+    if (
+      reason === null &&
+      levelFromAccuracy(latest.accuracy) === "weak" &&
+      levelFromAccuracy(prior.accuracy) === "weak"
+    ) {
+      reason = "weak-no-improvement";
+    }
+
+    if (reason === null) continue;
+
+    candidates.push({
+      topic,
+      reason,
+      reinforcementStreak: streak,
+      latestAccuracy: latest.accuracy,
+      sessionSampleCount: sessionSnapshots.length,
+    });
+  }
+
+  candidates.sort((a, b) => {
+    if (b.reinforcementStreak !== a.reinforcementStreak) {
+      return b.reinforcementStreak - a.reinforcementStreak;
+    }
+    if (a.latestAccuracy !== b.latestAccuracy) {
+      return a.latestAccuracy - b.latestAccuracy;
+    }
+    return a.topic.localeCompare(b.topic);
+  });
+
+  return candidates.slice(0, n);
+}
+
 /** Constants exposed for tests and future tuning. */
 export const __profileConstants = {
   STORAGE_KEY,
@@ -1352,4 +1533,5 @@ export const __profileConstants = {
   MAX_TOPIC_HISTORY,
   MIN_SESSION_SAMPLES_FOR_SNAPSHOT,
   PROGRESS_TREND_THRESHOLD,
+  MAX_REINFORCEMENT_STREAK,
 };

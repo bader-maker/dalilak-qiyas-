@@ -23,6 +23,7 @@ import {
   getStudyRecommendations,
   reconcileExamHistoryToProfile,
   getTopicImprovement,
+  getReinforcementTopics,
   type SessionAnswer,
 } from "@/lib/userProfile";
 import { loadHistory } from "@/lib/examHistory";
@@ -1344,51 +1345,89 @@ function PracticeTestContent() {
       }
 
       // ---- Topic prioritization ----
-      // Two paths produce a list of "preferred" topic slugs:
+      // Three sources produce the "preferred" topic slug list, applied
+      // in order of trust / specificity:
       //   1. Explicit URL `?topics=` — the caller (typically a result page)
-      //      already decided what to surface. Highest priority.
-      //   2. Diagnostic-driven fallback — when no URL topics were given,
+      //      already decided what to surface. Highest priority — short-
+      //      circuits the rest.
+      //   2. Cross-session reinforcement — when the timeline shows a
+      //      topic declined in recent sessions OR is stuck weak without
+      //      improvement, force it back into priority for this session.
+      //      Bounded by `MAX_REINFORCEMENT_STREAK` so a topic that never
+      //      improves is eventually dropped from the queue (no infinite
+      //      repetition; normal selection then takes over).
+      //   3. Diagnostic-driven fallback — when no URL topics were given,
       //      consult the persistent user profile. If the student's most
       //      recent diagnostic / full-exam result identified weak topics,
-      //      use those to bias selection. Topics that don't exist in the
-      //      current focus section's pool are filtered out so we never
-      //      try to prioritize a slug the section can't satisfy.
-      //   3. Neither — original 2-tier fresh→stale order (no prioritization).
-      // In all cases, when the prioritized pool is too small the rest of
-      // the section fills out the remaining slots, so the session length
-      // is preserved and the existing behavior is the strict fallback.
+      //      use those to bias selection.
+      // Sources 2 + 3 are merged (reinforcement first, diagnostic second,
+      // dedup) and capped at TOP_N. Topics not present in the current
+      // section's pool are filtered out so we never try to prioritize a
+      // slug the section can't satisfy. When neither source produces
+      // anything usable the original 2-tier fresh→stale order applies.
+      // In ALL cases, if the prioritized pool can't fill `questionCount`,
+      // the rest of the section's questions fill the remaining slots —
+      // the session length is preserved (the strict fallback rule).
       let preferredTopics: string[] = requestedTopics;
       if (preferredTopics.length === 0) {
-        // Diagnostic bias is purely additive — only kicks in when the
-        // caller didn't specify topics. We map diagnostic category names
-        // (often Arabic display labels like "الجبر") to topic slugs via
-        // categoryNameToSlug, then keep only the ones present in this
-        // section's pool.
         try {
           // Load profile and reconcile any past full-exam attempts into
-          // the per-topic timeline before reading recommendations. This
-          // is the "previous exams" leg of the data combine: it lets
-          // historical exam data influence today's training even though
-          // exam history lives in a separate storage key. The call is
-          // idempotent (only genuinely-new (timestamp, topic) pairs
-          // grow the series), so doing it on every page load is cheap.
+          // the per-topic timeline before reading reinforcement /
+          // recommendations. This is the "previous exams" leg of the
+          // data combine: it lets historical exam data influence today's
+          // training even though exam history lives in a separate
+          // storage key. The call is idempotent (only genuinely-new
+          // (timestamp, topic) pairs grow the series), so doing it on
+          // every page load is cheap.
           let profile = loadUserProfile();
           const reconciled = reconcileExamHistoryToProfile(profile, loadHistory());
           if (reconciled !== profile) {
             saveUserProfile(reconciled);
             profile = reconciled;
           }
+          const sectionTopicSlugs = new Set(filtered.map((q) => q.topic));
+
+          // (2) Cross-session reinforcement — declining or stuck-weak
+          // topics. The helper internally enforces the
+          // MAX_REINFORCEMENT_STREAK cap, so topics that have been
+          // reinforced too many times without improvement are already
+          // absent from this list. Filter to slugs the section can
+          // actually satisfy (`reinforcement.topic` is already
+          // normalized through the same `categoryNameToSlug` map
+          // sessions use, so it should usually match directly).
+          const reinforcement = getReinforcementTopics(profile);
+          const reinforcedSlugs = reinforcement
+            .map((c) => c.topic)
+            .filter((slug) => sectionTopicSlugs.has(slug));
+
+          // (3) Diagnostic-driven fallback — pre-existing logic.
+          let diagnosticSlugs: string[] = [];
           const rec = getStudyRecommendations(profile);
           if (rec.source === "diagnostic" && rec.recommendedTopics.length > 0) {
-            const sectionTopicSlugs = new Set(filtered.map((q) => q.topic));
-            const mapped = rec.recommendedTopics
+            diagnosticSlugs = rec.recommendedTopics
               .map((t) => {
                 if (sectionTopicSlugs.has(t)) return t;          // already a slug
                 const slug = categoryNameToSlug(t);              // try Arabic/EN label
                 return slug && sectionTopicSlugs.has(slug) ? slug : null;
               })
               .filter((s): s is string => s !== null);
-            if (mapped.length > 0) preferredTopics = mapped;
+          }
+
+          // Merge: reinforcement wins ordering (these are the most
+          // urgent, freshest signals), diagnostic fills any remaining
+          // headroom up to TOP_N. `seen` dedupes so a topic that
+          // appears in BOTH lists isn't duplicated in the priority
+          // tier (which would skew tieredOrder weight).
+          if (reinforcedSlugs.length > 0 || diagnosticSlugs.length > 0) {
+            const merged: string[] = [];
+            const seen = new Set<string>();
+            for (const t of [...reinforcedSlugs, ...diagnosticSlugs]) {
+              if (seen.has(t)) continue;
+              seen.add(t);
+              merged.push(t);
+              if (merged.length >= 3) break; // mirror TOP_N cap from profile layer
+            }
+            if (merged.length > 0) preferredTopics = merged;
           }
         } catch {
           /* profile unavailable — fall through to default ordering */
