@@ -348,6 +348,49 @@ const trainingQuestions: TrainingQuestion[] = [
   { id: "comp-s1", section: "لفظي", category: "إكمال الجمل", topic: "completion", subtype: "fill-blank", strategy_tag: "context-fit", question: "إن مع العسر _____.", options: ["الفرج", "النصر", "يسراً", "السهولة"], correct: 2, explanation: "إن مع العسر يسراً - من القرآن الكريم", difficulty: "easy" },
   { id: "comp-s2", section: "لفظي", category: "إكمال الجمل", topic: "completion", subtype: "fill-blank", strategy_tag: "context-fit", question: "خير جليس في الزمان _____.", options: ["الصديق", "الكتاب", "العالم", "الأهل"], correct: 1, explanation: "خير جليس في الزمان كتاب - بيت شعر شهير", difficulty: "easy" },
   { id: "comp-s3", section: "لفظي", category: "إكمال الجمل", topic: "completion", subtype: "fill-blank", strategy_tag: "context-fit", question: "رُبَّ كلمة _____ نعمة.", options: ["جلبت", "سلبت", "منعت", "جلبت"], correct: 1, explanation: "ربَّ كلمة سلبت نعمة - مثل عربي", difficulty: "medium" },
+
+  // ============================================================
+  // === EXPANSION PACK v2: filling subtype/wording_style gaps ===
+  // ============================================================
+
+  // RATIOS — comparison (NEW subtype): which option is the better unit price / faster pace
+  { id: "rat-s11", section: "كمي", category: "النسب والتناسب", topic: "ratios", subtype: "comparison", strategy_tag: "unit-rate-compare", wording_style: "story", question: "أيهما أرخص: 6 أقلام بـ 24 ريال أم 4 أقلام بـ 20 ريال؟", options: ["6 أقلام بـ 24 ريال", "4 أقلام بـ 20 ريال", "متساويان", "لا يمكن المقارنة"], correct: 0, explanation: "سعر القلم في الأولى = 24 ÷ 6 = 4 ر، وفي الثانية = 20 ÷ 4 = 5 ر\nالأولى أرخص.", difficulty: "medium" },
+  { id: "rat-s12", section: "كمي", category: "النسب والتناسب", topic: "ratios", subtype: "comparison", strategy_tag: "unit-rate-compare", wording_style: "story", question: "أيهما أوفر: عبوة 2 لتر بـ 8 ريال أم عبوة 5 لتر بـ 18 ريال؟", options: ["العبوة الأولى", "العبوة الثانية", "متساويان", "لا يمكن التحديد"], correct: 1, explanation: "سعر اللتر: 8/2 = 4 ر مقابل 18/5 = 3.6 ر\nالعبوة الثانية أوفر.", difficulty: "medium" },
+  { id: "rat-s13", section: "كمي", category: "النسب والتناسب", topic: "ratios", subtype: "comparison", strategy_tag: "unit-rate-compare", wording_style: "story", question: "سيارة قطعت 180 كم في 3 ساعات، وأخرى قطعت 240 كم في 4 ساعات. أيهما أسرع؟", options: ["الأولى", "الثانية", "متساويتان", "لا يمكن المقارنة"], correct: 2, explanation: "سرعة الأولى = 180/3 = 60، وسرعة الثانية = 240/4 = 60\nالسرعتان متساويتان.", difficulty: "medium" },
+
+  // ANALOGY — split into 4 distinct relation types (was a single subtype)
+  // relation-function: tool ↔ purpose
+  { id: "ana-s6",  section: "لفظي", category: "التناظر اللفظي", topic: "analogy", subtype: "relation-function", strategy_tag: "name-the-relation", wording_style: "direct", question: "ميزان : وزن :: ساعة : ؟", options: ["زمن", "حركة", "ثوان", "عقرب"], correct: 0, explanation: "العلاقة: الأداة وما تقيسه. الميزان يقيس الوزن، والساعة تقيس الزمن.", difficulty: "easy" },
+  { id: "ana-s7",  section: "لفظي", category: "التناظر اللفظي", topic: "analogy", subtype: "relation-function", strategy_tag: "name-the-relation", wording_style: "direct", question: "مكنسة : تنظيف :: مقص : ؟", options: ["حديد", "ورق", "قص", "خياطة"], correct: 2, explanation: "العلاقة: الأداة ووظيفتها. المكنسة للتنظيف، والمقص للقص.", difficulty: "easy" },
+  { id: "ana-s8",  section: "لفظي", category: "التناظر اللفظي", topic: "analogy", subtype: "relation-function", strategy_tag: "name-the-relation", wording_style: "direct", question: "تلسكوب : رؤية :: مجهر : ؟", options: ["تكبير", "علم", "مختبر", "زجاج"], correct: 0, explanation: "كلاهما أداة بصرية، التلسكوب يستخدم لرؤية البعيد، والمجهر للتكبير.", difficulty: "medium" },
+  // relation-part-whole: part ↔ whole
+  { id: "ana-s9",  section: "لفظي", category: "التناظر اللفظي", topic: "analogy", subtype: "relation-part-whole", strategy_tag: "name-the-relation", wording_style: "direct", question: "ورقة : كتاب :: فصل : ؟", options: ["جامعة", "طالب", "رواية", "معلم"], correct: 2, explanation: "العلاقة: الجزء والكل. الورقة جزء من الكتاب، والفصل جزء من الرواية.", difficulty: "medium" },
+  { id: "ana-s10", section: "لفظي", category: "التناظر اللفظي", topic: "analogy", subtype: "relation-part-whole", strategy_tag: "name-the-relation", wording_style: "direct", question: "إصبع : يد :: ورقة : ؟", options: ["شجرة", "كتابة", "خضراء", "حديقة"], correct: 0, explanation: "الإصبع جزء من اليد، والورقة جزء من الشجرة.", difficulty: "easy" },
+  { id: "ana-s11", section: "لفظي", category: "التناظر اللفظي", topic: "analogy", subtype: "relation-part-whole", strategy_tag: "name-the-relation", wording_style: "direct", question: "غرفة : منزل :: نجم : ؟", options: ["ليل", "كوكب", "مجرة", "ضوء"], correct: 2, explanation: "الغرفة جزء من المنزل، والنجم جزء من المجرة.", difficulty: "medium" },
+  // relation-antonym: word ↔ opposite
+  { id: "ana-s12", section: "لفظي", category: "التناظر اللفظي", topic: "analogy", subtype: "relation-antonym", strategy_tag: "name-the-relation", wording_style: "direct", question: "نهار : ليل :: صعود : ؟", options: ["جبل", "نزول", "سلم", "تعب"], correct: 1, explanation: "العلاقة: التضاد. النهار ضد الليل، والصعود ضد النزول.", difficulty: "easy" },
+  { id: "ana-s13", section: "لفظي", category: "التناظر اللفظي", topic: "analogy", subtype: "relation-antonym", strategy_tag: "name-the-relation", wording_style: "direct", question: "كرم : بخل :: شجاعة : ؟", options: ["إقدام", "بطولة", "جبن", "قوة"], correct: 2, explanation: "كل ثنائي صفتان متضادتان: الكرم ضد البخل، والشجاعة ضد الجبن.", difficulty: "medium" },
+  { id: "ana-s14", section: "لفظي", category: "التناظر اللفظي", topic: "analogy", subtype: "relation-antonym", strategy_tag: "name-the-relation", wording_style: "direct", question: "حار : بارد :: مبتل : ؟", options: ["ماء", "ثلج", "جاف", "ساخن"], correct: 2, explanation: "العلاقة: التضاد في الصفة. حار ضد بارد، ومبتل ضد جاف.", difficulty: "easy" },
+  // relation-synonym: word ↔ near-synonym
+  { id: "ana-s15", section: "لفظي", category: "التناظر اللفظي", topic: "analogy", subtype: "relation-synonym", strategy_tag: "name-the-relation", wording_style: "direct", question: "فرح : سرور :: حزن : ؟", options: ["بكاء", "أسى", "ضحك", "هدوء"], correct: 1, explanation: "العلاقة: الترادف. الفرح يرادف السرور، والحزن يرادف الأسى.", difficulty: "medium" },
+  { id: "ana-s16", section: "لفظي", category: "التناظر اللفظي", topic: "analogy", subtype: "relation-synonym", strategy_tag: "name-the-relation", wording_style: "direct", question: "شجاع : باسل :: كريم : ؟", options: ["غني", "جواد", "بخيل", "صديق"], correct: 1, explanation: "كل ثنائي مترادفان: الشجاع والباسل، والكريم والجواد.", difficulty: "medium" },
+  { id: "ana-s17", section: "لفظي", category: "التناظر اللفظي", topic: "analogy", subtype: "relation-synonym", strategy_tag: "name-the-relation", wording_style: "direct", question: "وضوح : جلاء :: غموض : ؟", options: ["نور", "إبهام", "ظلام", "قرب"], correct: 1, explanation: "العلاقة: الترادف. الوضوح يرادف الجلاء، والغموض يرادف الإبهام.", difficulty: "hard" },
+
+  // READING COMPREHENSION — main-idea + inference (new topic, two subtypes × 3 each)
+  { id: "rc-s1", section: "لفظي", category: "استيعاب المقروء", topic: "comprehension", subtype: "main-idea", strategy_tag: "summarize-passage", wording_style: "passage", question: "اقرأ النص التالي ثم أجب: «العلم نور يضيء طريق الإنسان نحو المعرفة. كلما زاد علم الإنسان اتسعت آفاقه وفهم محيطه واستطاع أن يتخذ قرارات أفضل في حياته». ما الفكرة الرئيسة للنص؟", options: ["أن المعرفة صعبة المنال", "أن العلم يوسّع آفاق الإنسان ويحسّن قراراته", "أن الإنسان يحتاج إلى النور", "أن البيئة تؤثر في الإنسان"], correct: 1, explanation: "النص يدور حول أثر العلم في توسيع الآفاق وتحسين القرارات، وهذا هو المعنى المركزي.", difficulty: "easy" },
+  { id: "rc-s2", section: "لفظي", category: "استيعاب المقروء", topic: "comprehension", subtype: "main-idea", strategy_tag: "summarize-passage", wording_style: "passage", question: "اقرأ النص التالي ثم أجب: «تتأثر صحة الإنسان بنوعية غذائه وعدد ساعات نومه ومستوى نشاطه البدني. وأي خلل في أحد هذه العوامل قد ينعكس على بقية جوانب حياته». الفكرة الرئيسة للنص هي:", options: ["خطورة الأمراض المزمنة", "أن الصحة نتاج تفاعل عدة عوامل في حياة الإنسان", "أهمية ممارسة الرياضة فقط", "أن النوم أهم من الغذاء"], correct: 1, explanation: "النص يحصر سبب الصحة في تفاعل عدة عوامل لا في عامل واحد، وهذا جوهر فكرته.", difficulty: "medium" },
+  { id: "rc-s3", section: "لفظي", category: "استيعاب المقروء", topic: "comprehension", subtype: "main-idea", strategy_tag: "summarize-passage", wording_style: "passage", question: "اقرأ النص التالي ثم أجب: «انتشرت مؤخراً تطبيقات التعلم الذاتي عبر الإنترنت، فمكّنت الطلاب من اختيار وقت دراستهم ومواضيعها بحرية، إلا أن نجاحها يبقى مرهوناً بالانضباط الشخصي». الفكرة الرئيسة هي:", options: ["مزايا الإنترنت بشكل عام", "أن التعلم الذاتي مفيد لكن يحتاج إلى انضباط", "أن المدارس التقليدية أفضل", "أن الطلاب يفضلون الراحة على الدراسة"], correct: 1, explanation: "النص يوازن بين فائدة التعلم الذاتي وشرط نجاحه (الانضباط)، وهذا محور الفكرة.", difficulty: "medium" },
+  { id: "rc-s4", section: "لفظي", category: "استيعاب المقروء", topic: "comprehension", subtype: "inference", strategy_tag: "infer-from-context", wording_style: "passage", question: "اقرأ النص: «وصل أحمد إلى المحاضرة وكان يلهث ويحمل حقيبته بصعوبة، ولم يسلم على زملائه قبل الجلوس». ماذا يمكن أن نستنتج؟", options: ["أن أحمد لا يحب زملاءه", "أن أحمد كان متأخراً ومستعجلاً", "أن المحاضرة ألغيت", "أن الحقيبة فارغة"], correct: 1, explanation: "اللهث وحمل الحقيبة بصعوبة وعدم السلام دلالات سياقية على التأخر والاستعجال، لا الكره.", difficulty: "medium" },
+  { id: "rc-s5", section: "لفظي", category: "استيعاب المقروء", topic: "comprehension", subtype: "inference", strategy_tag: "infer-from-context", wording_style: "passage", question: "اقرأ النص: «انخفضت أسعار الخضار في السوق هذا الأسبوع بشكل لافت، ولوحظ ازدحام كبير على الباعة منذ الصباح الباكر». أي استنتاج يدعمه النص؟", options: ["أن الخضار رديئة الجودة", "أن السوق سيغلق قريباً", "أن انخفاض الأسعار جذب المزيد من المشترين", "أن الباعة رفعوا الأسعار"], correct: 2, explanation: "الانخفاض + الازدحام دليلان مرتبطان سببياً: السعر الأقل جذب المشترين.", difficulty: "easy" },
+  { id: "rc-s6", section: "لفظي", category: "استيعاب المقروء", topic: "comprehension", subtype: "inference", strategy_tag: "infer-from-context", wording_style: "passage", question: "اقرأ النص: «منذ أن بدأت سارة بقراءة كتاب أسبوعياً، صارت أكثر هدوءاً في النقاش، وأصبحت تستخدم مفردات لم تكن تستخدمها من قبل». نستنتج أن:", options: ["القراءة لا تؤثر على الإنسان", "سارة تحب الجدال", "القراءة المنتظمة تنمّي الفكر واللغة", "الكتب الأسبوعية مملة"], correct: 2, explanation: "التغير في أسلوب النقاش وثراء المفردات بعد القراءة يدل على أثر القراءة في تنمية الفكر واللغة.", difficulty: "medium" },
+
+  // COMPLETION — split fill-blank into "proverb" (مثل/حكمة) and "sentence" (سياق منطقي)
+  { id: "comp-s4", section: "لفظي", category: "إكمال الجمل", topic: "completion", subtype: "proverb", strategy_tag: "famous-saying", wording_style: "instruction", question: "أكمل المثل: لا يلدغ المؤمن من جحر مرتين، أي أنه لا يقع في _____ مرتين.", options: ["النصر", "الخطأ", "الخير", "الفرح"], correct: 1, explanation: "المثل يدعو إلى الحذر من تكرار نفس الخطأ بعد التجربة الأولى.", difficulty: "easy" },
+  { id: "comp-s5", section: "لفظي", category: "إكمال الجمل", topic: "completion", subtype: "proverb", strategy_tag: "famous-saying", wording_style: "instruction", question: "أكمل المثل: في التأني السلامة وفي العجلة _____.", options: ["النجاح", "البركة", "الندامة", "السرعة"], correct: 2, explanation: "مثل عربي شهير يفاضل بين التأني والعجلة، ونتيجة العجلة الندامة.", difficulty: "easy" },
+  { id: "comp-s6", section: "لفظي", category: "إكمال الجمل", topic: "completion", subtype: "proverb", strategy_tag: "famous-saying", wording_style: "instruction", question: "أكمل المثل: من شبّ على شيء _____ عليه.", options: ["مرض", "شاب", "ندم", "كبر"], correct: 1, explanation: "من شبّ على شيء شاب عليه — مثل عربي يدل على رسوخ العادات منذ الصغر.", difficulty: "medium" },
+  { id: "comp-s7", section: "لفظي", category: "إكمال الجمل", topic: "completion", subtype: "sentence", strategy_tag: "logical-context", wording_style: "story", question: "بعد ساعات طويلة من العمل المتواصل، شعر الموظف بالحاجة إلى _____.", options: ["مزيد من العمل", "الراحة", "الاجتماع", "الجدال"], correct: 1, explanation: "السياق يربط طول العمل بالشعور بالحاجة إلى الراحة، وهو الخيار المنطقي الوحيد.", difficulty: "easy" },
+  { id: "comp-s8", section: "لفظي", category: "إكمال الجمل", topic: "completion", subtype: "sentence", strategy_tag: "logical-context", wording_style: "story", question: "قبل عبور الشارع علينا أن _____ يميناً ويساراً للتأكد من خلوّه من السيارات.", options: ["نقفز", "ننظر", "نهرب", "نغمض أعيننا"], correct: 1, explanation: "السلوك المنطقي للسلامة هو النظر يميناً ويساراً، لا القفز ولا الإغماض.", difficulty: "easy" },
+  { id: "comp-s9", section: "لفظي", category: "إكمال الجمل", topic: "completion", subtype: "sentence", strategy_tag: "logical-context", wording_style: "story", question: "اشترى محمد دراجة جديدة، لكنه لم يستخدمها في الأيام الممطرة خوفاً من _____.", options: ["السرعة", "الانزلاق", "السعادة", "النور"], correct: 1, explanation: "الخوف على الدراجة في المطر يرتبط منطقياً بخطر الانزلاق على الطرق المبتلة.", difficulty: "medium" },
 ];
 
 // Explicit Arabic option labels (avoids broken hamza variants from charCode math)
@@ -705,6 +748,11 @@ function inferBranch(q: TrainingQuestion): string | null {
     case "completion":
       return "missing-word";
     case "comprehension":
+      // Honor an explicit subtype first (the new rc-s* questions tag this);
+      // otherwise infer from the wording — inference questions ask the reader
+      // to deduce/conclude rather than summarize.
+      if (q.subtype === "inference" || q.subtype === "main-idea") return q.subtype;
+      if (/استنتج|نستنتج|يمكن أن نستنتج|يدعمه النص|يدل على/.test(t)) return "inference";
       return "main-idea";
     case "contextual":
       return "semantic";
@@ -715,6 +763,18 @@ function inferBranch(q: TrainingQuestion): string | null {
     default:
       return null;
   }
+}
+
+// Classify the *surface form* of a question (independent of strategy).
+// Used to alternate phrasings so two consecutive items don't feel identical
+// even when their subtype/strategy must repeat.
+function deriveWordingStyle(q: TrainingQuestion): string {
+  const t = q.question;
+  if (/اقرأ|النص التالي|الفقرة التالية|بناءً على/.test(t)) return "passage";
+  if (/سيارة|قطار|عامل|عمال|راتب|موظف|سعر|قميص|حذاء|سلعة|كرة|كيس|صف|ترتيب|خصم|زاد|نقص/.test(t)) return "story";
+  if (/^اختر|^أكمل|^حدد|^صل|^صنف/.test(t)) return "instruction";
+  if (/إذا كان|إذا كانت|فما|فأوجد|بسّط|أوجد قيمة/.test(t)) return "direct";
+  return "direct";
 }
 
 // Enrich a question with branch / subtype / strategy_tag / is_common /
@@ -732,6 +792,7 @@ function enrichQuestion(q: TrainingQuestion): TrainingQuestion {
     idea: q.idea ?? derived.idea ?? meta?.idea,
     fast_method: q.fast_method ?? derived.fast_method ?? meta?.fast_method,
     why_important: q.why_important ?? derived.why_important ?? meta?.why,
+    wording_style: q.wording_style ?? deriveWordingStyle(q),
   };
 }
 
@@ -754,7 +815,9 @@ function saveRecentIds(ids: string[]): void {
   } catch { /* ignore */ }
 }
 
-// Reorder so consecutive questions don't share the same strategy_tag/subtype when avoidable
+// Reorder so consecutive questions don't share the same strategy_tag / subtype
+// (and prefer alternating wording_style as a tiebreaker). Falls back gracefully
+// when the remaining pool can't satisfy a constraint, so the flow never breaks.
 function diversifyOrder(arr: TrainingQuestion[]): TrainingQuestion[] {
   const out: TrainingQuestion[] = [];
   const remaining = [...arr];
@@ -762,9 +825,23 @@ function diversifyOrder(arr: TrainingQuestion[]): TrainingQuestion[] {
     const last = out[out.length - 1];
     let pickIdx = 0;
     if (last) {
-      const altIdx = remaining.findIndex(
-        q => q.strategy_tag !== last.strategy_tag && q.subtype !== last.subtype
+      // 1st choice: different strategy_tag AND subtype AND wording_style
+      let altIdx = remaining.findIndex(
+        q =>
+          q.strategy_tag !== last.strategy_tag &&
+          q.subtype !== last.subtype &&
+          q.wording_style !== last.wording_style
       );
+      // 2nd choice: different strategy_tag AND subtype (the original rule)
+      if (altIdx < 0) {
+        altIdx = remaining.findIndex(
+          q => q.strategy_tag !== last.strategy_tag && q.subtype !== last.subtype
+        );
+      }
+      // 3rd choice: at least different strategy_tag
+      if (altIdx < 0) {
+        altIdx = remaining.findIndex(q => q.strategy_tag !== last.strategy_tag);
+      }
       if (altIdx >= 0) pickIdx = altIdx;
     }
     out.push(remaining.splice(pickIdx, 1)[0]);

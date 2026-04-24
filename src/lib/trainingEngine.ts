@@ -30,6 +30,7 @@ export interface TrainingQuestion {
   idea?: string;          // short label: "تبسيط" / "معادلة" / "تحليل"
   fast_method?: string;   // fastest method tied to the question
   why_important?: string; // why this type appears in exams
+  wording_style?: string; // surface form: "direct", "story", "applied", "instruction", "passage"
 }
 
 export interface QuestionPool {
