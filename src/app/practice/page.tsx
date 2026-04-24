@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "@/contexts/ThemeContext";
+import { isKnownTopicSlug } from "@/lib/topicMap";
 
 // `focusToSection` maps a `focus` query-param value to the practice
 // page's tab state. Only Qudrat-AR values map here — they are the only
@@ -289,22 +290,62 @@ function PracticePageInner() {
   // topic grid below has no matching topics, so we skip it entirely
   // and deep-link straight into a training session that pulls from
   // the appropriate exam bank. Guarded by a ref so the redirect runs
-  // exactly once and never on later renders. Qudrat-AR focus values
-  // (and missing/unsupported values) are NOT redirected — they keep
-  // the original tab + topic-picker flow.
+  // exactly once and never on later renders.
+  //
+  // Qudrat-AR focus values (`quantitative_ar`, `verbal_ar`):
+  //   - WITHOUT `?topics=`: NOT redirected — keep the original tab +
+  //     topic-picker flow (preserves the manual practice entry path).
+  //   - WITH `?topics=` (sent from a result page that identified
+  //     specific weak topics): redirected to /practice/test so the
+  //     personalization actually takes effect. Without this, the
+  //     topics= would be silently dropped at the topic picker and
+  //     personalization would never reach training.
   const redirectedToExamBank = useRef(false);
   useEffect(() => {
     if (redirectedToExamBank.current) return;
     const focus = searchParams.get("focus");
     if (!focus) return;
     const normalized = focus.toLowerCase();
-    if (!EXAM_BANK_FOCUS_VALUES.has(normalized)) return;
+
+    // Normalize `topics` HERE (not just on the training page) so the
+    // redirect decision and the forwarded URL agree. Anything that's
+    // not a known slug is dropped — this is what guarantees that a
+    // bogus URL like `?focus=quantitative_ar&topics=zzz` behaves
+    // identically to plain `?focus=quantitative_ar` (legacy topic
+    // picker), preserving constraint #2 (no behavior change when no
+    // *valid* topic hint is present).
+    const rawTopics = searchParams.get("topics");
+    const knownTopics = rawTopics
+      ? rawTopics
+          .split(",")
+          .map((s) => s.trim().toLowerCase())
+          .filter(isKnownTopicSlug)
+      : [];
+
+    const isExamBank = EXAM_BANK_FOCUS_VALUES.has(normalized);
+    // For Qudrat-AR we only divert to /practice/test when the URL
+    // actually carries an actionable, known topic hint. Without one
+    // there's nothing to personalize, so the original topic-picker
+    // flow runs unchanged.
+    const isQudratARWithTopics =
+      (normalized === "quantitative_ar" || normalized === "verbal_ar") &&
+      knownTopics.length > 0;
+
+    if (!isExamBank && !isQudratARWithTopics) return;
+
     redirectedToExamBank.current = true;
     const params = new URLSearchParams({
       focus: normalized,
       count: "10",
       difficulty: "all",
     });
+    // Forward only the validated, known slugs so the URL semantics
+    // match the behavior. /practice/test re-validates as a defensive
+    // belt-and-braces check, but this guarantees we never hand it
+    // garbage from this entry point.
+    if (knownTopics.length > 0) {
+      params.set("topics", knownTopics.join(","));
+    }
     router.replace(`/practice/test?${params.toString()}`);
   }, [searchParams, router]);
 

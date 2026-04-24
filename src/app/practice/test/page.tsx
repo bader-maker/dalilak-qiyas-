@@ -16,6 +16,11 @@ import TestPatternIndicator from "@/components/TestPatternIndicator";
 import type { AIAnalysisInput } from "@/lib/aiAnalysis";
 import { getQuestions } from "@/data/questions";
 import type { ExamCategory, ExamSection } from "@/data/exam-config";
+import {
+  isKnownTopicSlug,
+  getTopicForBankQuestionIndex,
+  type TopicSlug,
+} from "@/lib/topicMap";
 
 // ===== Exam-bank focus support =====
 // When the URL contains `?focus=<value>`, the training session is
@@ -60,22 +65,74 @@ const FOCUS_TO_EXAM_BANK: Record<string, ExamBankMapping> = {
 // don't carry a difficulty tag — this keeps the difficulty filter
 // well-defined ("all" returns everything; "easy"/"hard" return nothing
 // and the loader falls back to the unfiltered set, see below).
+//
+// Topic tagging:
+//   Each question's `topic` field carries the inferred sub-topic slug
+//   from the bank's index→topic layout (see src/lib/topicMap.ts) when
+//   one exists; otherwise it falls back to the focus value itself
+//   (e.g. "physics_ar"). This lets the topic-prioritization tier in the
+//   useEffect below compare `q.topic` identically across both Qudrat-AR
+//   in-file questions (which already have real topic slugs) and
+//   exam-bank questions (which previously had only the focus value).
 function loadExamBankQuestions(focus: string): TrainingQuestion[] {
   const mapping = FOCUS_TO_EXAM_BANK[focus];
   if (!mapping) return [];
   const raw = getQuestions(mapping.category, mapping.section);
-  return raw.map((q, idx) => ({
-    id: `${focus}-${idx}-${q.id}`,
-    section: mapping.sectionLabel,
-    category: mapping.categoryLabel,
-    topic: focus, // unique topic key per focus value
-    question: q.question,
-    options: q.options,
-    correct: q.correct,
-    explanation: q.explanation || "",
-    difficulty: "medium" as const,
-  }));
+  return raw.map((q, idx) => {
+    const inferred = getTopicForBankQuestionIndex(
+      mapping.category,
+      mapping.section,
+      idx
+    );
+    return {
+      id: `${focus}-${idx}-${q.id}`,
+      section: mapping.sectionLabel,
+      category: mapping.categoryLabel,
+      // Use the inferred sub-topic slug when the section has a layout
+      // (Qudrat AR + GAT EN today). Falls back to the focus value for
+      // sections without sub-topic structure (Tahsili AR + SAAT EN).
+      topic: inferred ?? focus,
+      question: q.question,
+      options: q.options,
+      correct: q.correct,
+      explanation: q.explanation || "",
+      difficulty: "medium" as const,
+    };
+  });
 }
+
+// =============================================================================
+// Qudrat-AR in-file source (used when focus=quantitative_ar / verbal_ar)
+//
+// Maps the Qudrat-AR focus value to the list of in-file `trainingQuestions`
+// topic ids that belong to that section. This lets the focus branch below
+// pull the entire section's pool from the in-file source (vs the legacy
+// branch which pulls a single topic). Topic prioritization then runs on top
+// of this whole-section pool.
+//
+// IMPORTANT: this list must match the topic ids used by the in-file
+// `trainingQuestions` array (defined later in this file). When new Qudrat
+// topics are added there, mirror them here.
+// =============================================================================
+const QUDRAT_AR_SECTION_TOPICS: Record<string, string[]> = {
+  quantitative_ar: ["algebra", "geometry", "ratios", "statistics"],
+  verbal_ar: [
+    "analogy",
+    "completion",
+    "comprehension",
+    "contextual",
+    "vocabulary",
+  ],
+};
+
+// All focus values /practice/test recognizes — exam-bank values plus the
+// two Qudrat-AR values. Anything outside this set is treated as "no focus"
+// and the legacy topic-picker branch runs.
+const KNOWN_FOCUS_VALUES = new Set<string>([
+  ...Object.keys(FOCUS_TO_EXAM_BANK),
+  "quantitative_ar",
+  "verbal_ar",
+]);
 
 // Complete question bank for training
 const trainingQuestions: TrainingQuestion[] = [
@@ -1080,13 +1137,32 @@ function PracticeTestContent() {
   const questionCount = parseInt(searchParams.get("count") || "10");
   const difficulty = searchParams.get("difficulty") || "all";
   const branch = searchParams.get("branch") || null;
-  // `focus` selects an exam-bank section directly (GAT-EN, Tahsili-AR,
-  // SAAT-EN). When set and recognized, the loader bypasses the legacy
-  // in-file Qudrat-AR pool and reads from the matching bank instead.
+  // `focus` selects either a Qudrat-AR in-file section or one of the
+  // exam-bank sections (GAT-EN, Tahsili-AR, SAAT-EN). When set and
+  // recognized, the focus branch in the loader below builds the pool
+  // from the appropriate source. Unknown values are normalized to null
+  // so the legacy topic-picker branch runs (no behavior change).
   const rawFocus = searchParams.get("focus");
-  const focus = rawFocus && FOCUS_TO_EXAM_BANK[rawFocus.toLowerCase()]
+  const focus = rawFocus && KNOWN_FOCUS_VALUES.has(rawFocus.toLowerCase())
     ? rawFocus.toLowerCase()
     : null;
+
+  // `topics` carries an optional comma-separated list of sub-topic slugs
+  // sent from a result page that identified the user's weakest topics
+  // within the focus section. Used purely as a prioritization hint —
+  // matching-topic questions surface first, then the rest of the section.
+  // Empty / missing / unknown slugs are filtered out gracefully so the
+  // session never ends up with an empty pool.
+  const rawTopics = searchParams.get("topics");
+  const requestedTopics: TopicSlug[] = rawTopics
+    ? rawTopics
+        .split(",")
+        .map((s) => s.trim().toLowerCase())
+        .filter(isKnownTopicSlug)
+    : [];
+  // Stable string for the useEffect dep array — re-renders shouldn't
+  // re-run the loader unless the actual list of slugs changes.
+  const requestedTopicsKey = requestedTopics.join(",");
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
@@ -1178,31 +1254,90 @@ function PracticeTestContent() {
     const fresh = (q: TrainingQuestion) => !recentSet.has(q.id);
     const stale = (q: TrainingQuestion) => recentSet.has(q.id);
 
-    // ===== Exam-bank branch =====
-    // When `focus` is set to a recognized value, source questions from
-    // the matching exam bank instead of the in-file `trainingQuestions`
-    // pool. The bank's questions don't carry branch / is_common /
-    // strategy_tag metadata, so the smart-tier selection collapses to a
-    // single "fresh-then-stale" pass — but `enrichQuestion` still adds
-    // best-effort hints / fast methods so the per-question UI works.
+    // ===== Focus branch =====
+    // Triggered for any of the 12 supported focus values (2 Qudrat-AR +
+    // 4 GAT-EN/Tahsili-AR/SAAT-EN exam-bank groups = 10 = 12). Picks the
+    // appropriate question source per focus, then runs an optional
+    // topic-prioritization pass on top of the same fresh/stale + diversify
+    // pipeline used everywhere else. The legacy topic-picker branch below
+    // is left untouched (focus-less URLs hit it as before).
     if (focus) {
-      const enrichedAll = loadExamBankQuestions(focus).map(enrichQuestion);
+      let enrichedAll: TrainingQuestion[];
+
+      if (FOCUS_TO_EXAM_BANK[focus]) {
+        // (a) Exam-bank source: GAT-EN / Tahsili-AR / SAAT-EN.
+        //     Questions come from src/data/questions/{gat-en,tahsili-ar,
+        //     saat-en}.ts and carry an inferred sub-topic slug when the
+        //     section has a layout in src/lib/topicMap.ts.
+        enrichedAll = loadExamBankQuestions(focus).map(enrichQuestion);
+      } else {
+        // (b) Qudrat-AR source: pull EVERY in-file trainingQuestion that
+        //     belongs to the section (multiple topics: algebra+geometry+
+        //     ratios+statistics for quantitative, etc.). The legacy branch
+        //     would have filtered to a single topic; here we keep the whole
+        //     section so the topic-prioritization tier below has room to
+        //     surface the user's specific weak topics first while still
+        //     letting other-topic questions appear when the weak-topic pool
+        //     runs out.
+        const sectionTopicIds = QUDRAT_AR_SECTION_TOPICS[focus] ?? [];
+        enrichedAll = trainingQuestions
+          .filter((q) => sectionTopicIds.includes(q.topic))
+          .map(enrichQuestion);
+      }
 
       let filtered = enrichedAll;
       if (difficulty !== "all") {
-        const byDiff = enrichedAll.filter(q => q.difficulty === difficulty);
-        // Exam-bank questions are normalized to "medium"; fall back to
-        // the unfiltered pool rather than show an empty session.
+        const byDiff = enrichedAll.filter((q) => q.difficulty === difficulty);
+        // Defensive fallback: exam-bank questions are normalized to
+        // "medium", so easy/hard filters can produce zero matches. Fall
+        // back to the unfiltered pool rather than show an empty session.
         filtered = byDiff.length > 0 ? byDiff : enrichedAll;
       }
 
-      let selected: TrainingQuestion[] = [
-        ...shuffle(filtered.filter(fresh)),
-        ...shuffle(filtered.filter(stale)),
-      ].slice(0, questionCount);
+      // ---- Topic prioritization ----
+      // When the URL provides `?topics=`, surface matching-topic questions
+      // first using a 4-tier order so the user faces their weak topics
+      // immediately while still getting variety from the rest of the
+      // section. When `?topics=` is missing/empty/produces zero matches,
+      // the existing 2-tier fresh→stale order (full section) runs — same
+      // behavior as before this feature.
+      let selected: TrainingQuestion[];
+      if (requestedTopics.length > 0) {
+        const topicSet = new Set<string>(requestedTopics);
+        const matching = filtered.filter((q) => topicSet.has(q.topic));
+        const other = filtered.filter((q) => !topicSet.has(q.topic));
+
+        if (matching.length === 0) {
+          // No questions for the requested topics in this section/source —
+          // fall back transparently to whole-section selection so the
+          // session is still meaningful.
+          selected = [
+            ...shuffle(filtered.filter(fresh)),
+            ...shuffle(filtered.filter(stale)),
+          ].slice(0, questionCount);
+        } else {
+          // Tiered: matching-fresh → matching-stale → other-fresh → other-stale.
+          // Ensures weak-topic questions exhaust before any non-matching
+          // ones appear, but if the weak-topic pool is too small for
+          // questionCount we still hit the requested length using rest of
+          // the section. This is the "fallback to full section" requirement.
+          selected = [
+            ...shuffle(matching.filter(fresh)),
+            ...shuffle(matching.filter(stale)),
+            ...shuffle(other.filter(fresh)),
+            ...shuffle(other.filter(stale)),
+          ].slice(0, questionCount);
+        }
+      } else {
+        // No topic prioritization requested — original two-tier order.
+        selected = [
+          ...shuffle(filtered.filter(fresh)),
+          ...shuffle(filtered.filter(stale)),
+        ].slice(0, questionCount);
+      }
       selected = diversifyOrder(selected);
 
-      saveRecentIds([...selected.map(q => q.id), ...recentIds]);
+      saveRecentIds([...selected.map((q) => q.id), ...recentIds]);
       setQuestions(selected);
       setAnswers(new Array(selected.length).fill(null));
       setTimes(new Array(selected.length).fill(null));
@@ -1271,7 +1406,7 @@ function PracticeTestContent() {
     setAnswers(new Array(selected.length).fill(null));
     setTimes(new Array(selected.length).fill(null));
     setTopicPool(enrichedAll);
-  }, [topic, questionCount, difficulty, branch, focus]);
+  }, [topic, questionCount, difficulty, branch, focus, requestedTopicsKey]);
 
   useEffect(() => {
     if (timeLeft > 0 && !showExplanation && !showResults && questions.length > 0) {

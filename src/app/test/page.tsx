@@ -6,6 +6,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import AIAssistant from "@/components/AIAssistant";
 import GeometryDiagram from "@/components/GeometryDiagram";
 import AIInsightsCard from "@/components/AIInsightsCard";
+import { categoryNameToSlug } from "@/lib/topicMap";
 import {
   saveExamResult,
   getPreviousExam,
@@ -7018,10 +7019,34 @@ export default function TestPage() {
                         "لفظي": "verbal_ar",
                       };
                       const slug = weakestSection ? slugMap[weakestSection.name] : undefined;
+
+                      // ===== Personalized topic prioritization =====
+                      // Inside the weakest section, identify up to 2 sub-topics
+                      // where the user is below 70% accuracy and forward them
+                      // as ?topics=... so /practice/test ranks them first.
+                      // Falls back silently to plain ?focus=... when nothing
+                      // qualifies (balanced section, all topics ≥70%, or no
+                      // known slug for the topic name) — same URL as today.
+                      let topicsParam = "";
+                      if (slug && weakestSection) {
+                        const weakTopicSlugs = categoryPerformance
+                          .filter((c) => c.section === weakestSection.name)
+                          .filter((c) => c.percentage < 70)
+                          .sort((a, b) => a.percentage - b.percentage)
+                          .slice(0, 2)
+                          .map((c) => categoryNameToSlug(c.name))
+                          .filter((s): s is NonNullable<typeof s> => s !== null);
+                        if (weakTopicSlugs.length > 0) {
+                          topicsParam = `&topics=${encodeURIComponent(
+                            weakTopicSlugs.join(",")
+                          )}`;
+                        }
+                      }
+
                       const target =
                         sectionsTied || !slug
                           ? "/practice"
-                          : `/practice?focus=${encodeURIComponent(slug)}`;
+                          : `/practice?focus=${encodeURIComponent(slug)}${topicsParam}`;
                       router.push(target);
                     }}
                     className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#006C35] text-white text-xs font-bold hover:bg-[#004d26] transition-colors"
