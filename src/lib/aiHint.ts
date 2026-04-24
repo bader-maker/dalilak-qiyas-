@@ -11,12 +11,29 @@ export type AIHintInput = {
   section?: string;
   category?: string;
   language?: "ar" | "en";
+  // How many hints the student has requested so far in the current exam
+  // session (1 = first request). Sent to the server so it can gradually
+  // reduce hint clarity when the student leans on hints repeatedly.
+  // NOTE: intentionally NOT included in the cache key — once a question
+  // has a stored hint, revisits return that same hint regardless of the
+  // current streak, so the on-screen content stays consistent.
+  streak?: number;
 };
 
 const CACHE_PREFIX = "qiyas_ai_hint_v1:";
 const ATTEMPTED_PREFIX = "qiyas_ai_hint_attempted_v1:";
 
-const inflight = new Map<string, Promise<string | null>>();
+// Result of a hint generation attempt.
+// - hint: the text to show (null = failure / nothing usable).
+// - fromCache: true when the value came from localStorage (no network request,
+//   no cost). The caller uses this to avoid advancing a streak/usage counter
+//   for what is effectively a free re-display of an already-served hint.
+export type AIHintResult = {
+  hint: string | null;
+  fromCache: boolean;
+};
+
+const inflight = new Map<string, Promise<AIHintResult>>();
 
 // Stable per-question hash (FNV-1a 32-bit on question text). Same key
 // across navigation back-and-forth and across sections — guarantees one
@@ -73,21 +90,24 @@ function markAttemptedThisSession(key: string): void {
  * - One successful generation per question for the lifetime of localStorage.
  * - One attempt per session for failures (no retry storms).
  * - Concurrent callers for the same question share one in-flight request.
+ *
+ * Returns { hint, fromCache } so callers can distinguish a free re-display
+ * from a real new generation (used to avoid double-counting toward streak).
  */
 export async function generateAIHint(
   input: AIHintInput
-): Promise<string | null> {
+): Promise<AIHintResult> {
   const key = hintKey(input);
 
   const cached = readCache(key);
-  if (cached) return cached;
+  if (cached) return { hint: cached, fromCache: true };
 
   const existing = inflight.get(key);
   if (existing) return existing;
 
-  if (wasAttemptedThisSession(key)) return null;
+  if (wasAttemptedThisSession(key)) return { hint: null, fromCache: false };
 
-  const promise = (async (): Promise<string | null> => {
+  const promise = (async (): Promise<AIHintResult> => {
     try {
       const res = await fetch("/api/ai-hint", {
         method: "POST",
@@ -96,18 +116,18 @@ export async function generateAIHint(
       });
       if (!res.ok) {
         markAttemptedThisSession(key);
-        return null;
+        return { hint: null, fromCache: false };
       }
       const data = (await res.json()) as { ok?: boolean; hint?: string };
       if (!data?.ok || typeof data.hint !== "string" || data.hint.length === 0) {
         markAttemptedThisSession(key);
-        return null;
+        return { hint: null, fromCache: false };
       }
       writeCache(key, data.hint);
-      return data.hint;
+      return { hint: data.hint, fromCache: false };
     } catch {
       markAttemptedThisSession(key);
-      return null;
+      return { hint: null, fromCache: false };
     } finally {
       inflight.delete(key);
     }

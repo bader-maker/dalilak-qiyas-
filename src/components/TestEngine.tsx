@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "@/contexts/ThemeContext";
 import AIAssistant from "@/components/AIAssistant";
@@ -128,6 +128,17 @@ export default function TestEngine({
   const [hintLoadingKey, setHintLoadingKey] = useState<string | null>(null);
   // Per-question error message (transient, shown until the user navigates).
   const [hintErrors, setHintErrors] = useState<Record<string, string>>({});
+  // Total NEW (network-generated) hints served in this exam session.
+  // Sent to the server as `streak` so the prompt grows vaguer if the student
+  // leans on hints repeatedly (encourages them to think instead of relying
+  // on AI). A ref — not state — because:
+  //   1. We mutate it before/after async work and need synchronous reads.
+  //   2. Concurrent requests on different questions must each claim a
+  //      distinct streak slot; setState batching would let two requests
+  //      read the same value.
+  //   3. Nothing in the UI displays this count, so no re-render is needed.
+  // Resets when TestEngine remounts for a new test.
+  const hintCountRef = useRef<number>(0);
 
   // Initialize test
   useEffect(() => {
@@ -235,16 +246,31 @@ export default function TestEngine({
       const { [key]: _omit, ...rest } = prev;
       return rest;
     });
+    // Optimistically claim the next streak slot BEFORE the async call so
+    // concurrent requests on different questions get distinct streak values
+    // (1, 2, 3 …) instead of all reading the same pre-call count.
+    // The slot is rolled back on failure or persistent-cache hit so the
+    // count only advances for genuine new AI generations.
+    hintCountRef.current += 1;
+    const streak = hintCountRef.current;
+    let consumedSlot = false;
     try {
-      const hint = await generateAIHint({
+      const result = await generateAIHint({
         question: q.question,
         options: q.options,
         section: (q as Question & { section?: string }).section,
         category: examConfig.nameEn,
         language: isArabic ? "ar" : "en",
+        streak,
       });
-      if (hint) {
-        setHintCache((prev) => ({ ...prev, [key]: hint }));
+      if (result.hint && !result.fromCache) {
+        // Real new generation — keep the streak slot.
+        consumedSlot = true;
+        setHintCache((prev) => ({ ...prev, [key]: result.hint as string }));
+      } else if (result.hint && result.fromCache) {
+        // Free re-display from a previous session — show it without
+        // counting toward streak (no API call happened).
+        setHintCache((prev) => ({ ...prev, [key]: result.hint as string }));
       } else {
         setHintErrors((prev) => ({
           ...prev,
@@ -254,6 +280,11 @@ export default function TestEngine({
         }));
       }
     } finally {
+      if (!consumedSlot) {
+        // Roll back the optimistic increment — keep the count tied to
+        // genuine network generations only.
+        hintCountRef.current = Math.max(0, hintCountRef.current - 1);
+      }
       setHintLoadingKey((current) => (current === key ? null : current));
     }
   };

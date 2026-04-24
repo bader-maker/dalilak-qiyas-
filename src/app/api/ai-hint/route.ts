@@ -23,27 +23,78 @@ type HintInput = {
   section?: string;
   category?: string;
   language?: "ar" | "en";
+  // Number of hint requests the student has made so far in this exam session
+  // (1 = first request). The server uses this to gradually reduce hint
+  // clarity when the student leans on hints too often, encouraging them to
+  // think rather than abandon the question. Optional; defaults to 1.
+  streak?: number;
 };
 
-const SYSTEM_PROMPT_AR =
-  "أنت مدرّب اختبارات قياس. مهمتك تقديم تلميح قصير جداً للطالب أثناء حل سؤال." +
-  "\n\nقواعد صارمة:" +
+// Hint clarity tiers — each tier keeps the strict no-answer / no-option-letter
+// / ≤30-word safety rails, but the level of guidance gradually decreases as
+// the student's hint-streak grows.
+type HintLevel = "clear" | "vague" | "minimal";
+
+function pickLevel(streak: number | undefined): HintLevel {
+  const n = typeof streak === "number" && streak > 0 ? streak : 1;
+  if (n >= 5) return "minimal";
+  if (n >= 3) return "vague";
+  return "clear";
+}
+
+const COMMON_RULES_AR =
   "\n- اكتب باللغة العربية فقط." +
   "\n- سطر واحد أو سطران كحد أقصى (≤ 30 كلمة)." +
   "\n- لا تكشف الإجابة الصحيحة ولا تذكر اسم الخيار (أ/ب/ج/د)." +
-  "\n- لا تحلّ السؤال بخطوات. وجّه التفكير فقط." +
-  "\n- ركّز على الفكرة أو القاعدة الجوهرية وراء السؤال." +
+  "\n- لا تحلّ السؤال بخطوات." +
   "\n- لا مقدمات ولا مجاملات.";
 
-const SYSTEM_PROMPT_EN =
-  "You are a Qiyas exam tutor. Give a very short hint to a student solving a question." +
-  "\n\nStrict rules:" +
+const COMMON_RULES_EN =
   "\n- English only." +
   "\n- Maximum 1–2 lines (≤ 30 words)." +
   "\n- Do NOT reveal the correct answer or name an option (A/B/C/D)." +
-  "\n- Do NOT solve the question step by step. Only guide the thinking." +
-  "\n- Focus on the underlying idea or rule the question is testing." +
+  "\n- Do NOT solve the question step by step." +
   "\n- No preamble, no pleasantries.";
+
+const SYSTEM_PROMPTS_AR: Record<HintLevel, string> = {
+  clear:
+    "أنت مدرّب اختبارات قياس. أعطِ الطالب تلميحاً واضحاً يوجّهه للحل دون كشفه." +
+    "\n\nقواعد صارمة:" +
+    "\n- وجّه التفكير وأشر إلى المفهوم أو الخطوة الأولى." +
+    COMMON_RULES_AR,
+  vague:
+    "أنت مدرّب اختبارات قياس. الطالب طلب عدة تلميحات متتالية، فقلّل وضوح التلميح قليلاً لتشجيعه على التفكير." +
+    "\n\nقواعد صارمة:" +
+    "\n- اطرح سؤالاً تأملياً يقوده، أو أشر إلى المفهوم العام دون تحديد الخطوة." +
+    "\n- لا تذكر أرقاماً أو معادلات أو خطوات حسابية." +
+    COMMON_RULES_AR,
+  minimal:
+    "أنت مدرّب اختبارات قياس. الطالب يعتمد كثيراً على التلميحات؛ ادفعه للتفكير بنفسه." +
+    "\n\nقواعد صارمة:" +
+    "\n- اذكر فقط نوع المهارة أو فرع الموضوع المطلوب (مثل: 'هذا اختبار للنسب' أو 'هذا تطبيق على قاعدة كيميائية')." +
+    "\n- لا تشرح المفهوم ولا تقترح أي مدخل للحل. اكتفِ بجملة قصيرة جداً." +
+    COMMON_RULES_AR,
+};
+
+const SYSTEM_PROMPTS_EN: Record<HintLevel, string> = {
+  clear:
+    "You are a Qiyas exam tutor. Give a clear guiding hint that directs the student without revealing the answer." +
+    "\n\nStrict rules:" +
+    "\n- Guide the thinking — point at the concept or the first step." +
+    COMMON_RULES_EN,
+  vague:
+    "You are a Qiyas exam tutor. The student has asked for several hints in a row, so deliberately reduce clarity to encourage independent thinking." +
+    "\n\nStrict rules:" +
+    "\n- Ask a reflective question or point at the general concept without naming a step." +
+    "\n- Do NOT mention numbers, formulas, or calculation steps." +
+    COMMON_RULES_EN,
+  minimal:
+    "You are a Qiyas exam tutor. The student is over-relying on hints; nudge them to think for themselves." +
+    "\n\nStrict rules:" +
+    "\n- Only state the skill area or topic branch involved (e.g. 'this is a ratios question' or 'this applies a chemistry rule')." +
+    "\n- Do NOT explain the concept or suggest any approach. One very short sentence." +
+    COMMON_RULES_EN,
+};
 
 function buildUserPrompt(d: HintInput, isArabic: boolean): string {
   const optionsBlock = d.options
@@ -107,7 +158,12 @@ export async function POST(req: NextRequest) {
       !Array.isArray(data.options) ||
       data.options.length < 2 ||
       data.options.length > 8 ||
-      data.options.some((o) => typeof o !== "string" || o.length > 1000)
+      data.options.some((o) => typeof o !== "string" || o.length > 1000) ||
+      (data.streak !== undefined &&
+        (typeof data.streak !== "number" ||
+          !Number.isFinite(data.streak) ||
+          data.streak < 0 ||
+          data.streak > 1000))
     ) {
       return NextResponse.json(
         { error: "Invalid hint input" },
@@ -139,13 +195,17 @@ export async function POST(req: NextRequest) {
     }
 
     const isArabic = data.language !== "en";
+    const level = pickLevel(data.streak);
+    const systemPrompt = isArabic
+      ? SYSTEM_PROMPTS_AR[level]
+      : SYSTEM_PROMPTS_EN[level];
 
     let completion;
     try {
       completion = await openai.chat.completions.create({
         model: "gpt-5.2",
         messages: [
-          { role: "system", content: isArabic ? SYSTEM_PROMPT_AR : SYSTEM_PROMPT_EN },
+          { role: "system", content: systemPrompt },
           { role: "user", content: buildUserPrompt(data, isArabic) },
         ],
       });
