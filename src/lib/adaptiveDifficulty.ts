@@ -59,6 +59,35 @@ function shiftDifficulty(d: Difficulty, steps: number): Difficulty {
   return TIER_ORDER[next];
 }
 
+/**
+ * Optional bias derived from the persistent user profile timeline. Plain
+ * values only — this module never imports the profile layer so it stays
+ * pure and trivial to test. Callers (e.g. the practice page) resolve the
+ * relevant topic, read `lastKnownLevel` and `getTopicImprovement(...)`,
+ * and pass the resulting labels in.
+ *
+ * Both fields are optional because the timeline may be empty (brand-new
+ * student) or have only one snapshot (no trend yet). Missing fields
+ * silently disable the corresponding rule — they do not zero the rest.
+ */
+export interface ProfileBias {
+  /**
+   * Latest known level for the relevant topic. Maps the profile's
+   * `weak / developing / strong` labels (defined in `userProfile.ts`)
+   * onto the same conceptual axis as easy/medium/hard. Acts as a soft
+   * floor/ceiling — see `summarizePerformance` for the exact rule.
+   */
+  lastKnownLevel?: "weak" | "developing" | "strong";
+  /**
+   * Trend over the relevant topic's timeline (first vs latest snapshot,
+   * bucketed by `PROGRESS_TREND_THRESHOLD`). The directional bias rule:
+   *   - declining → step easier  (slow the difficulty climb)
+   *   - improving → step harder  (raise the ceiling sooner)
+   *   - stable    → no change    (preserve current behavior per spec)
+   */
+  trend?: "improving" | "declining" | "stable";
+}
+
 export interface Performance {
   /** Overall accuracy across all answered questions, 0–100. */
   accuracy: number;
@@ -71,16 +100,38 @@ export interface Performance {
   /**
    * Difficulty the next batch should favor.
    *
-   * Computed by taking the accuracy-derived "base" target and then applying
-   * signal-based adjustments (speed and hint usage) when those signals are
-   * available. Without `times`/`hints` this collapses to the original
-   * accuracy-only behavior, so existing callers see no change.
+   * Computed by taking the accuracy-derived "base" target, applying
+   * session signal adjustments (speed + hint usage) when those signals
+   * are available, and finally adding any profile-bias adjustment when
+   * a `profileBias` was supplied. Without any of these (no times/hints,
+   * no profile) this collapses to the original accuracy-only behavior,
+   * so existing callers see no change.
    */
   targetDifficulty: Difficulty;
-  /** The base (accuracy-only) target before signal adjustments were applied. */
+  /** The base (accuracy-only) target before any adjustments were applied. */
   baseDifficulty: Difficulty;
-  /** Net adjustment steps applied (positive = harder, negative = easier). */
+  /**
+   * Final net adjustment steps applied to `baseDifficulty` (positive =
+   * harder, negative = easier). Equal to `sessionAdjustment +
+   * effectiveProfileAdjustment` after the shared `[-2, +2]` clamp,
+   * where `effectiveProfileAdjustment` is the profile contribution
+   * AFTER the non-override cap (see below).
+   */
   difficultyAdjustment: number;
+  /**
+   * Session signal contribution alone (speed + hint rules). Exposed so
+   * callers / tests can verify the bias-only invariant.
+   */
+  sessionAdjustment: number;
+  /**
+   * Profile contribution as REQUESTED by the bias rules, BEFORE the
+   * non-override cap. May be ±1 or ±2 from trend + level damper.
+   * Compare against `difficultyAdjustment - sessionAdjustment` to see
+   * how much of it actually made it through the cap. `0` when no
+   * `profileBias` was provided or the window was too small to act on
+   * it.
+   */
+  profileAdjustment: number;
   /** Recent-window aggregates exposed for transparency / future tuning. */
   recentSignals: {
     /** Fraction of the recent window answered fast and correct, 0–1. */
@@ -126,6 +177,7 @@ export function summarizePerformance(
   times?: (number | null | undefined)[],
   hints?: (boolean | null | undefined)[],
   windowSize = 5,
+  profileBias?: ProfileBias,
 ): Performance {
   // Pair each answer with its question (and optional signals) to score it.
   // We filter on `a != null` rather than truthy so answer-index 0 (a valid
@@ -209,24 +261,24 @@ export function summarizePerformance(
     sampleSize: window.length,
   };
 
-  // ----- Adjustment math -----
-  // Each rule contributes a small step. We sum the steps and clamp the
-  // total to [-2, +2] so a single re-evaluation can move at most one
-  // full tier away from the accuracy base. Adjustments only trigger when
-  // we have ≥3 samples in the window, otherwise the signals are too
-  // noisy to act on.
-  let difficultyAdjustment = 0;
+  // ----- Session adjustment math -----
+  // Each session-signal rule contributes a small step. They're tallied
+  // into `sessionAdjustment` (kept SEPARATE from the profile contribution
+  // so the conflict-resolution rules below can operate on each one
+  // independently). Session adjustments only trigger when we have ≥3
+  // samples in the window, otherwise the signals are too noisy to act on.
+  let sessionAdjustment = 0;
   if (window.length >= 3) {
     // Step EASIER when the user looks like they're guessing fast.
-    if (recentSignals.fastWrongRate >= 0.4) difficultyAdjustment -= 1;
+    if (recentSignals.fastWrongRate >= 0.4) sessionAdjustment -= 1;
 
     // Step EASIER when the user is leaning heavily on hints.
-    if (recentSignals.hintRate >= 0.4) difficultyAdjustment -= 1;
+    if (recentSignals.hintRate >= 0.4) sessionAdjustment -= 1;
 
     // Step HARDER when the user is fast AND correct most of the time —
     // "increase difficulty faster" per spec. We require a strong rate
     // (≥60%) so a single fast-correct doesn't bump them up.
-    if (recentSignals.fastCorrectRate >= 0.6) difficultyAdjustment += 1;
+    if (recentSignals.fastCorrectRate >= 0.6) sessionAdjustment += 1;
 
     // Special case: user is mostly slow-but-correct AND base says HARD.
     // They DO know the material (hence high accuracy) but they're not
@@ -237,12 +289,75 @@ export function summarizePerformance(
       recentSignals.slowCorrectRate >= 0.5 &&
       recentSignals.fastCorrectRate < 0.4
     ) {
-      difficultyAdjustment -= 1;
+      sessionAdjustment -= 1;
     }
   }
 
-  // Clamp the cumulative adjustment so we never skip past medium.
-  difficultyAdjustment = Math.max(-2, Math.min(2, difficultyAdjustment));
+  // ----- Profile-bias adjustment (strictly bias-only) -----
+  // Two rules — both gated on the same `window.length >= 3` check used
+  // for session signals so we don't act on noise:
+  //
+  // 1. Trend rule (the explicit user spec):
+  //      declining → -1   (slow the climb / rebuild confidence)
+  //      improving → +1   (push the ceiling sooner)
+  //      stable    →  0   (KEEP CURRENT BEHAVIOR per spec)
+  //
+  // 2. lastKnownLevel safety damper — fires ONLY when the freshly-derived
+  //    `baseDifficulty` strongly disagrees with the historical level.
+  //    Protects against an unrepresentative 5-question window from
+  //    catapulting a historically-weak student straight to HARD (and
+  //    vice-versa). Silent in the common case where session and history
+  //    agree — so most adaptations are session-driven, with profile
+  //    silently confirming.
+  //      base=hard AND level=weak   → -1
+  //      base=easy AND level=strong → +1
+  //      anything else              →  0
+  let profileAdjustment = 0;
+  if (profileBias && window.length >= 3) {
+    if (profileBias.trend === "declining") profileAdjustment -= 1;
+    else if (profileBias.trend === "improving") profileAdjustment += 1;
+
+    if (
+      baseDifficulty === "hard" &&
+      profileBias.lastKnownLevel === "weak"
+    ) {
+      profileAdjustment -= 1;
+    } else if (
+      baseDifficulty === "easy" &&
+      profileBias.lastKnownLevel === "strong"
+    ) {
+      profileAdjustment += 1;
+    }
+  }
+
+  // ----- Non-override cap on the profile contribution -----
+  // The user spec is explicit: the profile is a BIAS, not an override.
+  // The cap below enforces that semantically:
+  //   - If session signals say HARDER (sessionAdjustment > 0): profile
+  //     may amplify (push further harder, subject to the global clamp)
+  //     or attenuate toward 0 (e.g. session=+1 + profile=-1 → 0). It
+  //     may NEVER make the net negative — i.e. it can never flip
+  //     "harder" into "easier".
+  //   - If session signals say EASIER (sessionAdjustment < 0): profile
+  //     may amplify or attenuate toward 0, but may never make the net
+  //     positive. Same sign-preservation rule, mirrored.
+  //   - If session has no opinion (sessionAdjustment === 0): profile
+  //     applies in full. This is the only window where profile alone
+  //     decides direction, which is the intended fallback when the
+  //     session window is genuinely neutral.
+  //
+  // Conflict resolution summary: SESSION wins on direction whenever it
+  // has one; PROFILE only ever shifts magnitude or fills a vacuum.
+  let netAdjustment = sessionAdjustment + profileAdjustment;
+  if (sessionAdjustment > 0) {
+    netAdjustment = Math.max(netAdjustment, 0);
+  } else if (sessionAdjustment < 0) {
+    netAdjustment = Math.min(netAdjustment, 0);
+  }
+
+  // Final clamp to [-2, +2] so we never skip past medium even when both
+  // session and profile point the same way. Mirrors the original budget.
+  const difficultyAdjustment = Math.max(-2, Math.min(2, netAdjustment));
 
   const targetDifficulty = shiftDifficulty(baseDifficulty, difficultyAdjustment);
 
@@ -254,6 +369,8 @@ export function summarizePerformance(
     targetDifficulty,
     baseDifficulty,
     difficultyAdjustment,
+    sessionAdjustment,
+    profileAdjustment,
     recentSignals,
   };
 }

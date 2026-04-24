@@ -14,6 +14,7 @@ import {
 import {
   summarizePerformance,
   composeUpcomingByDifficulty,
+  type ProfileBias,
 } from "@/lib/adaptiveDifficulty";
 import {
   loadUserProfile,
@@ -21,6 +22,7 @@ import {
   applySessionToProfile,
   getStudyRecommendations,
   reconcileExamHistoryToProfile,
+  getTopicImprovement,
   type SessionAnswer,
 } from "@/lib/userProfile";
 import { loadHistory } from "@/lib/examHistory";
@@ -1579,16 +1581,87 @@ function PracticeTestContent() {
       return;
     }
 
+    // ----- Profile bias resolution -----
+    // Resolve a single "relevant topic" so we can pull this student's
+    // historical level + trend out of the persistent profile and feed
+    // them to the adaptive helper as a SOFT bias. The helper still does
+    // all of its accuracy / speed / hint math first; the profile only
+    // nudges the same shared adjustment sum, which stays clamped to
+    // [-2, +2] so the profile can never override a strong session
+    // signal — see `summarizePerformance` for the conflict-resolution
+    // explanation.
+    //
+    // Topic-of-interest precedence:
+    //   1. If the session is focused on exactly one topic
+    //      (`requestedTopics.length === 1`), use that — it's the most
+    //      explicit signal of intent.
+    //   2. Otherwise compute the modal topic over the recent window of
+    //      answered questions, so a mixed-section session is biased by
+    //      whatever the student has actually been working on lately
+    //      (not by an arbitrary first item).
+    //
+    // Wrapped in try/catch so a corrupted / unparseable profile blob
+    // can NEVER break adaptation — we just fall back to session-only
+    // signals, which is the prior behavior.
+    let profileBias: ProfileBias | undefined;
+    try {
+      let topicOfInterest: string | undefined;
+      if (requestedTopics.length === 1) {
+        topicOfInterest = requestedTopics[0];
+      } else {
+        // Modal topic over the recent answered slice. We walk
+        // backwards from the end so the most recent answers tie-break
+        // toward the freshest topic.
+        const counts = new Map<string, number>();
+        let scanned = 0;
+        for (let i = answers.length - 1; i >= 0 && scanned < ADAPT_EVERY; i--) {
+          const a = answers[i];
+          const q = questions[i];
+          if (a == null || !q || !q.topic) continue;
+          counts.set(q.topic, (counts.get(q.topic) ?? 0) + 1);
+          scanned++;
+        }
+        let bestCount = 0;
+        for (const [t, c] of counts) {
+          if (c > bestCount) {
+            bestCount = c;
+            topicOfInterest = t;
+          }
+        }
+      }
+
+      if (topicOfInterest) {
+        const profile = loadUserProfile();
+        const level = profile.lastKnownLevel?.[topicOfInterest]?.level;
+        // `getTopicImprovement` returns null when the timeline has < 2
+        // snapshots — which leaves `trend` undefined and silently
+        // disables the directional rule (correct behavior for a
+        // brand-new student or a topic with only one measurement).
+        const imp = getTopicImprovement(profile, topicOfInterest);
+        if (level || imp) {
+          profileBias = {
+            lastKnownLevel: level,
+            trend: imp?.trend,
+          };
+        }
+      }
+    } catch {
+      // Profile read / parse failure — fall through with no bias.
+    }
+
     // Pass the per-question signal arrays so the helper can apply
     // speed-based and hint-based adjustments on top of the accuracy
     // base. Both arrays are parallel to `answers` (same indexing); the
-    // helper safely treats missing entries as "no signal".
+    // helper safely treats missing entries as "no signal". The optional
+    // `profileBias` is applied last and shares the [-2, +2] adjustment
+    // budget — see helper for details.
     const perf = summarizePerformance(
       answers,
       questions,
       times,
       hints,
       ADAPT_EVERY,
+      profileBias,
     );
 
     // Build the exclusion set: every question already in front of the
