@@ -35,6 +35,7 @@ import {
   categoryNameToSlug,
   type TopicSlug,
 } from "@/lib/topicMap";
+import { inferSubtype } from "@/lib/subtypeInference";
 
 // ===== Exam-bank focus support =====
 // When the URL contains `?focus=<value>`, the training session is
@@ -98,6 +99,12 @@ function loadExamBankQuestions(focus: string): TrainingQuestion[] {
       mapping.section,
       idx
     );
+    const topic = inferred ?? focus;
+    // Per-question subtype is *additive*: undefined falls back to topic
+    // behavior. Inferred here at load time so the in-session diversifier
+    // (`diversifyOrder`) and the profile aggregator both see the same
+    // slug for an answer — see `src/lib/subtypeInference.ts`.
+    const subtype = inferSubtype(q.question, topic);
     return {
       id: `${focus}-${idx}-${q.id}`,
       section: mapping.sectionLabel,
@@ -105,7 +112,8 @@ function loadExamBankQuestions(focus: string): TrainingQuestion[] {
       // Use the inferred sub-topic slug when the section has a layout
       // (Qudrat AR + GAT EN today). Falls back to the focus value for
       // sections without sub-topic structure (Tahsili AR + SAAT EN).
-      topic: inferred ?? focus,
+      topic,
+      ...(subtype ? { subtype } : {}),
       question: q.question,
       options: q.options,
       correct: q.correct,
@@ -1108,6 +1116,15 @@ function saveRecentIds(ids: string[]): void {
 // Reorder so consecutive questions don't share the same strategy_tag / subtype
 // (and prefer alternating wording_style as a tiebreaker). Falls back gracefully
 // when the remaining pool can't satisfy a constraint, so the flow never breaks.
+//
+// IMPORTANT: `strategy_tag` is only populated for the Qudrat-AR in-file
+// pool (set by `enrichQuestion` → `deriveSmartInfo`). Exam-bank questions
+// (GAT-EN, Tahsili-AR, SAAT-EN) typically have it undefined, which would
+// make a `q.strategy_tag !== last.strategy_tag` check trivially false
+// (undefined !== undefined). The lower tiers below fall back to `subtype`
+// (now populated for all banks via `inferSubtype` at load time) and then
+// `topic`, so the no-consecutive-clustering guarantee holds for every
+// section regardless of which signals the source pool happens to carry.
 function diversifyOrder(arr: TrainingQuestion[]): TrainingQuestion[] {
   const out: TrainingQuestion[] = [];
   const remaining = [...arr];
@@ -1128,9 +1145,19 @@ function diversifyOrder(arr: TrainingQuestion[]): TrainingQuestion[] {
           q => q.strategy_tag !== last.strategy_tag && q.subtype !== last.subtype
         );
       }
-      // 3rd choice: at least different strategy_tag
+      // 3rd choice: at least a different subtype (works even when
+      // strategy_tag is missing on both sides, e.g. for exam-bank pools).
+      if (altIdx < 0) {
+        altIdx = remaining.findIndex(q => q.subtype !== last.subtype);
+      }
+      // 4th choice: at least a different strategy_tag.
       if (altIdx < 0) {
         altIdx = remaining.findIndex(q => q.strategy_tag !== last.strategy_tag);
+      }
+      // 5th choice: at least a different topic — last-resort variety
+      // signal that's always populated.
+      if (altIdx < 0) {
+        altIdx = remaining.findIndex(q => q.topic !== last.topic);
       }
       if (altIdx >= 0) pickIdx = altIdx;
     }
@@ -1660,8 +1687,26 @@ function PracticeTestContent() {
       const a = answers[i];
       // Skip unanswered questions — they shouldn't affect averages.
       if (!q || a == null) continue;
+      // Canonical subtype for the persistent profile. Two pools feed
+      // this page and their per-question subtype slugs come from
+      // different sources:
+      //   - exam banks: `loadExamBankQuestions` already calls the
+      //     central `inferSubtype` (so q.subtype matches the canonical
+      //     vocabulary), and
+      //   - Qudrat-AR in-file: `enrichQuestion` → `deriveSmartInfo`
+      //     produces older, more granular slugs ("linear-add",
+      //     "circle-area") that don't share vocabulary with the
+      //     central helper ("linear", "area").
+      // To keep `topics[t].subtypes[s]` counters comparable across both
+      // pools — and across future sessions — we ALWAYS run the central
+      // helper here and only fall back to the in-engine slug when it
+      // returns nothing. The in-session diversifier still uses the
+      // richer per-question `q.subtype` for variety; only the persisted
+      // counter dimension is unified.
+      const canonicalSubtype = inferSubtype(q.question, q.topic) ?? q.subtype;
       payload.push({
         topic: q.topic,
+        subtype: canonicalSubtype,
         isCorrect: a === q.correct,
         timeSpent: times[i] ?? null,
         hintUsed: hints[i] === true,

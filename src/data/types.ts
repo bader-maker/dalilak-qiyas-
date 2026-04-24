@@ -63,6 +63,15 @@ export interface Question {
   options: string[];
   correct: number;
   explanation: string;
+  /**
+   * OPTIONAL finer-grained slug *under* `question_type` (e.g. for
+   * `algebra`: "linear", "quadratic", "logarithm"). Inferred at
+   * load-time by `src/lib/subtypeInference.ts` — never set in the
+   * raw bank data so authors don't have to maintain it manually.
+   * Consumers MUST treat absence as "no subtype" and fall back to
+   * topic-level behavior; subtype is purely additive.
+   */
+  subtype?: string;
 }
 
 // Legacy Question interface for backward compatibility

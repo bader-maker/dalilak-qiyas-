@@ -75,6 +75,24 @@ const MIN_SESSION_SAMPLES_FOR_SNAPSHOT = 3;
  */
 const PROGRESS_TREND_THRESHOLD = 5;
 
+/**
+ * Per-subtype slice of TopicCounters. Subtypes are an OPTIONAL finer
+ * grain *inside* a topic (e.g. topic "algebra" → subtype "quadratic").
+ * The shape mirrors `TopicCounters` so future code can reuse the same
+ * accuracy / speed / hint-rate helpers across both granularities.
+ *
+ * Storing subtypes as a nested map (rather than a flat `topic.subtype`
+ * key on `topics`) keeps topic-level counters intact and lets callers
+ * who don't care about subtypes ignore them entirely.
+ */
+export interface SubtypeCounters {
+  answered: number;
+  correct: number;
+  timeSeconds: number;
+  timedAnswered: number;
+  hintsUsed: number;
+}
+
 export interface TopicCounters {
   /** Total answered for this topic across all sessions. */
   answered: number;
@@ -90,6 +108,17 @@ export interface TopicCounters {
   timedAnswered: number;
   /** Number of times the student revealed the hint. */
   hintsUsed: number;
+  /**
+   * OPTIONAL per-subtype breakdown. Absent on legacy entries written
+   * before subtype tracking shipped — callers MUST treat undefined /
+   * empty as "no subtype data" and fall back to the topic totals.
+   *
+   * Only answers that arrive with a non-empty `subtype` populate this
+   * map; topic totals are always updated regardless. This keeps the
+   * dimension purely additive: removing the inference helper would
+   * leave subtype maps frozen but break nothing else.
+   */
+  subtypes?: Record<string, SubtypeCounters>;
 }
 
 export interface ProfileTotals {
@@ -233,6 +262,15 @@ export interface UserProfile {
 export interface SessionAnswer {
   /** Question topic — used to bucket counters. Unknown topics get bucketed under "unknown". */
   topic: string | undefined | null;
+  /**
+   * OPTIONAL finer-grained slug under `topic` (e.g. "quadratic" for
+   * topic "algebra"). When provided, the aggregator also bumps the
+   * matching `topics[topic].subtypes[subtype]` counters; topic totals
+   * are always updated regardless. Absent / empty / whitespace-only
+   * values leave the per-subtype dimension untouched, so older callers
+   * that never set this field continue to work unchanged.
+   */
+  subtype?: string | undefined | null;
   /** True if the student selected the correct option. */
   isCorrect: boolean;
   /** Seconds spent on the question. `null` when not measured. */
@@ -314,7 +352,7 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
-function coerceTopicCounters(raw: unknown): TopicCounters | null {
+function coerceSubtypeCounters(raw: unknown): SubtypeCounters | null {
   if (!isPlainObject(raw)) return null;
   const answered = Number(raw.answered);
   const correct = Number(raw.correct);
@@ -337,6 +375,48 @@ function coerceTopicCounters(raw: unknown): TopicCounters | null {
     timedAnswered: Math.max(0, Math.floor(timedAnswered)),
     hintsUsed: Math.max(0, Math.floor(hintsUsed)),
   };
+}
+
+function coerceSubtypeMap(raw: unknown): Record<string, SubtypeCounters> | undefined {
+  // Defensive: any non-object (including arrays / null / legacy
+  // profiles missing the field) yields undefined, never an empty map,
+  // so downstream `subtypes != null` checks stay precise.
+  if (!isPlainObject(raw)) return undefined;
+  const out: Record<string, SubtypeCounters> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (typeof k !== "string" || !k.trim()) continue;
+    const c = coerceSubtypeCounters(v);
+    if (c) out[k] = c;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+function coerceTopicCounters(raw: unknown): TopicCounters | null {
+  if (!isPlainObject(raw)) return null;
+  const answered = Number(raw.answered);
+  const correct = Number(raw.correct);
+  const timeSeconds = Number(raw.timeSeconds);
+  const timedAnswered = Number(raw.timedAnswered);
+  const hintsUsed = Number(raw.hintsUsed);
+  if (
+    !Number.isFinite(answered) ||
+    !Number.isFinite(correct) ||
+    !Number.isFinite(timeSeconds) ||
+    !Number.isFinite(timedAnswered) ||
+    !Number.isFinite(hintsUsed)
+  ) {
+    return null;
+  }
+  const counters: TopicCounters = {
+    answered: Math.max(0, Math.floor(answered)),
+    correct: Math.max(0, Math.floor(correct)),
+    timeSeconds: Math.max(0, timeSeconds),
+    timedAnswered: Math.max(0, Math.floor(timedAnswered)),
+    hintsUsed: Math.max(0, Math.floor(hintsUsed)),
+  };
+  const subtypes = coerceSubtypeMap(raw.subtypes);
+  if (subtypes) counters.subtypes = subtypes;
+  return counters;
 }
 
 function coerceCategoryInput(raw: unknown): DiagnosticCategoryInput | null {
@@ -546,6 +626,8 @@ export function applySessionToProfile(
       timedAnswered: 0,
       hintsUsed: 0,
     };
+    // Shallow-clone the topic record so we can mutate freely without
+    // touching the existing subtype map; we rebuild that map below.
     const next: TopicCounters = { ...existing };
     next.answered += 1;
     totals.answered += 1;
@@ -553,16 +635,55 @@ export function applySessionToProfile(
       next.correct += 1;
       totals.correct += 1;
     }
-    if (typeof a.timeSpent === "number" && Number.isFinite(a.timeSpent) && a.timeSpent >= 0) {
-      next.timeSeconds += a.timeSpent;
+    const hasTime =
+      typeof a.timeSpent === "number" && Number.isFinite(a.timeSpent) && a.timeSpent >= 0;
+    if (hasTime) {
+      next.timeSeconds += a.timeSpent as number;
       next.timedAnswered += 1;
-      totals.timeSeconds += a.timeSpent;
+      totals.timeSeconds += a.timeSpent as number;
       totals.timedAnswered += 1;
     }
     if (a.hintUsed) {
       next.hintsUsed += 1;
       totals.hintsUsed += 1;
     }
+
+    // ---- Optional per-subtype bucket ------------------------------
+    // Only update the subtype dimension when the caller provided a
+    // non-empty slug. Topic totals were already updated above so a
+    // missing subtype never leaves the profile inconsistent — it just
+    // skips the finer-grained snapshot for this answer.
+    //
+    // Runtime guard: callers can be untyped (e.g. legacy persisted
+    // payloads, future external sources). A non-string subtype would
+    // throw on `.trim()` and abort the entire aggregation, which
+    // contradicts the additive/fault-tolerant invariant. Treat any
+    // non-string as "no subtype" instead.
+    const subtypeKey =
+      typeof a.subtype === "string" && a.subtype.trim()
+        ? a.subtype.trim()
+        : null;
+    if (subtypeKey) {
+      const subMap: Record<string, SubtypeCounters> = { ...(existing.subtypes ?? {}) };
+      const subPrev = subMap[subtypeKey] ?? {
+        answered: 0,
+        correct: 0,
+        timeSeconds: 0,
+        timedAnswered: 0,
+        hintsUsed: 0,
+      };
+      const subNext: SubtypeCounters = { ...subPrev };
+      subNext.answered += 1;
+      if (a.isCorrect) subNext.correct += 1;
+      if (hasTime) {
+        subNext.timeSeconds += a.timeSpent as number;
+        subNext.timedAnswered += 1;
+      }
+      if (a.hintUsed) subNext.hintsUsed += 1;
+      subMap[subtypeKey] = subNext;
+      next.subtypes = subMap;
+    }
+
     topics[topicKey] = next;
   }
 
@@ -588,6 +709,52 @@ export function applySessionToProfile(
 function accuracyOf(c: { answered: number; correct: number }): number {
   if (c.answered === 0) return 0;
   return (c.correct / c.answered) * 100;
+}
+
+/** Per-subtype performance entry returned by `getTopicSubtypePerformance`. */
+export interface SubtypePerformanceEntry {
+  /** The subtype slug (as fed to `applySessionToProfile`). */
+  subtype: string;
+  /** Total questions answered in this subtype. */
+  answered: number;
+  /** Correct answers in this subtype. */
+  correct: number;
+  /** 0–100 accuracy, rounded. 0 when no samples exist. */
+  accuracy: number;
+}
+
+/**
+ * Read-only helper exposing the per-subtype counters under one topic.
+ * Returns an array sorted by ascending accuracy (weakest first) — the
+ * shape future UIs / recommenders need most often. Subtypes below the
+ * shared `TOPIC_MIN_SAMPLES` floor are still included with an
+ * `answered` count callers can use to gate display; they're never
+ * filtered out here so consumers can decide policy.
+ *
+ * Returns an empty array when the topic doesn't exist or has no
+ * subtype data — callers fall back to topic-level signals.
+ */
+export function getTopicSubtypePerformance(
+  profile: UserProfile,
+  topic: string,
+): SubtypePerformanceEntry[] {
+  const t = profile.topics[topic];
+  if (!t || !t.subtypes) return [];
+  const out: SubtypePerformanceEntry[] = [];
+  for (const [subtype, c] of Object.entries(t.subtypes)) {
+    out.push({
+      subtype,
+      answered: c.answered,
+      correct: c.correct,
+      accuracy: Math.round(accuracyOf(c)),
+    });
+  }
+  // Weakest first; ties broken by larger sample (more confidence).
+  out.sort((a, b) => {
+    if (a.accuracy !== b.accuracy) return a.accuracy - b.accuracy;
+    return b.answered - a.answered;
+  });
+  return out;
 }
 
 /**
