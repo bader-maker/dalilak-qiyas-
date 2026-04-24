@@ -540,15 +540,33 @@ export default function TestEngine({
                   {/* Action — short, practical next step targeting weakest section */}
                   <div className="flex items-start gap-3 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
                     <span className="text-lg shrink-0">⚡</span>
-                    <p className="text-sm text-blue-800 dark:text-blue-300 leading-relaxed">
-                      {tied
-                        ? (isArabic
-                            ? `حافظ على وتيرتك: حل ${actionCount} سؤال متنوّع يومياً مع مراجعة شرح كل خطأ.`
-                            : `Maintain your pace: solve ${actionCount} mixed questions daily and review every mistake.`)
-                        : (isArabic
-                            ? `تدرب على ${actionCount} سؤال في «${weakestSec.label}» خلال يومين، واقرأ شرح كل إجابة خاطئة.`
-                            : `Practice ${actionCount} «${weakestSec.label}» questions over the next 2 days and read every wrong-answer explanation.`)}
-                    </p>
+                    <div className="flex-1">
+                      <p className="text-sm text-blue-800 dark:text-blue-300 leading-relaxed">
+                        {tied
+                          ? (isArabic
+                              ? `حافظ على وتيرتك: حل ${actionCount} سؤال متنوّع يومياً مع مراجعة شرح كل خطأ.`
+                              : `Maintain your pace: solve ${actionCount} mixed questions daily and review every mistake.`)
+                          : (isArabic
+                              ? `تدرب على ${actionCount} سؤال في «${weakestSec.label}» خلال يومين، واقرأ شرح كل إجابة خاطئة.`
+                              : `Practice ${actionCount} «${weakestSec.label}» questions over the next 2 days and read every wrong-answer explanation.`)}
+                      </p>
+                      {/* Routes to existing /practice route. The focus query
+                          param carries the weakest section's id (e.g.
+                          math_ar, physics_ar, quantitative_ar) so the
+                          practice page can deep-link later without any
+                          training-route or UI changes here. When sections
+                          are tied we omit the focus param — generic practice. */}
+                      <button
+                        onClick={() => {
+                          const target = tied ? "/practice" : `/practice?focus=${encodeURIComponent(weakestSec.id)}`;
+                          router.push(target);
+                        }}
+                        className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#006C35] text-white text-xs font-bold hover:bg-[#004d26] transition-colors"
+                      >
+                        {isArabic ? 'ابدأ التدريب الآن' : 'Start Training Now'}
+                        <span aria-hidden>{isArabic ? '←' : '→'}</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

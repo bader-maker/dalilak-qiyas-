@@ -2216,11 +2216,37 @@ export default function GATTestPage() {
               </div>
               <div className="flex items-start gap-3 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
                 <span className="text-lg shrink-0">⚡</span>
-                <p className="text-sm text-blue-800 dark:text-blue-300 leading-relaxed">
-                  {sectionsTied || !weakestSection
-                    ? `Maintain your pace: solve ${sectionActionCount} mixed questions daily and review every mistake.`
-                    : `Practice ${sectionActionCount} «${weakestSection.name}» questions over the next 2 days, and read every wrong-answer explanation.`}
-                </p>
+                <div className="flex-1">
+                  <p className="text-sm text-blue-800 dark:text-blue-300 leading-relaxed">
+                    {sectionsTied || !weakestSection
+                      ? `Maintain your pace: solve ${sectionActionCount} mixed questions daily and review every mistake.`
+                      : `Practice ${sectionActionCount} «${weakestSection.name}» questions over the next 2 days, and read every wrong-answer explanation.`}
+                  </p>
+                  {/* Routes to existing /practice route. We map the
+                      weakest GAT section name (Quantitative / Verbal) to
+                      a stable slug (quantitative_en / verbal_en) and
+                      pass it as ?focus=… so /practice can deep-link
+                      later — no changes to the practice UI required.
+                      When sections are tied we omit the param. */}
+                  <button
+                    onClick={() => {
+                      const slugMap: Record<string, string> = {
+                        Quantitative: "quantitative_en",
+                        Verbal: "verbal_en",
+                      };
+                      const slug = weakestSection ? slugMap[weakestSection.name] : undefined;
+                      const target =
+                        sectionsTied || !slug
+                          ? "/practice"
+                          : `/practice?focus=${encodeURIComponent(slug)}`;
+                      router.push(target);
+                    }}
+                    className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#006C35] text-white text-xs font-bold hover:bg-[#004d26] transition-colors"
+                  >
+                    Start Training Now
+                    <span aria-hidden>→</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
