@@ -191,7 +191,11 @@ export default function Dashboard() {
       }
     } else {
       if (tahsiliType === "tahsili") {
-        router.push("/test/tahsili-ar");
+        if (tahsiliTab === "comprehensive") {
+          router.push("/test/tahsili-ar");
+        } else {
+          router.push(`/test/tahsili-ar?subject=${tahsiliTab}_ar`);
+        }
       } else {
         router.push("/test/saat-en");
       }
