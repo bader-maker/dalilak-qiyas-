@@ -482,6 +482,79 @@ export default function TestEngine({
             })}
           </div>
 
+          {/* ===== Section-level insights (cause / strength / action) =====
+              Built from the same sectionScores data that powers the cards
+              above — no new data sources, no chart changes, no layout moves.
+              Only rendered for comprehensive exams with 2+ sections (skips
+              single-section practice mode where comparisons are meaningless). */}
+          {testMode !== "section" && (() => {
+            const secList = Object.entries(sectionScores)
+              .map(([id, s]) => ({
+                id,
+                label: getSectionLabel(examCategory, id, isArabic ? "ar" : "en"),
+                accuracy: s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0,
+                total: s.total,
+              }))
+              .filter((s) => s.total > 0);
+            if (secList.length < 2) return null;
+            const sortedAsc = [...secList].sort((a, b) => a.accuracy - b.accuracy);
+            const weakestSec = sortedAsc[0];
+            const strongestSec = sortedAsc[sortedAsc.length - 1];
+            const tied = strongestSec.accuracy - weakestSec.accuracy < 5;
+            // Practical action target: 15 questions in 2 days (mirrors
+            // the example in the task spec; concise and unambiguous).
+            const actionCount = 15;
+            return (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 mb-6 border border-gray-200 dark:border-gray-700">
+                <h3 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                  <span>🧭</span>
+                  {isArabic ? 'تحليل ذكي وتوصية' : 'Smart Insights & Next Step'}
+                </h3>
+                <div className="space-y-3">
+                  {/* Cause — explains WHY the score landed where it did */}
+                  <div className="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                    <span className="text-lg shrink-0">📉</span>
+                    <p className="text-sm text-red-800 dark:text-red-300 leading-relaxed">
+                      {tied
+                        ? (isArabic
+                            ? 'أداؤك متوازن بين الأقسام — لا يوجد قسم يسحب درجتك للأسفل بشكل واضح.'
+                            : 'Your performance is balanced across sections — no single section is dragging your score down.')
+                        : (isArabic
+                            ? `انخفاض درجتك سببه الرئيسي ضعفك في «${weakestSec.label}» (${weakestSec.accuracy}%).`
+                            : `Your score is held back mainly by «${weakestSec.label}» (${weakestSec.accuracy}%).`)}
+                    </p>
+                  </div>
+                  {/* Strength — highlights the strongest section */}
+                  <div className="flex items-start gap-3 p-3 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                    <span className="text-lg shrink-0">💪</span>
+                    <p className="text-sm text-green-800 dark:text-green-300 leading-relaxed">
+                      {tied
+                        ? (isArabic
+                            ? 'لا يوجد قسم متفوّق بشكل واضح بعد — استمر بالتدريب لتظهر نقاط قوتك.'
+                            : 'No standout section yet — keep training to surface your strengths.')
+                        : (isArabic
+                            ? `أداؤك في «${strongestSec.label}» هو الأقوى لديك (${strongestSec.accuracy}%).`
+                            : `Your strongest section is «${strongestSec.label}» (${strongestSec.accuracy}%).`)}
+                    </p>
+                  </div>
+                  {/* Action — short, practical next step targeting weakest section */}
+                  <div className="flex items-start gap-3 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                    <span className="text-lg shrink-0">⚡</span>
+                    <p className="text-sm text-blue-800 dark:text-blue-300 leading-relaxed">
+                      {tied
+                        ? (isArabic
+                            ? `حافظ على وتيرتك: حل ${actionCount} سؤال متنوّع يومياً مع مراجعة شرح كل خطأ.`
+                            : `Maintain your pace: solve ${actionCount} mixed questions daily and review every mistake.`)
+                        : (isArabic
+                            ? `تدرب على ${actionCount} سؤال في «${weakestSec.label}» خلال يومين، واقرأ شرح كل إجابة خاطئة.`
+                            : `Practice ${actionCount} «${weakestSec.label}» questions over the next 2 days and read every wrong-answer explanation.`)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Question Summary */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 mb-6 border border-gray-200 dark:border-gray-700">
             <h3 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">

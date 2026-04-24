@@ -2027,6 +2027,29 @@ export default function GATTestPage() {
     const strengths = categoryPerformance.filter(c => c.percentage >= 70).slice(0, 3);
     const weaknesses = categoryPerformance.filter(c => c.percentage < 70).slice(-3).reverse();
 
+    // ===== Section-level cause/strength/action insights =====
+    // Aggregated from the same categoryPerformance data, grouped by `section`.
+    // Section-level — distinct from the topic-level strengths/weaknesses below.
+    const sectionAgg: { [s: string]: { correct: number; total: number } } = {};
+    for (const c of categoryPerformance) {
+      if (!sectionAgg[c.section]) sectionAgg[c.section] = { correct: 0, total: 0 };
+      sectionAgg[c.section].correct += c.correct;
+      sectionAgg[c.section].total += c.total;
+    }
+    const sectionInsights = Object.entries(sectionAgg)
+      .map(([name, s]) => ({
+        name,
+        accuracy: s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0,
+      }))
+      .sort((a, b) => a.accuracy - b.accuracy);
+    const weakestSection = sectionInsights[0] || null;
+    const strongestSection = sectionInsights[sectionInsights.length - 1] || null;
+    const sectionsTied =
+      !weakestSection || !strongestSection || sectionInsights.length < 2
+        ? true
+        : strongestSection.accuracy - weakestSection.accuracy < 5;
+    const sectionActionCount = 15;
+
     const timeSpent = 60 * 60 - timeLeft;
     const avgTimePerQuestion = Math.round(timeSpent / questions.length);
     const estimatedScore = Math.round(65 + (percentage * 0.35));
@@ -2162,6 +2185,43 @@ export default function GATTestPage() {
                   </span>
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* ===== Section-level cause / strength / action insights =====
+              Built from `sectionInsights` (aggregated from categoryPerformance).
+              Section-level — distinct from the topic-level strengths/weaknesses
+              card below. */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 mb-6 border border-gray-200 dark:border-gray-700">
+            <h3 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <span>🧭</span>
+              Smart Insights & Next Step
+            </h3>
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                <span className="text-lg shrink-0">📉</span>
+                <p className="text-sm text-red-800 dark:text-red-300 leading-relaxed">
+                  {sectionsTied || !weakestSection
+                    ? "Your performance is balanced across sections — no single section is dragging your score down."
+                    : `Your score is held back mainly by «${weakestSection.name}» (${weakestSection.accuracy}%).`}
+                </p>
+              </div>
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                <span className="text-lg shrink-0">💪</span>
+                <p className="text-sm text-green-800 dark:text-green-300 leading-relaxed">
+                  {sectionsTied || !strongestSection
+                    ? "No standout section yet — keep training to surface your strengths."
+                    : `Your strongest section is «${strongestSection.name}» (${strongestSection.accuracy}%).`}
+                </p>
+              </div>
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                <span className="text-lg shrink-0">⚡</span>
+                <p className="text-sm text-blue-800 dark:text-blue-300 leading-relaxed">
+                  {sectionsTied || !weakestSection
+                    ? `Maintain your pace: solve ${sectionActionCount} mixed questions daily and review every mistake.`
+                    : `Practice ${sectionActionCount} «${weakestSection.name}» questions over the next 2 days, and read every wrong-answer explanation.`}
+                </p>
+              </div>
             </div>
           </div>
 

@@ -6781,6 +6781,31 @@ export default function TestPage() {
 
     // 3. "أكثر قسم تحسّن لديك" — taken straight from examDiff (real history).
 
+    // ===== Section-level cause/strength/action insights =====
+    // Aggregates the SAME categoryPerformance data by `section` so the
+    // narrative explains WHY the score is what it is at the section level
+    // (كمي vs لفظي), distinct from the topic-level strengths/weaknesses
+    // shown elsewhere on this page (no repetition).
+    const sectionAgg: { [s: string]: { correct: number; total: number } } = {};
+    for (const c of categoryPerformance) {
+      if (!sectionAgg[c.section]) sectionAgg[c.section] = { correct: 0, total: 0 };
+      sectionAgg[c.section].correct += c.correct;
+      sectionAgg[c.section].total += c.total;
+    }
+    const sectionInsights = Object.entries(sectionAgg)
+      .map(([name, s]) => ({
+        name,
+        accuracy: s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0,
+      }))
+      .sort((a, b) => a.accuracy - b.accuracy);
+    const weakestSection = sectionInsights[0] || null;
+    const strongestSection = sectionInsights[sectionInsights.length - 1] || null;
+    const sectionsTied =
+      !weakestSection || !strongestSection || sectionInsights.length < 2
+        ? true
+        : strongestSection.accuracy - weakestSection.accuracy < 5;
+    const sectionActionCount = 15;
+
     // Results Screen
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4 transition-colors duration-300" dir="rtl">
@@ -6943,6 +6968,43 @@ export default function TestPage() {
                   </span>
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* ===== Section-level cause / strength / action insights =====
+              Built from `sectionInsights` (aggregated from categoryPerformance).
+              Section-level — distinct from the topic-level strengths/weaknesses
+              card below — so it adds insight without repeating it. */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 mb-6 border border-gray-200 dark:border-gray-700">
+            <h3 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <span>🧭</span>
+              تحليل ذكي وتوصية
+            </h3>
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                <span className="text-lg shrink-0">📉</span>
+                <p className="text-sm text-red-800 dark:text-red-300 leading-relaxed">
+                  {sectionsTied || !weakestSection
+                    ? "أداؤك متوازن بين الأقسام — لا يوجد قسم يسحب درجتك للأسفل بشكل واضح."
+                    : `انخفاض درجتك سببه الرئيسي ضعفك في «${weakestSection.name}» (${weakestSection.accuracy}%).`}
+                </p>
+              </div>
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                <span className="text-lg shrink-0">💪</span>
+                <p className="text-sm text-green-800 dark:text-green-300 leading-relaxed">
+                  {sectionsTied || !strongestSection
+                    ? "لا يوجد قسم متفوّق بشكل واضح بعد — استمر بالتدريب لتظهر نقاط قوتك."
+                    : `أداؤك في «${strongestSection.name}» هو الأقوى لديك (${strongestSection.accuracy}%).`}
+                </p>
+              </div>
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                <span className="text-lg shrink-0">⚡</span>
+                <p className="text-sm text-blue-800 dark:text-blue-300 leading-relaxed">
+                  {sectionsTied || !weakestSection
+                    ? `حافظ على وتيرتك: حل ${sectionActionCount} سؤال متنوّع يومياً وراجع شرح كل خطأ.`
+                    : `تدرب على ${sectionActionCount} سؤال في «${weakestSection.name}» خلال يومين، واقرأ شرح كل إجابة خاطئة.`}
+                </p>
+              </div>
             </div>
           </div>
 
