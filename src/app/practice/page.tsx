@@ -1,9 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "@/contexts/ThemeContext";
+
+// Maps a `focus` query-param value (sent from full-exam result pages)
+// to the practice page's section state.
+//   - quantitative_ar / quantitative_en → "quantitative"
+//   - verbal_ar / verbal_en → "verbal"
+//   - Tahsili values (math_ar, physics_ar, chemistry_ar, biology_ar
+//     and their _en variants) have no matching section in this page —
+//     return null so the existing default ("quantitative") is used.
+function focusToSection(focus: string | null): "quantitative" | "verbal" | null {
+  if (!focus) return null;
+  const f = focus.toLowerCase();
+  if (f === "quantitative_ar" || f === "quantitative_en") return "quantitative";
+  if (f === "verbal_ar" || f === "verbal_en") return "verbal";
+  return null;
+}
 
 // Practice categories with question counts
 const practiceCategories = {
@@ -229,10 +244,22 @@ const topicDetails: Record<string, TopicDetail> = {
   },
 };
 
-export default function PracticePage() {
+function PracticePageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { theme, toggleTheme } = useTheme();
-  const [selectedSection, setSelectedSection] = useState<"quantitative" | "verbal">("quantitative");
+  // Read `focus` once at mount and use it ONLY as the initial value of
+  // `selectedSection`. Because `useState`'s initializer runs exactly
+  // once on first render, this:
+  //   - applies the deep-link on initial load,
+  //   - never re-applies on later renders or URL changes,
+  //   - never overrides the user's clicks (clicks call setSelectedSection
+  //     normally and that becomes the source of truth from then on).
+  // Unsupported / missing focus values fall through to the original
+  // default of "quantitative" — no behavior change for direct visits.
+  const [selectedSection, setSelectedSection] = useState<"quantitative" | "verbal">(
+    () => focusToSection(searchParams.get("focus")) ?? "quantitative"
+  );
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all");
@@ -641,5 +668,16 @@ export default function PracticePage() {
         </div>
       </main>
     </div>
+  );
+}
+
+// `useSearchParams` requires a Suspense boundary in Next 15. We wrap
+// the inner page so the build doesn't bail out of static analysis,
+// while preserving the full original UI unchanged.
+export default function PracticePage() {
+  return (
+    <Suspense fallback={null}>
+      <PracticePageInner />
+    </Suspense>
   );
 }
