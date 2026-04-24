@@ -20,6 +20,11 @@ import {
   summarizeProgress,
   type ExamHistoryEntry,
 } from "@/lib/examHistory";
+import {
+  loadUserProfile,
+  saveUserProfile,
+  applyDiagnosticToProfile,
+} from "@/lib/userProfile";
 
 interface Question {
   id: number;
@@ -270,16 +275,33 @@ export default function TestEngine({
         : `${examCategory}-comprehensive`;
 
     setPreviousEntry(getPreviousExam(examKind));
+    const avgTimePerQuestion =
+      questions.length > 0
+        ? Math.round(((testParams?.timeMinutes || 60) * 60 - timeLeft) / questions.length)
+        : 0;
     saveExamResult({
       examKind,
       score: percentage,
       estimatedScore: Math.round(65 + percentage * 0.35),
-      avgTimePerQuestion:
-        questions.length > 0
-          ? Math.round(((testParams?.timeMinutes || 60) * 60 - timeLeft) / questions.length)
-          : 0,
+      avgTimePerQuestion,
       categoryPerformance: historyCategories,
     });
+
+    // Mirror the result into the persistent user profile as the diagnostic
+    // signal. Wrapped in try/catch so any storage failure (quota,
+    // private-mode) cannot break the results screen — the existing
+    // examHistory write above already succeeded by this point.
+    try {
+      const next = applyDiagnosticToProfile(loadUserProfile(), {
+        examKind,
+        score: percentage,
+        avgTimePerQuestion,
+        categoryPerformance: historyCategories,
+      });
+      saveUserProfile(next);
+    } catch {
+      /* best-effort persistence — profile bias just won't update this round */
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showResults]);
 

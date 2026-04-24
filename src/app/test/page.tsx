@@ -14,6 +14,11 @@ import {
   type ExamHistoryEntry,
 } from "@/lib/examHistory";
 import {
+  loadUserProfile,
+  saveUserProfile,
+  applyDiagnosticToProfile,
+} from "@/lib/userProfile";
+import {
   Radar,
   RadarChart,
   PolarGrid,
@@ -6309,14 +6314,31 @@ export default function TestPage() {
     const prev = getPreviousExam(examKind);
     setPreviousEntry(prev);
 
+    const avgTimePerQuestion = Math.round(spent / 530);
     const entry = saveExamResult({
       examKind,
       score: pct,
       estimatedScore: Math.round(65 + pct * 0.35),
-      avgTimePerQuestion: Math.round(spent / 530),
+      avgTimePerQuestion,
       categoryPerformance: cats,
     });
     setSavedEntry(entry);
+
+    // Mirror the result into the persistent user profile as the diagnostic
+    // signal the practice page uses to bias topic selection. Wrapped in
+    // try/catch so any storage failure cannot break the results screen —
+    // the existing examHistory write above already succeeded.
+    try {
+      const next = applyDiagnosticToProfile(loadUserProfile(), {
+        examKind,
+        score: pct,
+        avgTimePerQuestion,
+        categoryPerformance: cats,
+      });
+      saveUserProfile(next);
+    } catch {
+      /* best-effort persistence — profile bias just won't update this round */
+    }
   }, [isFinished, questions, answers, timeLeft]);
 
   // Timer

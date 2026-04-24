@@ -73,12 +73,61 @@ export interface ProfileTotals {
   hintsUsed: number;
 }
 
+/**
+ * Per-category breakdown produced by the full-exam result effects. Mirrors
+ * `ExamHistoryCategory` from `examHistory.ts` so callers can pass the
+ * exact same payload they already pass to `saveExamResult`.
+ */
+export interface DiagnosticCategoryInput {
+  name: string;
+  section?: string;
+  percentage: number;
+}
+
+/**
+ * Snapshot of the most recent diagnostic / full-exam result. Replaces the
+ * previous diagnostic snapshot on every save (we keep only the latest —
+ * the per-attempt history lives in `examHistory.ts`).
+ *
+ * Everything here is DERIVED from `categoryPerformance` so future changes
+ * to ranking rules don't require migrating data — the raw breakdown is
+ * always preserved.
+ */
+export interface DiagnosticSnapshot {
+  /** Discriminator so consumers know this came from the diagnostic flow. */
+  source: "diagnostic";
+  /** Epoch ms when the diagnostic exam was completed. */
+  takenAt: number;
+  /** Free-form discriminator from `saveExamResult` (e.g. "qudrat-gat", "gat"). */
+  examKind: string;
+  /** Total percentage score (0–100). */
+  overallScore: number;
+  /** Average seconds per question across the exam. May be missing. */
+  avgTimePerQuestion?: number;
+  /** Topics with the LOWEST accuracy first (capped at TOP_N). */
+  weakestTopics: string[];
+  /** Topics with the HIGHEST accuracy first (capped at TOP_N). */
+  strongestTopics: string[];
+  /** Sections with the LOWEST aggregated accuracy first (capped at TOP_N). */
+  weakestSections: string[];
+  /** Sections with the HIGHEST aggregated accuracy first (capped at TOP_N). */
+  strongestSections: string[];
+  /** Raw input preserved so future re-derivation is possible. */
+  categoryPerformance: DiagnosticCategoryInput[];
+}
+
 export interface UserProfile {
   version: number;
   updatedAt: number;
   sessionsCompleted: number;
   totals: ProfileTotals;
   topics: Record<string, TopicCounters>;
+  /**
+   * Most recent diagnostic / full-exam result. Optional — absent until the
+   * student completes their first full exam. We store ONLY the latest;
+   * historical attempts live in `examHistory.ts`.
+   */
+  diagnostic?: DiagnosticSnapshot;
 }
 
 /**
@@ -117,19 +166,29 @@ export interface ProfileSummary {
 
 export interface StudyRecommendations {
   /**
-   * Topics the student should prioritize. Drawn from `weakestTopics` so
-   * the practice picker / training engine can use them to bias selection.
+   * Topics the student should prioritize. When a diagnostic snapshot is
+   * present its weak topics take precedence (the diagnostic is the user's
+   * most reliable initial-level signal); otherwise this falls back to
+   * session-derived `weakestTopics`. May be empty.
    */
   recommendedTopics: string[];
   /**
-   * Suggested starting difficulty for the next session, derived from
-   * overall accuracy. Mirrors the same boundaries as the per-session
-   * adaptive engine so the UX stays consistent.
+   * Suggested starting difficulty for the next session. Mirrors the same
+   * <50 / 50–80 / >80 accuracy boundaries as the per-session adaptive
+   * engine. Diagnostic overall score is preferred when available;
+   * otherwise the session-derived average accuracy is used.
    */
   recommendedDifficulty: "easy" | "medium" | "hard";
   /**
-   * True when the profile has enough data to make recommendations
-   * (≥ 1 completed session AND ≥ TOPIC_MIN_SAMPLES total answers).
+   * Where the recommendation came from — useful for callers who want to
+   * gate behavior or for analytics. "none" means the profile is empty
+   * and callers should use product defaults.
+   */
+  source: "diagnostic" | "sessions" | "none";
+  /**
+   * True when the profile has enough data to make recommendations.
+   * Diagnostic alone is enough; otherwise we require ≥ 1 completed
+   * session AND ≥ TOPIC_MIN_SAMPLES total answers.
    * Callers should fall back to defaults when this is false.
    */
   hasEnoughData: boolean;
@@ -186,6 +245,59 @@ function coerceTopicCounters(raw: unknown): TopicCounters | null {
   };
 }
 
+function coerceCategoryInput(raw: unknown): DiagnosticCategoryInput | null {
+  if (!isPlainObject(raw)) return null;
+  const name = typeof raw.name === "string" ? raw.name.trim() : "";
+  if (!name) return null;
+  const pct = Number(raw.percentage);
+  if (!Number.isFinite(pct)) return null;
+  const section = typeof raw.section === "string" && raw.section.trim()
+    ? raw.section.trim()
+    : undefined;
+  return {
+    name,
+    section,
+    percentage: Math.min(100, Math.max(0, pct)),
+  };
+}
+
+function coerceStringArray(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((s): s is string => typeof s === "string" && s.trim().length > 0);
+}
+
+function coerceDiagnostic(raw: unknown): DiagnosticSnapshot | undefined {
+  if (!isPlainObject(raw)) return undefined;
+  // Accept only entries that explicitly mark themselves as diagnostic so we
+  // don't accidentally promote arbitrary blobs.
+  if (raw.source !== "diagnostic") return undefined;
+  const examKind = typeof raw.examKind === "string" && raw.examKind.trim()
+    ? raw.examKind.trim()
+    : "";
+  if (!examKind) return undefined;
+  const overall = Number(raw.overallScore);
+  if (!Number.isFinite(overall)) return undefined;
+  const takenAt = Number(raw.takenAt);
+  const cats = Array.isArray(raw.categoryPerformance)
+    ? (raw.categoryPerformance as unknown[])
+        .map(coerceCategoryInput)
+        .filter((c): c is DiagnosticCategoryInput => c !== null)
+    : [];
+  const avg = Number(raw.avgTimePerQuestion);
+  return {
+    source: "diagnostic",
+    takenAt: Number.isFinite(takenAt) ? Math.max(0, Math.floor(takenAt)) : 0,
+    examKind,
+    overallScore: Math.min(100, Math.max(0, overall)),
+    avgTimePerQuestion: Number.isFinite(avg) && avg >= 0 ? avg : undefined,
+    weakestTopics: coerceStringArray(raw.weakestTopics).slice(0, TOP_N),
+    strongestTopics: coerceStringArray(raw.strongestTopics).slice(0, TOP_N),
+    weakestSections: coerceStringArray(raw.weakestSections).slice(0, TOP_N),
+    strongestSections: coerceStringArray(raw.strongestSections).slice(0, TOP_N),
+    categoryPerformance: cats,
+  };
+}
+
 function coerceProfile(raw: unknown): UserProfile {
   if (!isPlainObject(raw)) return createEmptyProfile();
   const version = Number(raw.version);
@@ -209,7 +321,13 @@ function coerceProfile(raw: unknown): UserProfile {
   const updatedAt = Number.isFinite(Number(raw.updatedAt))
     ? Math.max(0, Math.floor(Number(raw.updatedAt)))
     : 0;
-  return { version: PROFILE_VERSION, updatedAt, sessionsCompleted, totals, topics };
+  // `diagnostic` is purely additive — absent on legacy v1 profiles, and we
+  // tolerate corruption by simply dropping the field rather than wiping
+  // the whole profile.
+  const diagnostic = coerceDiagnostic(raw.diagnostic);
+  const out: UserProfile = { version: PROFILE_VERSION, updatedAt, sessionsCompleted, totals, topics };
+  if (diagnostic) out.diagnostic = diagnostic;
+  return out;
 }
 
 /**
@@ -305,7 +423,12 @@ export function applySessionToProfile(
     topics[topicKey] = next;
   }
 
+  // CRITICAL: spread the existing profile so the optional `diagnostic`
+  // field (and any future optional fields) survives session aggregation.
+  // Without this spread, every session save would silently wipe out the
+  // diagnostic snapshot the practice page relies on for recommendations.
   return {
+    ...profile,
     version: PROFILE_VERSION,
     updatedAt: now,
     sessionsCompleted: profile.sessionsCompleted + 1,
@@ -367,27 +490,185 @@ export function summarizeProfile(profile: UserProfile): ProfileSummary {
 }
 
 /**
+ * Map a 0–100 accuracy score to one of the three difficulty buckets.
+ * Centralized so the per-session engine, the diagnostic recommendation,
+ * and the session-derived recommendation all agree on the boundaries.
+ */
+function difficultyFromAccuracy(accuracy: number): "easy" | "medium" | "hard" {
+  if (accuracy < 50) return "easy";
+  if (accuracy <= 80) return "medium";
+  return "hard";
+}
+
+/**
  * Higher-level recommendation helper for the practice picker / training
- * engine. Mirrors the same accuracy boundaries as the per-session adaptive
- * engine (<50 easy, 50–80 medium, >80 hard) so the user experience stays
- * consistent across both surfaces.
+ * engine. Priority order:
+ *   1. Diagnostic snapshot — most reliable initial-level signal because
+ *      it covers a broad question set under exam conditions. When present
+ *      its weakest topics drive `recommendedTopics` and its overall score
+ *      drives `recommendedDifficulty`.
+ *   2. Session-derived signals — used when no diagnostic exists yet but
+ *      the student has built up enough practice data.
+ *   3. Empty defaults — used when neither source has signal; callers
+ *      should fall back to their own product defaults.
+ *
+ * The diagnostic path bypasses the `≥ 1 session AND ≥ 5 answers` gate
+ * since the diagnostic is itself a much larger sample than that gate
+ * was protecting against.
  */
 export function getStudyRecommendations(profile: UserProfile): StudyRecommendations {
-  const summary = summarizeProfile(profile);
-  const hasEnoughData =
-    profile.sessionsCompleted >= 1 && profile.totals.answered >= TOPIC_MIN_SAMPLES;
-
-  let recommendedDifficulty: "easy" | "medium" | "hard" = "easy";
-  if (hasEnoughData) {
-    if (summary.averageAccuracy < 50) recommendedDifficulty = "easy";
-    else if (summary.averageAccuracy <= 80) recommendedDifficulty = "medium";
-    else recommendedDifficulty = "hard";
+  // 1) Diagnostic source wins when it has at least one weak topic to
+  //    surface. A diagnostic with no categories below others is rare
+  //    (only on perfectly uniform performance) but we fall back to the
+  //    next layer rather than return an empty list.
+  const diag = profile.diagnostic;
+  if (diag && diag.weakestTopics.length > 0) {
+    return {
+      recommendedTopics: diag.weakestTopics,
+      recommendedDifficulty: difficultyFromAccuracy(diag.overallScore),
+      source: "diagnostic",
+      hasEnoughData: true,
+    };
   }
 
+  // 2) Fall back to session-derived signals (existing behavior).
+  const summary = summarizeProfile(profile);
+  const hasEnoughSessionData =
+    profile.sessionsCompleted >= 1 && profile.totals.answered >= TOPIC_MIN_SAMPLES;
+
+  if (hasEnoughSessionData) {
+    return {
+      recommendedTopics: summary.weakestTopics,
+      recommendedDifficulty: difficultyFromAccuracy(summary.averageAccuracy),
+      source: "sessions",
+      hasEnoughData: true,
+    };
+  }
+
+  // 3) Nothing usable yet — defaults.
   return {
-    recommendedTopics: summary.weakestTopics,
-    recommendedDifficulty,
-    hasEnoughData,
+    recommendedTopics: [],
+    recommendedDifficulty: "easy",
+    source: "none",
+    hasEnoughData: false,
+  };
+}
+
+/** Input shape for {@link applyDiagnosticToProfile}. */
+export interface DiagnosticInput {
+  /** Free-form discriminator from the full-exam page (e.g. "qudrat-gat"). */
+  examKind: string;
+  /** Total percentage score (0–100). */
+  score: number;
+  /** Average seconds per question across the exam. Optional. */
+  avgTimePerQuestion?: number;
+  /** Per-category breakdown — same shape used by `saveExamResult`. */
+  categoryPerformance: DiagnosticCategoryInput[];
+  /** Defaults to `Date.now()` — overridable for deterministic tests. */
+  takenAt?: number;
+}
+
+/**
+ * Build a `DiagnosticSnapshot` from raw exam-result input. Pure; no
+ * storage side effects. The derivation rules:
+ *
+ *   - Topic ranking: sort `categoryPerformance` by `percentage` ascending
+ *     (weakest first) and descending (strongest first), break ties by
+ *     `name` so the order is deterministic across runs.
+ *   - Section ranking: aggregate categories by `section`, average their
+ *     percentages (unweighted — every category gets equal vote because we
+ *     don't have per-category sample counts in the saved data), then rank
+ *     the same way.
+ *   - Both rankings are capped at TOP_N.
+ *   - Categories without a `section` contribute to topic ranking only.
+ */
+function deriveDiagnosticSnapshot(input: DiagnosticInput): DiagnosticSnapshot {
+  const cats = input.categoryPerformance.filter(
+    (c) => c && typeof c.name === "string" && Number.isFinite(c.percentage),
+  );
+
+  // Topic ranking — deterministic via name tiebreaker.
+  const topicsAsc = [...cats].sort((a, b) => {
+    if (a.percentage !== b.percentage) return a.percentage - b.percentage;
+    return a.name.localeCompare(b.name);
+  });
+  const topicsDesc = [...cats].sort((a, b) => {
+    if (a.percentage !== b.percentage) return b.percentage - a.percentage;
+    return a.name.localeCompare(b.name);
+  });
+
+  // Section ranking — group then average.
+  const bySection = new Map<string, { sum: number; n: number }>();
+  for (const c of cats) {
+    if (!c.section) continue;
+    const cur = bySection.get(c.section) ?? { sum: 0, n: 0 };
+    cur.sum += c.percentage;
+    cur.n += 1;
+    bySection.set(c.section, cur);
+  }
+  const sectionAvgs = Array.from(bySection.entries()).map(([name, { sum, n }]) => ({
+    name,
+    avg: n > 0 ? sum / n : 0,
+  }));
+  const sectionsAsc = [...sectionAvgs].sort((a, b) => {
+    if (a.avg !== b.avg) return a.avg - b.avg;
+    return a.name.localeCompare(b.name);
+  });
+  const sectionsDesc = [...sectionAvgs].sort((a, b) => {
+    if (a.avg !== b.avg) return b.avg - a.avg;
+    return a.name.localeCompare(b.name);
+  });
+
+  return {
+    source: "diagnostic",
+    takenAt: input.takenAt ?? Date.now(),
+    examKind: input.examKind,
+    overallScore: Math.min(100, Math.max(0, input.score)),
+    avgTimePerQuestion: input.avgTimePerQuestion,
+    weakestTopics: topicsAsc.slice(0, TOP_N).map((c) => c.name),
+    strongestTopics: topicsDesc.slice(0, TOP_N).map((c) => c.name),
+    weakestSections: sectionsAsc.slice(0, TOP_N).map((s) => s.name),
+    strongestSections: sectionsDesc.slice(0, TOP_N).map((s) => s.name),
+    // Preserve the raw input so future re-derivation is possible without
+    // re-running the exam. Percentages are clamped 0-100 so the in-memory
+    // shape matches what the load coercer enforces — callers see the same
+    // numbers whether they read from memory or from a round-tripped load.
+    categoryPerformance: cats.map((c) => ({
+      name: c.name,
+      section: c.section,
+      percentage: Math.min(100, Math.max(0, c.percentage)),
+    })),
+  };
+}
+
+/**
+ * PURE aggregator: take an existing profile and a freshly-completed
+ * diagnostic exam, return a new profile with the `diagnostic` field
+ * replaced (we keep only the latest result; per-attempt history lives
+ * in `examHistory.ts`).
+ *
+ * Returns the input profile unchanged when there is no usable category
+ * data — we don't want to overwrite a real diagnostic with a placeholder
+ * built from missing input.
+ */
+export function applyDiagnosticToProfile(
+  profile: UserProfile,
+  input: DiagnosticInput,
+): UserProfile {
+  if (!input || !Array.isArray(input.categoryPerformance) || input.categoryPerformance.length === 0) {
+    return profile;
+  }
+  if (!input.examKind || typeof input.examKind !== "string") {
+    return profile;
+  }
+  if (!Number.isFinite(input.score)) {
+    return profile;
+  }
+  return {
+    ...profile,
+    version: PROFILE_VERSION,
+    updatedAt: input.takenAt ?? Date.now(),
+    diagnostic: deriveDiagnosticSnapshot(input),
   };
 }
 

@@ -11,6 +11,11 @@ import {
   summarizeProgress,
   type ExamHistoryEntry,
 } from "@/lib/examHistory";
+import {
+  loadUserProfile,
+  saveUserProfile,
+  applyDiagnosticToProfile,
+} from "@/lib/userProfile";
 
 // GAT Questions in English
 const questions = [
@@ -1989,16 +1994,33 @@ export default function GATTestPage() {
     }));
 
     setPreviousEntry(getPreviousExam("gat"));
+    const avgTimePerQuestion =
+      questions.length > 0
+        ? Math.round((60 * 60 - timeLeft) / questions.length)
+        : 0;
     saveExamResult({
       examKind: "gat",
       score: percentage,
       estimatedScore: Math.round(65 + percentage * 0.35),
-      avgTimePerQuestion:
-        questions.length > 0
-          ? Math.round((60 * 60 - timeLeft) / questions.length)
-          : 0,
+      avgTimePerQuestion,
       categoryPerformance: histCats,
     });
+
+    // Mirror the result into the persistent user profile as the diagnostic
+    // signal the practice page uses to bias topic selection. Wrapped in
+    // try/catch so any storage failure cannot break the results screen —
+    // the existing examHistory write above already succeeded.
+    try {
+      const next = applyDiagnosticToProfile(loadUserProfile(), {
+        examKind: "gat",
+        score: percentage,
+        avgTimePerQuestion,
+        categoryPerformance: histCats,
+      });
+      saveUserProfile(next);
+    } catch {
+      /* best-effort persistence — profile bias just won't update this round */
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showResults]);
 

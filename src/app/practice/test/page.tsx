@@ -19,6 +19,7 @@ import {
   loadUserProfile,
   saveUserProfile,
   applySessionToProfile,
+  getStudyRecommendations,
   type SessionAnswer,
 } from "@/lib/userProfile";
 import TrainingAICoachCard from "@/components/TrainingAICoachCard";
@@ -29,6 +30,7 @@ import type { ExamCategory, ExamSection } from "@/data/exam-config";
 import {
   isKnownTopicSlug,
   getTopicForBankQuestionIndex,
+  categoryNameToSlug,
   type TopicSlug,
 } from "@/lib/topicMap";
 
@@ -1311,20 +1313,52 @@ function PracticeTestContent() {
       }
 
       // ---- Topic prioritization ----
-      // When the URL provides `?topics=`, surface matching-topic questions
-      // first using a 4-tier order so the user faces their weak topics
-      // immediately while still getting variety from the rest of the
-      // section. When `?topics=` is missing/empty/produces zero matches,
-      // the existing 2-tier fresh→stale order (full section) runs — same
-      // behavior as before this feature.
+      // Two paths produce a list of "preferred" topic slugs:
+      //   1. Explicit URL `?topics=` — the caller (typically a result page)
+      //      already decided what to surface. Highest priority.
+      //   2. Diagnostic-driven fallback — when no URL topics were given,
+      //      consult the persistent user profile. If the student's most
+      //      recent diagnostic / full-exam result identified weak topics,
+      //      use those to bias selection. Topics that don't exist in the
+      //      current focus section's pool are filtered out so we never
+      //      try to prioritize a slug the section can't satisfy.
+      //   3. Neither — original 2-tier fresh→stale order (no prioritization).
+      // In all cases, when the prioritized pool is too small the rest of
+      // the section fills out the remaining slots, so the session length
+      // is preserved and the existing behavior is the strict fallback.
+      let preferredTopics: string[] = requestedTopics;
+      if (preferredTopics.length === 0) {
+        // Diagnostic bias is purely additive — only kicks in when the
+        // caller didn't specify topics. We map diagnostic category names
+        // (often Arabic display labels like "الجبر") to topic slugs via
+        // categoryNameToSlug, then keep only the ones present in this
+        // section's pool.
+        try {
+          const rec = getStudyRecommendations(loadUserProfile());
+          if (rec.source === "diagnostic" && rec.recommendedTopics.length > 0) {
+            const sectionTopicSlugs = new Set(filtered.map((q) => q.topic));
+            const mapped = rec.recommendedTopics
+              .map((t) => {
+                if (sectionTopicSlugs.has(t)) return t;          // already a slug
+                const slug = categoryNameToSlug(t);              // try Arabic/EN label
+                return slug && sectionTopicSlugs.has(slug) ? slug : null;
+              })
+              .filter((s): s is string => s !== null);
+            if (mapped.length > 0) preferredTopics = mapped;
+          }
+        } catch {
+          /* profile unavailable — fall through to default ordering */
+        }
+      }
+
       let selected: TrainingQuestion[];
-      if (requestedTopics.length > 0) {
-        const topicSet = new Set<string>(requestedTopics);
+      if (preferredTopics.length > 0) {
+        const topicSet = new Set<string>(preferredTopics);
         const matching = filtered.filter((q) => topicSet.has(q.topic));
         const other = filtered.filter((q) => !topicSet.has(q.topic));
 
         if (matching.length === 0) {
-          // No questions for the requested topics in this section/source —
+          // No questions for the preferred topics in this section/source —
           // fall back transparently to whole-section selection so the
           // session is still meaningful.
           selected = [
@@ -1345,7 +1379,8 @@ function PracticeTestContent() {
           ].slice(0, questionCount);
         }
       } else {
-        // No topic prioritization requested — original two-tier order.
+        // No prioritization (no URL topics, no usable diagnostic bias) —
+        // original two-tier order, unchanged behavior.
         selected = [
           ...shuffle(filtered.filter(fresh)),
           ...shuffle(filtered.filter(stale)),
