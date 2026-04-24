@@ -7,6 +7,7 @@ import { useTraining } from "@/contexts/TrainingContext";
 import {
   AdaptiveQuestionSelector,
   TrainingSession,
+  generateQuestionVariation,
   type TrainingQuestion,
   type SelectedQuestion
 } from "@/lib/trainingEngine";
@@ -779,11 +780,159 @@ function deriveWordingStyle(q: TrainingQuestion): string {
 
 // Enrich a question with branch / subtype / strategy_tag / is_common /
 // per-question idea / fast_method / why_important (derived from question text)
+// --- Lightweight, client-side derivation for hint / common-mistake / reinforcement ---
+// These are intentionally short prompts/tips keyed by branch (then topic as fallback).
+// Hints MUST nudge the student's thinking without revealing the answer.
+const branchHints: Record<string, string> = {
+  equations: "ابدأ بعزل المتغير في طرف واحد — لا تحسب شيئاً قبل ذلك.",
+  simplify: "وحّد الحدود المتشابهة، ثم اختصر العوامل المشتركة.",
+  patterns: "احسب الفرق (أو النسبة) بين كل حدّين متتاليين أولاً.",
+  substitution: "جرّب التعويض برقم بسيط بدلاً من الحل الجبري الكامل.",
+  comparison: "وحّد الوحدات أو المقامات قبل أن تقارن.",
+  triangles: "تذكّر مجموع الزوايا 180° وفيثاغورس قبل أي حساب.",
+  circles: "اكتب صيغة المحيط 2πر أو المساحة πر² قبل التعويض.",
+  areas: "اكتب صيغة المساحة المناسبة للشكل أولاً.",
+  angles: "ابحث عن زوايا متجاورة أو متبادلة أو متقابلة.",
+  symmetry: "قارن نسب الأضلاع المتقابلة لتحديد التشابه.",
+  percent: "حوّل النسبة المئوية إلى كسر بسيط قبل الضرب.",
+  direct: "للتناسب الطردي: اضرب تبادلياً مباشرة.",
+  rates: "تذكّر: المسافة = السرعة × الزمن.",
+  word: "استخرج المعطيات أولاً ثم ترجمها إلى معادلة.",
+  average: "للوسيط: رتّب الأرقام تصاعدياً قبل أي شيء.",
+  probability: "الاحتمال = الحالات المرغوبة ÷ كل الحالات الممكنة.",
+  tables: "اقرأ عناوين الصفوف والأعمدة قبل البحث عن القيمة.",
+  charts: "اقرأ عنوان المخطط ووحدات المحاور أولاً.",
+  "relation-function": "اسأل: الكلمة الأولى تُستخدم لـ ماذا؟",
+  "relation-part-whole": "اسأل: هل الأولى جزء من الثانية أم العكس؟",
+  "relation-antonym": "ابحث عن المعنى المعاكس تماماً.",
+  "relation-synonym": "ابحث عن أقرب كلمة في المعنى.",
+  "missing-word": "اقرأ الجملة كاملة وحدد السياق العام قبل الاختيار.",
+  proverb: "تذكّر المثل الشهير ثم أكمل الكلمة الناقصة.",
+  sentence: "ابحث عن الكلمة التي تتسق مع نبرة الجملة بأكملها.",
+  "main-idea": "ابحث عن الفكرة التي تتكرر في النص أو يلخّصها العنوان.",
+  inference: "استبعد الخيارات الصريحة في النص — المطلوب ما يُستنتج.",
+  semantic: "جرّب وضع كل خيار في الجملة واسأل: أيّها يبقى منطقياً؟",
+  antonyms: "فكّر في المعنى المعاكس تماماً، ليس مجرد مختلف.",
+  synonyms: "ابحث عن الكلمة الأقرب للمعنى نفسه.",
+};
+const topicHintFallback: Record<string, string> = {
+  algebra: "اكتب المعادلة بوضوح ثم اعزل المتغير خطوة خطوة.",
+  geometry: "ارسم الشكل بسرعة على الورق ثم طبّق الصيغة.",
+  ratios: "استخرج المعطيات وحوّل النسبة إلى كسر قبل الضرب.",
+  statistics: "حدّد نوع المقياس المطلوب (متوسط/وسيط/منوال) أولاً.",
+  analogy: "حدّد العلاقة بين الكلمتين الأوليين بدقة قبل البحث.",
+  completion: "اقرأ الجملة كاملة وحدّد الكلمة المفقودة سياقياً.",
+  comprehension: "ارجع للنص وابحث عن الجملة المرتبطة بالسؤال.",
+  contextual: "جرّب كل خيار في الجملة واختر الأنسب معنىً.",
+  vocabulary: "فكّر في معنى الكلمة الأصلي قبل النظر للخيارات.",
+};
+
+const branchMistakes: Record<string, string> = {
+  equations: "كثيرون ينسون عكس الإشارة عند نقل الحد للطرف الآخر.",
+  simplify: "خطأ شائع: اختصار حدود غير متشابهة.",
+  patterns: "لا تكتفِ بحدّين — تحقّق من ثلاثة على الأقل قبل الجزم بالنمط.",
+  substitution: "احذر تعويض رقم يُسقط حالات (مثل 0 أو 1).",
+  comparison: "خطأ شائع: المقارنة قبل توحيد الوحدات أو المقامات.",
+  triangles: "لا تطبّق فيثاغورس إلا إذا كان المثلث قائم الزاوية.",
+  circles: "احذر الخلط بين نصف القطر والقطر في الصيغ.",
+  areas: "تأكّد من صيغة الشكل — مساحة المثلث ½ القاعدة × الارتفاع لا حاصل ضربهما فقط.",
+  angles: "خطأ شائع: افتراض أن الزوايا المتجاورة متساوية.",
+  symmetry: "التشابه يتطلّب تساوي النسب لا تساوي الأضلاع.",
+  percent: "‎15% من 60 ≠ 60% من 15؟ بل متساويان — لكن احذر الخلط بين الزيادة والنسبة الجديدة.",
+  direct: "خطأ شائع: استخدام التناسب العكسي مكان الطردي.",
+  rates: "‎احذر خلط الوحدات (دقائق مع ساعات).",
+  word: "خطأ شائع: الحل دون قراءة المطلوب فعلاً في نهاية السؤال.",
+  average: "خطأ شائع: حساب الوسيط دون ترتيب الأرقام أولاً.",
+  probability: "احذر عدّ الحالات المرغوبة بدل الحالات الكلية.",
+  tables: "تأكّد أنك تقرأ من الصف والعمود الصحيحين.",
+  charts: "احذر إهمال وحدة القياس على المحور.",
+  "relation-function": "خطأ شائع: اختيار كلمة مرتبطة بالمعنى لكنها ليست وظيفة.",
+  "relation-part-whole": "احذر عكس اتجاه العلاقة (الجزء قبل الكل).",
+  "relation-antonym": "كلمة مختلفة ≠ كلمة معاكسة — ابحث عن العكس التام.",
+  "relation-synonym": "تشابه جزئي لا يكفي — اختر الأقرب معنىً.",
+  "missing-word": "خطأ شائع: اختيار كلمة صحيحة لغوياً لكن تخالف السياق.",
+  proverb: "احذر تغيير صيغة المثل — التزم بنصّه الشائع.",
+  sentence: "خطأ شائع: تجاهل أداة الربط في الجملة.",
+  "main-idea": "احذر اختيار تفصيل ثانوي بدلاً من الفكرة العامة.",
+  inference: "ما يُذكر صراحة ليس استنتاجاً — ابحث عمّا يُفهم ضمنياً.",
+  semantic: "خطأ شائع: الاعتماد على المعنى المعجمي وحده دون السياق.",
+  antonyms: "احذر اختيار كلمة من نفس الحقل الدلالي بدل العكس.",
+  synonyms: "كلمتان متقاربتان ≠ مترادفتان — اختر الأدق.",
+};
+const topicMistakeFallback: Record<string, string> = {
+  algebra: "قراءة سريعة للمعادلة تؤدي غالباً لخطأ في الإشارة.",
+  geometry: "نسيان وحدة القياس أو الخلط بين المساحة والمحيط.",
+  ratios: "خلط الزيادة المئوية بالنسبة الجديدة من السعر.",
+  statistics: "قراءة الجدول/المخطط دون الانتباه للوحدات.",
+  analogy: "تحديد العلاقة بين الكلمتين بشكل عام بدل الدقيق.",
+  completion: "اختيار كلمة صحيحة لغوياً لكنها تخالف سياق الجملة.",
+  comprehension: "الإجابة من المعرفة العامة بدل ما ورد في النص فعلاً.",
+  contextual: "إهمال الكلمات المحيطة عند تحديد المعنى المقصود.",
+  vocabulary: "الاعتماد على التشابه اللفظي بدل التحقق من المعنى.",
+};
+
+const branchReinforcement: Record<string, string> = {
+  equations: "ممتاز — استمر بعزل المتغير قبل الحساب في كل سؤال.",
+  simplify: "أحسنت — التبسيط أولاً يوفّر عليك وقتاً ثميناً.",
+  patterns: "ممتاز — تحديد نوع النمط مبكراً يفتح الحل.",
+  substitution: "أحسنت — التعويض اختصار قوي في الاختبار.",
+  comparison: "ممتاز — توحيد الطرفين قبل المقارنة عادة محترفة.",
+  triangles: "أحسنت — استخدام خصائص المثلث الصحيحة من المرة الأولى.",
+  circles: "ممتاز — حفظ صيغ الدائرة يوفّر ثوانٍ في كل سؤال.",
+  areas: "أحسنت — كتابة الصيغة قبل الحساب يقلّل الأخطاء.",
+  angles: "ممتاز — استخدامك خصائص الزوايا في محله.",
+  symmetry: "أحسنت — مقارنة النسب طريق التشابه الأسرع.",
+  percent: "ممتاز — تحويل النسبة لكسر يجعل الحساب فورياً.",
+  direct: "أحسنت — الضرب التبادلي وفّر عليك خطوات كثيرة.",
+  rates: "ممتاز — قانون السرعة × الزمن في يدك الآن.",
+  word: "أحسنت — استخراج المعطيات أولاً نصف الحل.",
+  average: "ممتاز — ترتيب الأرقام قبل الوسيط عادة قوية.",
+  probability: "أحسنت — صيغة الاحتمال واضحة عندك.",
+  tables: "ممتاز — قراءة العناوين أولاً منهج محترف.",
+  charts: "أحسنت — انتباهك للوحدات يصنع الفرق.",
+  "relation-function": "ممتاز — تمييز علاقة الوظيفة من المرة الأولى.",
+  "relation-part-whole": "أحسنت — تحديد اتجاه العلاقة دقيق.",
+  "relation-antonym": "ممتاز — التقاط العكس التام مهارة قوية.",
+  "relation-synonym": "أحسنت — اختيار الأقرب معنىً صحيح.",
+  "missing-word": "ممتاز — قراءة السياق قبل الاختيار آتت ثمارها.",
+  proverb: "أحسنت — الالتزام بنص المثل الشائع صحيح.",
+  sentence: "ممتاز — انتبهت لأدوات الربط في الجملة.",
+  "main-idea": "أحسنت — ميّزت الفكرة الرئيسية عن التفاصيل.",
+  inference: "ممتاز — الاستنتاج الضمني أصعب أنواع الفهم.",
+  semantic: "أحسنت — السياق هو المفتاح وقد التقطته.",
+  antonyms: "ممتاز — العكس التام ليس قريباً، وقد ميّزته.",
+  synonyms: "أحسنت — اختيار الأدق معنىً مهارة عالية.",
+};
+const topicReinforcementFallback: Record<string, string> = {
+  algebra: "ممتاز — تطبيق صحيح لقواعد الجبر الأساسية.",
+  geometry: "أحسنت — تطبيق سليم للصيغ الهندسية.",
+  ratios: "ممتاز — تعاملك مع النسب دقيق.",
+  statistics: "أحسنت — قراءتك للبيانات صحيحة.",
+  analogy: "ممتاز — تحديد العلاقة بين الكلمات دقيق.",
+  completion: "أحسنت — اختيارك يتسق مع سياق الجملة.",
+  comprehension: "ممتاز — فهم سليم للنص.",
+  contextual: "أحسنت — استخدامك للسياق في محله.",
+  vocabulary: "ممتاز — معرفتك بالمفردات قوية.",
+};
+
+function deriveHint(q: TrainingQuestion): string {
+  const key = q.strategy_tag || q.subtype || q.branch;
+  return (key && branchHints[key]) || topicHintFallback[q.topic] || "اقرأ السؤال بتأنٍّ وحدّد المعطيات قبل التفكير في الحل.";
+}
+function deriveCommonMistake(q: TrainingQuestion): string {
+  const key = q.strategy_tag || q.subtype || q.branch;
+  return (key && branchMistakes[key]) || topicMistakeFallback[q.topic] || "خطأ شائع: التسرّع قبل قراءة جميع الخيارات.";
+}
+function deriveReinforcement(q: TrainingQuestion): string {
+  const key = q.strategy_tag || q.subtype || q.branch;
+  return (key && branchReinforcement[key]) || topicReinforcementFallback[q.topic] || "أحسنت — استمر على هذا الأسلوب.";
+}
+
 function enrichQuestion(q: TrainingQuestion): TrainingQuestion {
   const branch = q.branch ?? inferBranch(q) ?? undefined;
   const meta = branch ? branchMeta[q.topic]?.[branch] : undefined;
   const derived = deriveSmartInfo(q, meta);
-  return {
+  const enriched: TrainingQuestion = {
     ...q,
     branch,
     subtype: q.subtype ?? derived.subtype,
@@ -794,6 +943,11 @@ function enrichQuestion(q: TrainingQuestion): TrainingQuestion {
     why_important: q.why_important ?? derived.why_important ?? meta?.why,
     wording_style: q.wording_style ?? deriveWordingStyle(q),
   };
+  // Hint / common_mistake / reinforcement always populated so feedback is consistent.
+  enriched.hint = q.hint ?? deriveHint(enriched);
+  enriched.common_mistake = q.common_mistake ?? deriveCommonMistake(enriched);
+  enriched.reinforcement = q.reinforcement ?? deriveReinforcement(enriched);
+  return enriched;
 }
 
 // Storage key for recently-shown question IDs (anti-repetition across sessions)
@@ -869,6 +1023,10 @@ function PracticeTestContent() {
   const [showResults, setShowResults] = useState(false);
   const [timeLeft, setTimeLeft] = useState(90);
   const [questions, setQuestions] = useState<TrainingQuestion[]>([]);
+  // Lightweight per-question state — cleared on every advance.
+  const [showHint, setShowHint] = useState(false);
+  // Pool of all enriched questions for the current topic — used by "تدرب على نفس النمط".
+  const [topicPool, setTopicPool] = useState<TrainingQuestion[]>([]);
 
   useEffect(() => {
     const topicMap: Record<string, string> = {
@@ -935,6 +1093,7 @@ function PracticeTestContent() {
 
     setQuestions(selected);
     setAnswers(new Array(selected.length).fill(null));
+    setTopicPool(enrichedAll);
   }, [topic, questionCount, difficulty, branch]);
 
   useEffect(() => {
@@ -969,10 +1128,45 @@ function PracticeTestContent() {
       setCurrentIndex(prev => prev + 1);
       setSelectedAnswer(null);
       setShowExplanation(false);
+      setShowHint(false);
       setTimeLeft(90);
     } else {
       setShowResults(true);
     }
+  };
+
+  // "تدرب على نفس النمط" — append a fresh same-subtype question right after the
+  // current one and advance into it. Prefers an unseen item from the topic pool;
+  // falls back to a generated variation of the current question. No network calls.
+  const practiceSimilar = () => {
+    const cur = questions[currentIndex];
+    if (!cur) return;
+    const seen = new Set(questions.map(q => q.id));
+    const sameSubtype = topicPool.filter(
+      q =>
+        !seen.has(q.id) &&
+        q.id !== cur.id &&
+        ((cur.subtype && q.subtype === cur.subtype) ||
+          (cur.strategy_tag && q.strategy_tag === cur.strategy_tag) ||
+          q.branch === cur.branch)
+    );
+    let next: TrainingQuestion;
+    if (sameSubtype.length > 0) {
+      next = sameSubtype[Math.floor(Math.random() * sameSubtype.length)];
+    } else {
+      next = enrichQuestion(generateQuestionVariation(cur, Date.now()));
+    }
+    // Insert immediately after the current index, then advance to it.
+    const insertAt = currentIndex + 1;
+    const newQs = [...questions.slice(0, insertAt), next, ...questions.slice(insertAt)];
+    const newAns = [...answers.slice(0, insertAt), null, ...answers.slice(insertAt)];
+    setQuestions(newQs);
+    setAnswers(newAns);
+    setCurrentIndex(insertAt);
+    setSelectedAnswer(null);
+    setShowExplanation(false);
+    setShowHint(false);
+    setTimeLeft(90);
   };
 
   const calculateScore = () => {
@@ -1079,6 +1273,28 @@ function PracticeTestContent() {
 
           <h2 dir="rtl" style={{ unicodeBidi: "isolate" }} className="text-xl font-bold text-gray-900 dark:text-white mb-6">{currentQ.question}</h2>
 
+          {!showExplanation && (
+            <div className="mb-4">
+              {!showHint ? (
+                <button
+                  onClick={() => setShowHint(true)}
+                  className="px-4 py-2 rounded-xl border-2 border-dashed border-[#D4AF37] text-[#D4AF37] dark:text-[#fbbf24] text-sm font-bold hover:bg-[#D4AF37]/10 transition"
+                >
+                  💡 عرض تلميح
+                </button>
+              ) : (
+                <div className="p-3 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/40">
+                  <div className="flex items-center gap-2 mb-1 text-[#D4AF37] dark:text-[#fbbf24] text-xs font-bold">
+                    <span>💡</span> تلميح للتفكير
+                  </div>
+                  <p className="text-sm text-gray-800 dark:text-gray-100 leading-relaxed">
+                    {currentQ.hint}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="space-y-3 mb-6">
             {currentQ.options.map((option, idx) => {
               const isSelected = selectedAnswer === idx;
@@ -1131,6 +1347,25 @@ function PracticeTestContent() {
           </div>
 
           {showExplanation && (
+            selectedAnswer === currentQ.correct ? (
+              <div className="p-3 rounded-xl bg-green-50 dark:bg-green-900/30 border border-green-300 dark:border-green-700 mb-4">
+                <div className="flex items-center gap-2 text-green-800 dark:text-green-200 text-sm font-bold">
+                  <span>✅</span> {currentQ.reinforcement || "أحسنت — استمر على هذا الأسلوب."}
+                </div>
+              </div>
+            ) : (
+              <div className="p-3 rounded-xl bg-red-50 dark:bg-red-900/30 border-2 border-red-400 dark:border-red-700 mb-4">
+                <div className="flex items-center gap-2 text-red-800 dark:text-red-200 text-sm font-bold">
+                  <span>❌</span> انتبه لهذا النمط من الخطأ
+                </div>
+                <p className="mt-1 text-sm text-red-700 dark:text-red-200 leading-relaxed">
+                  {currentQ.common_mistake}
+                </p>
+              </div>
+            )
+          )}
+
+          {showExplanation && (
             <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/40 p-4 mb-4 grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
                 <div className="flex items-center gap-2 mb-1 text-gray-500 dark:text-gray-400 text-xs font-bold">
@@ -1142,18 +1377,18 @@ function PracticeTestContent() {
               </div>
               <div>
                 <div className="flex items-center gap-2 mb-1 text-[#006C35] dark:text-[#4ade80] text-xs font-bold">
-                  <span>⚡</span> أسرع طريقة
+                  <span>⚡</span> أسرع طريقة للحل
                 </div>
                 <p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed">
                   {currentQ.fast_method || "اقرأ السؤال بتأنٍّ وحدّد المعطيات قبل الحل"}
                 </p>
               </div>
               <div>
-                <div className="flex items-center gap-2 mb-1 text-[#D4AF37] dark:text-[#fbbf24] text-xs font-bold">
-                  <span>📌</span> ليش هذا مهم
+                <div className="flex items-center gap-2 mb-1 text-red-600 dark:text-red-400 text-xs font-bold">
+                  <span>⚠️</span> سبب الخطأ الشائع
                 </div>
                 <p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed">
-                  {currentQ.why_important || "هذا من الأنماط الشائعة في هذا القسم"}
+                  {currentQ.common_mistake || "احذر التسرّع قبل قراءة جميع الخيارات."}
                 </p>
               </div>
             </div>
@@ -1167,12 +1402,20 @@ function PracticeTestContent() {
           )}
 
           {showExplanation && (
-            <button
-              onClick={nextQuestion}
-              className="w-full py-3 bg-[#006C35] text-white font-bold rounded-xl hover:bg-[#004d26]"
-            >
-              {currentIndex < questions.length - 1 ? 'السؤال التالي' : 'عرض النتائج'}
-            </button>
+            <div className="space-y-2">
+              <button
+                onClick={practiceSimilar}
+                className="w-full py-3 bg-white dark:bg-gray-800 border-2 border-[#D4AF37] text-[#D4AF37] dark:text-[#fbbf24] font-bold rounded-xl hover:bg-[#D4AF37]/10"
+              >
+                🔁 تدرب على نفس النمط
+              </button>
+              <button
+                onClick={nextQuestion}
+                className="w-full py-3 bg-[#006C35] text-white font-bold rounded-xl hover:bg-[#004d26]"
+              >
+                {currentIndex < questions.length - 1 ? 'السؤال التالي' : 'عرض النتائج'}
+              </button>
+            </div>
           )}
         </div>
       </main>

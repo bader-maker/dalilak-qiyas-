@@ -31,6 +31,9 @@ export interface TrainingQuestion {
   fast_method?: string;   // fastest method tied to the question
   why_important?: string; // why this type appears in exams
   wording_style?: string; // surface form: "direct", "story", "applied", "instruction", "passage"
+  hint?: string;          // short thinking prompt — must NOT reveal the answer
+  common_mistake?: string;// the trap students typically fall into on this pattern
+  reinforcement?: string; // brief positive tip shown when the student answers correctly
 }
 
 export interface QuestionPool {
@@ -87,7 +90,7 @@ export function generateQuestionVariation(
     ...original,
     id: newId,
     originalId: original.id,
-    options: shuffleOptionsWithCorrect(original.options, original.correct),
+    ...shuffleOptionsWithCorrect(original.options, original.correct),
     isVariation: true,
     variationOf: original.id,
   };
@@ -190,7 +193,7 @@ function generateAlgebraVariation(
   // Fallback: shuffle options
   return {
     ...original,
-    options: shuffleOptionsWithCorrect(original.options, original.correct),
+    ...shuffleOptionsWithCorrect(original.options, original.correct),
   };
 }
 
@@ -271,7 +274,7 @@ function generateGeometryVariation(
 
   return {
     ...original,
-    options: shuffleOptionsWithCorrect(original.options, original.correct),
+    ...shuffleOptionsWithCorrect(original.options, original.correct),
   };
 }
 
@@ -336,7 +339,7 @@ function generateRatioVariation(
 
   return {
     ...original,
-    options: shuffleOptionsWithCorrect(original.options, original.correct),
+    ...shuffleOptionsWithCorrect(original.options, original.correct),
   };
 }
 
@@ -403,7 +406,7 @@ function generateStatisticsVariation(
 
   return {
     ...original,
-    options: shuffleOptionsWithCorrect(original.options, original.correct),
+    ...shuffleOptionsWithCorrect(original.options, original.correct),
   };
 }
 
@@ -422,16 +425,18 @@ function shuffleArray<T>(array: T[]): T[] {
   return shuffled;
 }
 
-function shuffleOptionsWithCorrect(options: string[], correctIndex: number): string[] {
-  // Create pairs of [option, isCorrect]
+function shuffleOptionsWithCorrect(
+  options: string[],
+  correctIndex: number,
+): { options: string[]; correct: number } {
+  // Pair each option with whether it is the correct one, shuffle, then locate
+  // the new index of the correct option so the caller can update `correct`.
   const pairs = options.map((opt, i) => ({ opt, isCorrect: i === correctIndex }));
-
-  // Shuffle
   const shuffled = shuffleArray(pairs);
-
-  // Find new correct index (we need to update this in the question)
-  // Note: This returns shuffled options, caller needs to track correct index
-  return shuffled.map(p => p.opt);
+  return {
+    options: shuffled.map(p => p.opt),
+    correct: shuffled.findIndex(p => p.isCorrect),
+  };
 }
 
 // ============ QUESTION SELECTION ENGINE ============
