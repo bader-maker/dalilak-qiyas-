@@ -47,6 +47,16 @@ A single per-topic time-series is the substrate for "improvement over time" insi
 - **Improvement tracking:** `getTopicImprovement(profile, topic)` returns `{first, latest, deltaPct, trend, sampleCount}`, gated to topics with ≥2 snapshots. Trend uses the same `±5` percentage-point threshold as `examHistory.summarizeProgress` so the two systems describe the same change consistently. `getMostImproved(profile, n=3)` and `getMostDeclined(profile, n=3)` rank topics by signed delta with deterministic alphabetical tiebreakers. `getProgressInsights(profile)` is the one-call summary (`{mostImproved, mostDeclined, lastKnownLevels, topicsTracked, hasTrendData}`) for any future insights surface or smarter recommendation logic.
 - **Coercion:** corrupt `topicProgress` blobs are dropped (rest of profile preserved). Within a series, individual invalid points are dropped while valid siblings survive — accuracies are clamped 0–100, sources outside `"diagnostic"|"session"|"exam"` rejected. `lastKnownLevel` is never read from the raw blob; always recomputed from the surviving timeline.
 
+### Result-page progress card
+
+A small additive card on the post-exam result screen surfaces the top mover in each direction, e.g. "تحسنت في الجبر بنسبة 50%" and "تراجع أداؤك في الهندسة بنسبة 30%". Strictly additive — same outer card style as the surrounding "Smart Insights" / "Question Summary" cards (`bg-white dark:bg-gray-800 rounded-2xl p-6 mb-6 border border-gray-200 dark:border-gray-700`), green/red pills mirror the existing pill treatment.
+
+- **Wired at:** all three full-exam result paths (`src/components/TestEngine.tsx`, `src/app/test/page.tsx`, `src/app/test-gat/page.tsx`). Inserted right BEFORE the existing "Question Summary" / "ملخص الإجابات" card.
+- **State:** one new `progressInsightsCard` `useState` of `{improved: TopicImprovement|null, declined: TopicImprovement|null} | null`. Populated inside the EXISTING diagnostic-save effect, immediately after `reconcileExamHistoryToProfile + saveUserProfile`, by reading `getMostImproved(next, 1)[0]` and `getMostDeclined(next, 1)[0]` off the freshly-reconciled profile (no extra localStorage roundtrip).
+- **Visibility gate:** the card mounts only when at least one of `improved.trend === "improving"` or `declined.trend === "declining"` — i.e. at least one topic crosses the same `±5pp` threshold the rest of the system uses. Each pill is independently gated, so improvement-only or decline-only cases render only the relevant pill. Empty profile / first-attempt → card is omitted.
+- **Labels:** topic slugs are rendered through `slugToDisplayLabel(slug, "ar"|"en")` (added to `src/lib/topicMap.ts`), backed by `SLUG_TO_AR_LABEL`/`SLUG_TO_EN_LABEL` reverse maps for all 11 known slugs. Unknown slugs fall through to the raw string (resilient — never produces `undefined` or blank UI).
+- **Bilingual:** `TestEngine` renders Arabic/English based on the existing `isArabic` flag; `/test` is Arabic-only; `/test-gat` is English-only — matching each surface's existing language convention.
+
 ## Conventions
 
 - All UI strings are Arabic; layout is RTL by default. Use `dir="rtl"` and `unicodeBidi: "isolate"` when mixing numerals/Latin text inside Arabic strings.
