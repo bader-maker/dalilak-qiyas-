@@ -11,6 +11,10 @@ import {
   type TrainingQuestion,
   type SelectedQuestion
 } from "@/lib/trainingEngine";
+import {
+  summarizePerformance,
+  composeUpcomingByDifficulty,
+} from "@/lib/adaptiveDifficulty";
 import TrainingAICoachCard from "@/components/TrainingAICoachCard";
 import TestPatternIndicator from "@/components/TestPatternIndicator";
 import type { AIAnalysisInput } from "@/lib/aiAnalysis";
@@ -1408,6 +1412,150 @@ function PracticeTestContent() {
     setTopicPool(enrichedAll);
   }, [topic, questionCount, difficulty, branch, focus, requestedTopicsKey]);
 
+  // ===== Adaptive difficulty =====
+  // Re-rank the still-upcoming questions every ADAPT_EVERY answers so the
+  // next batch skews toward the difficulty that matches the user's current
+  // accuracy. Critical rules:
+  //   - The current question and any already-answered question are NEVER
+  //     touched — only items strictly after `currentIndex` are re-ordered.
+  //   - The session length is preserved exactly (`questions.length` is
+  //     unchanged) so the progress bar / "Question X of Y" UI doesn't shift.
+  //   - Only runs when the user picked difficulty="all". When the user
+  //     explicitly chose easy / medium / hard we respect that choice and
+  //     skip adaptation entirely.
+  //   - Anti-repetition (recentIds) and topic prioritization (weak topics
+  //     from URL) are passed through to the composer as inner sort keys,
+  //     so the existing 4-tier fresh→stale + topic-priority order survives.
+  //   - Guarded by a ref so we don't re-run on the same milestone when
+  //     React re-renders (e.g. timer ticks). The ref tracks the answered
+  //     count we last adapted at; we only re-adapt when the new milestone
+  //     is strictly greater.
+  const ADAPT_EVERY = 5;
+  const lastAdaptedAtRef = useRef(0);
+  // Tracks the questions array reference of the session we last adapted
+  // against. When the build effect commits a NEW session (via setQuestions
+  // with a fresh array), this ref's value will diverge from the incoming
+  // `questions` and we know to reset the milestone. Critically, this also
+  // protects against the same-render race where the build effect schedules
+  // new state but the adaptive effect runs against pre-rebuild
+  // `questions`/`answers` — in that scenario the questions identity is
+  // STILL the old one (state hasn't committed yet), so the milestone
+  // remains intact and the adaptive effect won't try to mutate the
+  // session that's about to be replaced.
+  const lastSessionRef = useRef<TrainingQuestion[] | null>(null);
+  // Stable shuffle reference — same implementation as the initial-build
+  // branch above, declared at component scope so the adaptive effect
+  // doesn't drag the whole-page shuffle dependency around.
+  const adaptiveShuffle = useCallback(<T,>(arr: T[]): T[] => {
+    return [...arr].sort(() => Math.random() - 0.5);
+  }, []);
+  useEffect(() => {
+    if (difficulty !== "all") return;            // user explicitly chose a level
+    if (questions.length === 0) return;          // session not built yet
+    if (showResults) return;                     // session over
+    if (topicPool.length === 0) return;          // nothing to draw extras from
+
+    // Detect a new session via questions-array identity. When the build
+    // effect commits, `questions` becomes a brand-new array reference;
+    // we reset the milestone so the next session can re-adapt at its own
+    // 5/10/... boundaries. Because this check uses the COMMITTED state
+    // (the same `questions` value we're operating on below), there's no
+    // race — we either see the old session (and the milestone we already
+    // adapted at, so the guard below correctly skips), or we see the new
+    // session (and reset to 0 here).
+    if (questions !== lastSessionRef.current) {
+      lastAdaptedAtRef.current = 0;
+      lastSessionRef.current = questions;
+    }
+
+    // Count how many questions the user has actually answered. We use
+    // `answers` (not `currentIndex`) so the trigger is based on real
+    // progress rather than scroll position — keeps semantics stable if
+    // the user ever skips around.
+    const answeredCount = answers.filter((a) => a != null).length;
+    if (answeredCount < ADAPT_EVERY) return;
+    if (answeredCount % ADAPT_EVERY !== 0) return;
+    if (answeredCount <= lastAdaptedAtRef.current) return;
+
+    // Upcoming = strictly after the current question. Slicing from
+    // currentIndex + 1 leaves the in-flight question alone even if the
+    // user is mid-answer or mid-explanation when this fires.
+    const upcomingStart = currentIndex + 1;
+    const upcoming = questions.slice(upcomingStart);
+    if (upcoming.length < 2) {
+      // Nothing meaningful to re-rank (1 or 0 items left).
+      lastAdaptedAtRef.current = answeredCount;
+      return;
+    }
+
+    const perf = summarizePerformance(answers, questions, ADAPT_EVERY);
+
+    // Build the exclusion set: every question already in front of the
+    // upcoming slice (answered or current) must NOT be reintroduced.
+    const excludeIds = new Set<string>(
+      questions.slice(0, upcomingStart).map((q) => q.id),
+    );
+    const recentIdSet = new Set<string>(loadRecentIds());
+    const topicPriority =
+      requestedTopics.length > 0 ? new Set<string>(requestedTopics) : undefined;
+
+    const newUpcoming = composeUpcomingByDifficulty({
+      upcoming,
+      candidatePool: topicPool,
+      excludeIds,
+      recentIds: recentIdSet,
+      target: perf.targetDifficulty,
+      count: upcoming.length,
+      topicPriority,
+      diversify: diversifyOrder,
+      shuffle: adaptiveShuffle,
+    });
+
+    // Mark this milestone as handled BEFORE the state update so a
+    // re-render triggered by setQuestions can't re-enter the same
+    // milestone branch.
+    lastAdaptedAtRef.current = answeredCount;
+
+    // Only commit if the composition actually changed — avoids a useless
+    // setState that would invalidate React memoization downstream.
+    const before = upcoming.map((q) => q.id).join(",");
+    const after = newUpcoming.map((q) => q.id).join(",");
+    if (before === after) return;
+
+    // Build the new array ONCE and remember its identity in lastSessionRef
+    // BEFORE committing it. This is critical: the next render will see
+    // `questions === nextQuestions === lastSessionRef.current`, so the
+    // identity-based "new session" check at the top of this effect will
+    // NOT misclassify our own adaptive update as a session rebuild. (If
+    // it did, it would reset lastAdaptedAtRef and we'd re-adapt at the
+    // exact same milestone every render, churning the question list.)
+    const nextQuestions = [
+      ...questions.slice(0, upcomingStart),
+      ...newUpcoming,
+    ];
+    lastSessionRef.current = nextQuestions;
+    setQuestions(nextQuestions);
+
+    // Persist any newly-introduced IDs so future sessions see them as
+    // recently-used. We unshift the new IDs to the front, dedupe via
+    // `loadRecentIds`'s downstream slice.
+    const newIds = newUpcoming
+      .map((q) => q.id)
+      .filter((id) => !recentIdSet.has(id));
+    if (newIds.length > 0) {
+      saveRecentIds([...newIds, ...Array.from(recentIdSet)]);
+    }
+  }, [
+    answers,
+    questions,
+    currentIndex,
+    topicPool,
+    difficulty,
+    showResults,
+    requestedTopicsKey,
+    adaptiveShuffle,
+  ]);
+
   useEffect(() => {
     if (timeLeft > 0 && !showExplanation && !showResults && questions.length > 0) {
       const timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
@@ -1478,6 +1626,13 @@ function PracticeTestContent() {
     const newQs = [...questions.slice(0, insertAt), next, ...questions.slice(insertAt)];
     const newAns = [...answers.slice(0, insertAt), null, ...answers.slice(insertAt)];
     const newTimes = [...times.slice(0, insertAt), null, ...times.slice(insertAt)];
+    // Pin the new array identity into the adaptive-difficulty session ref
+    // BEFORE committing it, so the adaptive effect's identity-based
+    // session detector treats this in-session insert as the SAME session
+    // (not a new one). Otherwise it would reset the milestone, allowing
+    // a duplicate adaptation at the same answered boundary right after a
+    // "practice similar" tap.
+    lastSessionRef.current = newQs;
     setQuestions(newQs);
     setAnswers(newAns);
     setTimes(newTimes);
