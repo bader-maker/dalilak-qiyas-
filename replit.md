@@ -166,3 +166,24 @@ Applied the dashboard's two-group concept (Aptitude/Achievement) to `/subscripti
 - **English card body got `dir="ltr"`** so English bullet list flows naturally LTR; page root stays `dir="rtl"`.
 - Used `ps-9` logical padding-start for sub-list indentation.
 - **Untouched**: `handleSubscribe('arabic')` / `handleSubscribe('english')` handlers, `confirmSubscription`, the subscription modal, `userSubscriptions` data, `selectedPackage`/`selectedPlan` state, pricing strings, gradient headers, Subscribe button styling/labels/disabled logic, Current Subscriptions Status section, FAQ section, page header/nav, the `grid grid-cols-1 md:grid-cols-2 gap-6` plan layout.
+
+## Routing split: /qudrat and /tahsili (2026-04-25)
+
+Refactored the unified dashboard into two focused routes that mirror the dashboard's exam taxonomy. **No** changes to TestEngine, practice/test routing, AI/API calls, examType / quduratType / tahsiliType / practiceHref / goToTest logic — only routing + UI organization.
+
+- **`src/components/DashboardView.tsx`** (NEW, 1457 lines) — extracted from the old `src/app/dashboard/page.tsx`. Accepts an optional `lockedExamType?: "qudurat" | "tahsili"` prop that:
+  - Initializes `examType` state from the prop (with a sync `useEffect` if prop changes).
+  - Hides the Aptitude/Achievement group selector grid when set, leaving only the matching variant toggle (Qudrat/GAT or Tahsili/SAAT).
+  - Drives the desktop page-title text (`القدرات` / `التحصيلي` / falls back to `لوحة التحكم`).
+  - Drives sidebar active-link highlighting.
+  - All data, handlers, modal, ProgressCharts/AIAssistant integration, animations are byte-identical to the original dashboard.
+- **`src/app/qudrat/page.tsx`** (NEW, ~22 lines) — thin wrapper: `<DashboardView lockedExamType="qudurat" />`, also writes `localStorage.lastDashboardRoute = "/qudrat"`.
+- **`src/app/tahsili/page.tsx`** (NEW, ~22 lines) — same pattern with `"tahsili"`.
+- **`src/app/dashboard/page.tsx`** (REWRITTEN, ~40 lines) — now a tiny redirect that reads `localStorage.lastDashboardRoute` (default `/qudrat`) and `router.replace`s to it. Renders a brief loading spinner while redirecting. URL still resolves so old bookmarks/links keep working.
+- **Sidebar inside DashboardView** — replaced the single "Home" link with two links: `🧠 القدرات → /qudrat` and `🎓 التحصيلي → /tahsili`. Practice / Subscriptions / Profile / theme toggle untouched.
+- **Preserved verbatim**: `practiceHref` builder (all GAT/Tahsili/SAAT focus mappings), `goToTest` function (all `/test/qudrat-ar`, `/test/gat-en`, `/test/tahsili-ar`, `/test/saat-en` routes), all four `*FreeTest` configs, all `*ComprehensiveTests` arrays, `quantitativeTopics` / `gatQuantitativeTopics` / `verbalTopics` / `gatVerbalTopics` / `tahsiliTopics` / `saatTopics`, all leaderboards/performance data, the Subscribe modal, the activeTab/tahsiliTab/dashboardView state, the AIAssistant mount.
+- **Existing routes left intact**: `/practice`, `/practice/test`, `/test`, `/test/qudrat-ar`, `/test/gat-en`, `/test/tahsili-ar`, `/test/saat-en`, `/test-gat`, `/test-saat`, `/test-tahsili`, `/subscriptions`, `/profile`, `/admin`, `/auth/*`, `/login`, `/forgot-password`, `/reset-password`, `/landing`.
+
+### Mobile category switcher
+
+The desktop sidebar that hosts the `/qudrat` ↔ `/tahsili` links is `hidden lg:flex`, so on mobile the locked group card alone would leave users stranded. DashboardView includes a `lg:hidden` segmented control at the top of `<main>` that mirrors the two route links with `aria-current="page"` on the active one. Sidebar links also carry `aria-current="page"` for accessibility.
