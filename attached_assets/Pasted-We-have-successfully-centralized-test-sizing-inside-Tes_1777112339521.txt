@@ -1,0 +1,139 @@
+We have successfully centralized test sizing inside TestEngine:
+- Comprehensive = 120 questions / 120 minutes
+- Section = 25 questions / 25 minutes
+- Caller overrides (questionLimit, timeLimit) are preserved
+
+Now we want to HARDEN the system and ensure consistency across the entire platform.
+
+Goals:
+1. Prevent any future inconsistency
+2. Guarantee timer + question count are always aligned
+3. Make logic explicit and self-documenting
+4. Avoid hidden bugs in edge cases
+
+--------------------------------
+TASK 1 — Add explicit test type detection
+--------------------------------
+
+Inside TestEngine, create a clear boolean:
+
+const isSectionMode = testMode === "section" && !!selectedSection;
+
+Use this variable instead of repeating condition logic.
+
+--------------------------------
+TASK 2 — Enforce safe limits
+--------------------------------
+
+Before returning test parameters, enforce:
+
+- questionCount cannot exceed available questions
+- timeMinutes must always be >= questionCount (1 min per question baseline)
+
+Example:
+
+const safeQuestionCount = Math.min(
+  questionLimit ?? DEFAULT_COUNT,
+  questions.length
+);
+
+const safeTime = Math.max(
+  timeLimit ?? DEFAULT_TIME,
+  safeQuestionCount
+);
+
+--------------------------------
+TASK 3 — Add runtime debug logs (dev only)
+--------------------------------
+
+Add a console debug block (only in development):
+
+if (process.env.NODE_ENV === "development") {
+  console.log("[TestEngine]", {
+    examCategory,
+    testMode,
+    selectedSection,
+    questionCount: safeQuestionCount,
+    timeMinutes: safeTime,
+    source: questionLimit || timeLimit ? "override" : "default",
+  });
+}
+
+--------------------------------
+TASK 4 — Lock configuration (single source of truth)
+--------------------------------
+
+Move constants to a clearly named block at top:
+
+// ===== TEST ENGINE GLOBAL RULES (DO NOT CHANGE PER EXAM) =====
+
+const TEST_RULES = {
+  COMPREHENSIVE: { questions: 120, time: 120 },
+  SECTION: { questions: 25, time: 25 },
+};
+
+Use this object everywhere instead of separate constants.
+
+--------------------------------
+TASK 5 — Remove dead dependencies
+--------------------------------
+
+Ensure:
+- No usage of exam-config question/time values
+- No unused imports remain
+- No legacy fallback logic exists
+
+--------------------------------
+TASK 6 — Add defensive fallback
+--------------------------------
+
+If something breaks (e.g. missing section or invalid state):
+
+Fallback to:
+
+return {
+  questions: getAllQuestionsForCategory(examCategory),
+  questionCount: 25,
+  timeMinutes: 25,
+};
+
+--------------------------------
+TASK 7 — Validate scenarios
+--------------------------------
+
+Test all:
+
+1) Comprehensive tests:
+- /test/qudrat-ar
+- /test/gat-en
+- /test/saat-en
+- /test/tahsili-ar
+
+EXPECT:
+120 questions / 120 minutes
+
+2) Section tests:
+- tahsili-ar?subject=math_ar
+- physics_ar
+- chemistry_ar
+- biology_ar
+
+EXPECT:
+25 questions / 25 minutes
+
+3) Override tests:
+- /test-saat
+- /test-tahsili
+
+EXPECT:
+Overrides preserved (40 / 60)
+
+--------------------------------
+OUTPUT
+--------------------------------
+
+Return:
+1. Updated TestEngine logic
+2. What safeguards were added
+3. Any edge cases found
+4. Confirmation all scenarios pass

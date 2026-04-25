@@ -83,24 +83,23 @@ function writeUsedQuestionIds(category: ExamCategory, ids: Set<string>): void {
 }
 
 // =============================================================================
-// Standard test sizing — single source of truth for question count and timer
-// duration of the four standard exam pages (Qudrat / GAT / Tahsili / SAAT).
+// ===== TEST ENGINE GLOBAL RULES (DO NOT CHANGE PER EXAM) =====
 //
-// These constants are the IMPLICIT defaults used when a caller doesn't pass
-// `questionLimit` / `timeLimit` props. They override the per-exam values that
-// previously came from `examCategories[...].totalQuestions` / `totalTimeMinutes`
-// and `getSectionConfig(...)`, which were inconsistent across categories
+// Single source of truth for test sizing across all four exam categories
+// (Qudrat / GAT / Tahsili / SAAT). These are the IMPLICIT defaults; caller-
+// supplied `questionLimit` / `timeLimit` props (trial pages /test-saat,
+// /test-tahsili pass {40, 60}) still override.
+//
+// Per-exam values from `examCategories[...].totalQuestions` /
+// `totalTimeMinutes` and `getSectionConfig(...)` are intentionally NOT
+// consulted here — they were the source of category-by-category drift
 // (Qudrat-AR sections were 60/60, GAT-EN sections 25/22, etc.).
-//
-// Caller-supplied props still win — `/test-saat` and `/test-tahsili` are
-// trial pages that explicitly pass `questionLimit={40}` + `timeLimit={60}`,
-// and that behavior is preserved. Practice / training does not use TestEngine
-// at all (it uses /practice/test/page.tsx) and is unaffected.
+// Practice / training does not use TestEngine at all.
 // =============================================================================
-const COMPREHENSIVE_QUESTION_COUNT = 120;
-const COMPREHENSIVE_TIME_MINUTES = 120;
-const SECTION_QUESTION_COUNT = 25;
-const SECTION_TIME_MINUTES = 25;
+const TEST_RULES = {
+  COMPREHENSIVE: { questions: 120, time: 120 },
+  SECTION: { questions: 25, time: 25 },
+} as const;
 
 interface TestEngineProps {
   examCategory: ExamCategory;
@@ -108,9 +107,9 @@ interface TestEngineProps {
   selectedSection?: ExamSection;
   /**
    * Optional override for the implicit standard count
-   * (`COMPREHENSIVE_QUESTION_COUNT` / `SECTION_QUESTION_COUNT`). Used by
-   * trial pages that need a custom shorter test; standard test pages
-   * leave this unset to inherit the centralized defaults.
+   * (`TEST_RULES.COMPREHENSIVE.questions` / `TEST_RULES.SECTION.questions`).
+   * Used by trial pages that need a custom shorter test; standard test
+   * pages leave this unset to inherit the centralized defaults.
    */
   questionLimit?: number;
   /** Optional override for the implicit standard timer (in minutes). */
@@ -132,33 +131,82 @@ export default function TestEngine({
   const examConfig = examCategories[examCategory];
   const isArabic = examConfig.language === "ar";
 
+  // ---------------------------------------------------------------------------
   // Calculate test parameters based on mode.
   //
-  // Defaults are now centralized via the SECTION_* / COMPREHENSIVE_* constants
-  // above so every exam type behaves identically:
-  //   - section mode      → 25 questions / 25 minutes
-  //   - comprehensive mode → 120 questions / 120 minutes
-  // Caller-supplied `questionLimit` / `timeLimit` props still override (used
-  // by the trial pages /test-saat and /test-tahsili). The per-exam values
-  // from `examCategories[...]` and `getSectionConfig(...)` are no longer
-  // consulted here — the previous fallback chain was the source of the
-  // category-by-category inconsistency this fix removes.
+  // Behaviour rules (in order):
+  //   1. Defaults come from the centralized `TEST_RULES` block — every exam
+  //      category resolves to the same numbers (comprehensive 120/120,
+  //      section 25/25). Per-exam values from exam-config are NOT consulted.
+  //   2. Caller-supplied `questionLimit` / `timeLimit` props win (trial pages
+  //      /test-saat, /test-tahsili → 40/60).
+  //   3. SAFETY: question count is clipped to the available pool size
+  //      (`Math.min`), and the timer is held to a 1-min-per-question floor
+  //      (`Math.max`) so a too-short override can't ship a test that's
+  //      impossible to finish.
+  //   4. DEFENSIVE FALLBACK: a "section" testMode without a selectedSection
+  //      is a broken caller state — degrade to a 25/25 comprehensive test
+  //      instead of crashing.
+  //   5. In development, log the resolved params + override source so
+  //      regressions are visible in the browser console.
+  // ---------------------------------------------------------------------------
   const getTestParameters = useCallback(() => {
-    if (testMode === "section" && selectedSection) {
+    const isSectionMode = testMode === "section" && !!selectedSection;
+
+    // (4) Broken state: testMode says "section" but no section was supplied.
+    if (testMode === "section" && !selectedSection) {
+      const fallbackPool = getAllQuestionsForCategory(examCategory);
+      const fallbackCount = Math.min(TEST_RULES.SECTION.questions, fallbackPool.length);
+      const fallbackTime = Math.max(TEST_RULES.SECTION.time, fallbackCount);
+      if (process.env.NODE_ENV === "development") {
+        console.warn(
+          "[TestEngine] testMode=\"section\" without selectedSection — falling back to safe defaults",
+          { examCategory, questionCount: fallbackCount, timeMinutes: fallbackTime },
+        );
+      }
       return {
-        questions: getQuestions(examCategory, selectedSection),
-        timeMinutes: timeLimit ?? SECTION_TIME_MINUTES,
-        questionCount: questionLimit ?? SECTION_QUESTION_COUNT,
-      };
-    } else {
-      // Comprehensive test - get all questions from all sections
-      const allQuestions = getAllQuestionsForCategory(examCategory);
-      return {
-        questions: allQuestions,
-        timeMinutes: timeLimit ?? COMPREHENSIVE_TIME_MINUTES,
-        questionCount: questionLimit ?? COMPREHENSIVE_QUESTION_COUNT,
+        questions: fallbackPool,
+        questionCount: fallbackCount,
+        timeMinutes: fallbackTime,
       };
     }
+
+    // (1) Resolve the rule once.
+    const rule = isSectionMode ? TEST_RULES.SECTION : TEST_RULES.COMPREHENSIVE;
+
+    // Pool selection — section pulls from one section, comprehensive from all.
+    const pool = isSectionMode
+      ? getQuestions(examCategory, selectedSection)
+      : getAllQuestionsForCategory(examCategory);
+
+    // (2) + (3) Apply overrides, then clamp.
+    const requestedCount = questionLimit ?? rule.questions;
+    const safeQuestionCount = Math.min(requestedCount, pool.length);
+
+    const requestedTime = timeLimit ?? rule.time;
+    const safeTime = Math.max(requestedTime, safeQuestionCount);
+
+    // (5) Dev-only diagnostic.
+    if (process.env.NODE_ENV === "development") {
+      console.log("[TestEngine]", {
+        examCategory,
+        testMode,
+        selectedSection,
+        questionCount: safeQuestionCount,
+        timeMinutes: safeTime,
+        poolSize: pool.length,
+        source:
+          questionLimit !== undefined || timeLimit !== undefined
+            ? "override"
+            : "default",
+      });
+    }
+
+    return {
+      questions: pool,
+      questionCount: safeQuestionCount,
+      timeMinutes: safeTime,
+    };
   }, [examCategory, testMode, selectedSection, timeLimit, questionLimit]);
 
   const [testParams, setTestParams] = useState<{
