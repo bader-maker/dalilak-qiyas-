@@ -398,43 +398,48 @@ export default function Dashboard() {
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium bg-[#006C35] text-white"
-          >
-            <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-            </svg>
-            <span>{isEnglish ? "Home" : "الرئيسية"}</span>
-          </Link>
-          <Link
-            href="/practice"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          >
-            <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-            </svg>
-            <span>{isEnglish ? "Practice" : "التدريب"}</span>
-          </Link>
-          <Link
-            href="/subscriptions"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          >
-            <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-            </svg>
-            <span>{isEnglish ? "Subscriptions" : "الاشتراكات"}</span>
-          </Link>
-          <Link
-            href="/profile"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          >
-            <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-            <span>{isEnglish ? "Profile" : "الملف الشخصي"}</span>
-          </Link>
+        <nav className="flex-1 px-4 py-6 overflow-y-auto">
+          <p className="px-3 mb-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+            {isEnglish ? "Menu" : "القائمة"}
+          </p>
+          <div className="space-y-1.5">
+            <Link
+              href="/dashboard"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold bg-[#006C35] text-white shadow-sm shadow-[#006C35]/30"
+            >
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              <span>{isEnglish ? "Home" : "الرئيسية"}</span>
+            </Link>
+            <Link
+              href="/practice"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white transition-colors"
+            >
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+              <span>{isEnglish ? "Practice" : "التدريب"}</span>
+            </Link>
+            <Link
+              href="/subscriptions"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white transition-colors"
+            >
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              <span>{isEnglish ? "Subscriptions" : "الاشتراكات"}</span>
+            </Link>
+            <Link
+              href="/profile"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white transition-colors"
+            >
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              <span>{isEnglish ? "Profile" : "الملف الشخصي"}</span>
+            </Link>
+          </div>
         </nav>
 
         {/* Bottom: theme toggle (preserves existing toggleTheme handler) */}
@@ -555,21 +560,25 @@ export default function Dashboard() {
         {/* Main Content */}
         <main className="max-w-[1100px] mx-auto px-4 sm:px-6 py-6">
           {/* Banner — relocates the old top-bar Subscribe CTA into the spec's banner slot */}
-          <div className="bg-gradient-to-r from-[#006C35] to-[#00A651] rounded-2xl p-5 mb-5 shadow-sm flex items-center gap-4">
-            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
-              ⭐
+          <div className="relative overflow-hidden bg-gradient-to-br from-[#006C35] via-[#007a3d] to-[#00A651] rounded-2xl p-6 mb-6 flex flex-col sm:flex-row sm:items-center gap-4 shadow-sm shadow-[#006C35]/20">
+            <div aria-hidden="true" className={`pointer-events-none absolute -top-12 ${isEnglish ? '-right-12' : '-left-12'} w-40 h-40 rounded-full bg-white/10 blur-2xl`} />
+            <div aria-hidden="true" className={`pointer-events-none absolute -bottom-16 ${isEnglish ? 'right-1/3' : 'left-1/3'} w-48 h-48 rounded-full bg-[#D4AF37]/10 blur-3xl`} />
+            <div className="relative w-12 h-12 bg-white/15 backdrop-blur-sm rounded-xl flex items-center justify-center flex-shrink-0 ring-1 ring-white/20">
+              <svg className="w-6 h-6 text-[#D4AF37]" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8 5.8 21.3l2.4-7.4L2 9.4h7.6L12 2z" />
+              </svg>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-bold text-white text-base">
+            <div className="relative flex-1 min-w-0">
+              <p className="font-bold text-white text-base sm:text-lg leading-tight">
                 {isEnglish ? "Try a free test now" : "جرّب اختباراً مجانياً الآن"}
               </p>
-              <p className="text-white/80 text-sm">
+              <p className="text-white/75 text-sm mt-0.5">
                 {isEnglish ? "Experience full exam conditions before subscribing" : "جرّب أجواء الاختبار الكامل قبل الاشتراك"}
               </p>
             </div>
             <button
               onClick={goToTest}
-              className="px-4 py-2 bg-[#D4AF37] text-black font-bold rounded-lg hover:bg-[#E8C547] transition-colors text-sm flex-shrink-0"
+              className="relative px-5 py-2.5 bg-[#D4AF37] text-black font-bold rounded-xl hover:bg-[#E8C547] transition-colors text-sm flex-shrink-0 ring-1 ring-[#D4AF37]/30 shadow-sm shadow-black/10"
             >
               {isEnglish ? "Subscribe Now" : "اشترك الآن"}
             </button>
@@ -649,7 +658,7 @@ export default function Dashboard() {
         ) : (
         <>
         {/* Exam Type Selector */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 mb-6 shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-300">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 mb-6 border border-gray-100 dark:border-gray-700/60 transition-colors duration-300">
           <div className="flex gap-2">
             <button
               onClick={() => setExamType("qudurat")}
@@ -676,7 +685,7 @@ export default function Dashboard() {
 
         {/* Sub-type Selector - Qudurat & Tahsili */}
         {examType === "qudurat" && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 mb-6 shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-300">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 mb-6 border border-gray-100 dark:border-gray-700/60 transition-colors duration-300">
             <div className="flex gap-2">
               <button
                 onClick={() => setQuduratType("general")}
@@ -702,7 +711,7 @@ export default function Dashboard() {
           </div>
         )}
         {examType === "tahsili" && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 mb-6 shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-300">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 mb-6 border border-gray-100 dark:border-gray-700/60 transition-colors duration-300">
             <div className="flex gap-2">
               <button
                 onClick={() => setTahsiliType("tahsili")}
@@ -729,11 +738,11 @@ export default function Dashboard() {
         )}
 
         {/* Progress & Leaderboard Section */}
-        <div key={`progress-${animationKey}`} className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8 animate-fade-in">
+        <div key={`progress-${animationKey}`} className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 animate-fade-in">
           {/* Progress Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-300">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <span className="text-2xl">📊</span>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700/60 transition-colors duration-300">
+            <h2 className="text-base font-bold text-gray-900 dark:text-white mb-5 flex items-center gap-3">
+              <span className="w-9 h-9 bg-[#006C35]/10 dark:bg-[#006C35]/20 rounded-xl flex items-center justify-center text-lg flex-shrink-0">📊</span>
               {isEnglish ? "Your Progress" : "تقدمك"}
             </h2>
 
@@ -785,9 +794,9 @@ export default function Dashboard() {
           </div>
 
           {/* Leaderboard Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 transition-colors duration-300">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <span className="text-2xl">🏆</span>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700/60 transition-colors duration-300">
+            <h2 className="text-base font-bold text-gray-900 dark:text-white mb-5 flex items-center gap-3">
+              <span className="w-9 h-9 bg-[#D4AF37]/10 dark:bg-[#D4AF37]/20 rounded-xl flex items-center justify-center text-lg flex-shrink-0">🏆</span>
               {isEnglish ? "Leaderboard" : "لوحة المتصدرين"}
             </h2>
 
@@ -822,9 +831,9 @@ export default function Dashboard() {
         </div>
 
         {/* Performance Analysis Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 mb-8 transition-colors duration-300">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <span className="text-2xl">📈</span>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700/60 mb-6 transition-colors duration-300">
+          <h2 className="text-base font-bold text-gray-900 dark:text-white mb-5 flex items-center gap-3">
+            <span className="w-9 h-9 bg-[#006C35]/10 dark:bg-[#006C35]/20 rounded-xl flex items-center justify-center text-lg flex-shrink-0">📈</span>
             {isEnglish ? "Performance Analysis" : "تحليل الأداء"}
           </h2>
 
@@ -876,7 +885,7 @@ export default function Dashboard() {
         </div>
 
         {/* Free Trial Test Section */}
-        <div className="bg-gradient-to-r from-[#006C35] to-[#00A651] rounded-2xl p-6 mb-8 text-white">
+        <div className="bg-gradient-to-r from-[#006C35] to-[#00A651] rounded-2xl p-6 mb-6 text-white">
           <div className="flex items-center gap-4 mb-4">
             <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center text-3xl">
               🎁
@@ -921,7 +930,7 @@ export default function Dashboard() {
                 ? (quduratType === "general" ? "/test/qudrat-ar" : "/test/gat-en")
                 : (tahsiliType === "tahsili" ? "/test/tahsili-ar" : "/test/saat-en")
               }
-              className="bg-[#D4AF37] text-black font-bold py-2 px-6 rounded-lg hover:bg-[#E8C547] transition-colors mr-auto"
+              className="bg-[#D4AF37] text-black font-bold py-2 px-6 rounded-lg hover:bg-[#E8C547] transition-colors ms-auto"
             >
               {isEnglish ? "Start Free Test" : "ابدأ الاختبار المجاني"}
             </Link>
@@ -929,7 +938,7 @@ export default function Dashboard() {
         </div>
 
         {/* Practice Mode Section */}
-        <div className="bg-gradient-to-r from-[#D4AF37] to-[#E8C547] rounded-2xl p-6 mb-8 text-black">
+        <div className="bg-gradient-to-r from-[#D4AF37] to-[#E8C547] rounded-2xl p-6 mb-6 text-black">
           <div className="flex items-center gap-4 mb-4">
             <div className="w-16 h-16 bg-black/10 rounded-2xl flex items-center justify-center text-3xl">
               🎯
@@ -962,7 +971,7 @@ export default function Dashboard() {
             </div>
             <Link
               href={practiceHref}
-              className="bg-[#006C35] text-white font-bold py-2 px-6 rounded-lg hover:bg-[#004d26] transition-colors mr-auto"
+              className="bg-[#006C35] text-white font-bold py-2 px-6 rounded-lg hover:bg-[#004d26] transition-colors ms-auto"
             >
               {isEnglish ? "Start Practice" : "ابدأ التدريب"}
             </Link>
@@ -970,9 +979,9 @@ export default function Dashboard() {
         </div>
 
         {/* Test Bank Section */}
-        <div className="mb-8">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <span className="text-2xl">📚</span>
+        <div className="mb-6">
+          <h2 className="text-base font-bold text-gray-900 dark:text-white mb-5 flex items-center gap-3">
+            <span className="w-9 h-9 bg-[#D4AF37]/10 dark:bg-[#D4AF37]/20 rounded-xl flex items-center justify-center text-lg flex-shrink-0">📚</span>
             {isEnglish ? "Test Bank" : "بنك الاختبارات"}
           </h2>
 
@@ -1020,7 +1029,7 @@ export default function Dashboard() {
                     <button
                       key={test.id}
                       onClick={goToTest}
-                      className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700 hover:border-[#006C35] dark:hover:border-[#00A651] hover:shadow-md transition-all text-center group"
+                      className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700/60 hover:border-[#006C35] dark:hover:border-[#00A651] hover:shadow-md transition-all text-center group"
                     >
                       <div className="text-3xl font-bold text-[#006C35] dark:text-[#00A651] group-hover:scale-110 transition-transform">
                         {test.number}
@@ -1106,7 +1115,7 @@ export default function Dashboard() {
                     <button
                       key={test.id}
                       onClick={goToTest}
-                      className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700 hover:border-[#006C35] dark:hover:border-[#00A651] hover:shadow-md transition-all text-center group"
+                      className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700/60 hover:border-[#006C35] dark:hover:border-[#00A651] hover:shadow-md transition-all text-center group"
                     >
                       <div className="text-3xl font-bold text-[#006C35] dark:text-[#00A651] group-hover:scale-110 transition-transform">
                         {test.number}
@@ -1126,7 +1135,7 @@ export default function Dashboard() {
                     <button
                       key={i}
                       onClick={goToTest}
-                      className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700 hover:border-[#006C35] dark:hover:border-[#00A651] hover:shadow-md transition-all text-center group"
+                      className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700/60 hover:border-[#006C35] dark:hover:border-[#00A651] hover:shadow-md transition-all text-center group"
                     >
                       <div className="text-3xl font-bold text-[#006C35] dark:text-[#00A651] group-hover:scale-110 transition-transform">
                         {i + 1}
@@ -1143,8 +1152,8 @@ export default function Dashboard() {
         </div>
 
         {/* Features Section */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 text-center transition-colors duration-300">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700/60 text-center transition-colors duration-300">
             <div className="text-4xl mb-3">🎯</div>
             <h3 className="font-bold text-gray-900 dark:text-white mb-1">
               {isEnglish ? "Real Exam Simulation" : "محاكاة الاختبار الحقيقي"}
@@ -1153,7 +1162,7 @@ export default function Dashboard() {
               {isEnglish ? "Practice in exam-like conditions" : "تدرب في ظروف مشابهة للاختبار"}
             </p>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 text-center transition-colors duration-300">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700/60 text-center transition-colors duration-300">
             <div className="text-4xl mb-3">📊</div>
             <h3 className="font-bold text-gray-900 dark:text-white mb-1">
               {isEnglish ? "Detailed Analytics" : "تحليلات مفصلة"}
@@ -1162,7 +1171,7 @@ export default function Dashboard() {
               {isEnglish ? "Track your progress over time" : "تتبع تقدمك عبر الوقت"}
             </p>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 text-center transition-colors duration-300">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700/60 text-center transition-colors duration-300">
             <div className="text-4xl mb-3">💡</div>
             <h3 className="font-bold text-gray-900 dark:text-white mb-1">
               {isEnglish ? "Smart Explanations" : "شروحات ذكية"}
@@ -1171,7 +1180,7 @@ export default function Dashboard() {
               {isEnglish ? "Learn from every question" : "تعلم من كل سؤال"}
             </p>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 text-center transition-colors duration-300">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700/60 text-center transition-colors duration-300">
             <div className="text-4xl mb-3">🏆</div>
             <h3 className="font-bold text-gray-900 dark:text-white mb-1">
               {isEnglish ? "Compete & Win" : "تنافس واربح"}
@@ -1192,7 +1201,7 @@ export default function Dashboard() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-lg w-full p-6 relative animate-scale-in my-8">
             <button
               onClick={() => setShowSubscribeModal(false)}
-              className="absolute top-4 right-4 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              className="absolute top-4 end-4 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

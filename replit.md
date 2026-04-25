@@ -130,3 +130,15 @@ Refactored `/dashboard` chrome only — no logic, state, routing, or API changes
 - Sidebar position and main offset mirror via `isEnglish` so GAT/SAAT bilingualization is not regressed; chrome strings (`Home/الرئيسية`, `Practice/التدريب`, etc.) bilingualized.
 - Subscribe Modal and floating `AIAssistant` remain at the root level outside the main column wrapper.
 - Skipped per scope: AI Hero block, AI input field, fabricated points/streak stats, "Invite friends" card, "Community" button — these would have been empty placeholders.
+
+## Dashboard visual polish pass (2026-04-25)
+
+Pure CSS/typography polish on top of the chrome refactor — zero logic, routing, state, handler, or feature changes. No JSX restructuring beyond two `aria-hidden` decorative blur divs in the banner.
+
+- **Cards:** dropped `shadow-sm`, lightened light-mode borders to `border-gray-100` (dark mode → `border-gray-700/60`). Applied via `replace_all` across all white card variants and the test-bank tile grid.
+- **Spacing rhythm:** normalized all top-level `mb-8` → `mb-6` (Progress grid, Performance, Free Trial, Practice Mode, Test Bank wrapper, Features grid).
+- **Section titles:** the four h2s (Progress 📊, Leaderboard 🏆, Performance 📈, Test Bank 📚) now use a soft tinted icon chip (`w-9 h-9 rounded-xl bg-{brand}/10 dark:bg-{brand}/20`) instead of a bare `text-2xl` emoji span; title font normalized to `text-base font-bold`, gap-3, mb-5. Color: green tint for Progress/Performance, gold tint for Leaderboard/Test Bank.
+- **Sidebar premium polish:** added uppercase eyebrow label "القائمة" / "Menu" above the nav; bumped padding to `px-4 py-6`; nav items wrapped in `space-y-1.5`; active item upgraded to `font-semibold` with `shadow-sm shadow-[#006C35]/30` for soft green glow; inactive items softened to `text-gray-600` with `hover:text-gray-900 hover:bg-gray-50`.
+- **Banner:** new `bg-gradient-to-br from-[#006C35] via-[#007a3d] to-[#00A651]` with `shadow-[#006C35]/20`; replaced ⭐ emoji with a gold SVG star inside a `backdrop-blur` icon container with white ring; added two `aria-hidden` `pointer-events-none` decorative blur circles (top + bottom, mirrored via `isEnglish`); button enlarged with `ring-1 ring-[#D4AF37]/30`; mobile-first stacking via `flex-col sm:flex-row`.
+- **RTL logical properties:** `mr-auto` → `ms-auto` on Free Trial and Practice Mode CTAs (proper "push to opposite end" in both directions); Subscribe Modal close button `right-4` → `end-4`.
+- **Tailwind 3.4.17** is the project version, so `ms-auto`, `end-4`, and `dark:bg-X/20` opacity modifiers are all supported.
