@@ -142,3 +142,15 @@ Pure CSS/typography polish on top of the chrome refactor — zero logic, routing
 - **Banner:** new `bg-gradient-to-br from-[#006C35] via-[#007a3d] to-[#00A651]` with `shadow-[#006C35]/20`; replaced ⭐ emoji with a gold SVG star inside a `backdrop-blur` icon container with white ring; added two `aria-hidden` `pointer-events-none` decorative blur circles (top + bottom, mirrored via `isEnglish`); button enlarged with `ring-1 ring-[#D4AF37]/30`; mobile-first stacking via `flex-col sm:flex-row`.
 - **RTL logical properties:** `mr-auto` → `ms-auto` on Free Trial and Practice Mode CTAs (proper "push to opposite end" in both directions); Subscribe Modal close button `right-4` → `end-4`.
 - **Tailwind 3.4.17** is the project version, so `ms-auto`, `end-4`, and `dark:bg-X/20` opacity modifiers are all supported.
+
+## Dashboard exam selection grouping (2026-04-25)
+
+Reorganized the exam selection UI on `/dashboard` from a two-step flow (category → variant) into two side-by-side grouped cards. **Zero changes to state model, routing, handlers, TestEngine, practice/test logic, or downstream consumers** — only the selection UI markup at lines ~660-737 was replaced.
+
+- **Aptitude Tests card** (`اختبارات القدرات`, 🧠 green chip): contains pills `القدرات العامة` (Qudrat) and `GAT`. Each pill onClick atomically sets `setExamType('qudurat')` + `setQuduratType('general'|'gat')`.
+- **Achievement Tests card** (`اختبارات التحصيلي`, 🎓 gold chip): contains pills `التحصيلي` (Tahsili) and `SAAT`. Each pill atomically sets `setExamType('tahsili')` + `setTahsiliType('tahsili'|'saat')`.
+- **Group highlight**: the card whose `examType` matches the active selection gets `border-2 border-[#006C35] shadow-sm shadow-[#006C35]/10`; the other group keeps the neutral light border.
+- **Pill active state**: gold (`bg-[#D4AF37] text-black`) when the (examType, subtype) tuple matches; otherwise neutral gray.
+- **Layout**: `grid grid-cols-1 md:grid-cols-2 gap-4 mb-6` — stacks on mobile, side-by-side from `md` breakpoint. Both groups visible at all times in RTL.
+- **Routing/data unchanged**: `getCurrentProgress`, `getCurrentPerformance`, `getCurrentLeaderboard`, `isEnglish`, `practiceHref`, the Free Trial Start Test href ternary, Test Bank conditionals (`{examType === 'qudurat' && ...}` / `{examType === 'tahsili' && ...}`), and all `*FreeTest` / `*Topics` / `*ComprehensiveTests` lookups all read from the same state and continue to work without modification.
+- **Behavior note**: previously switching category preserved the last sub-selection; now every pill click is explicit (clicking GAT always lands on `(qudurat, gat)`). This is appropriate since both groups are visible simultaneously — no hidden memory state needed.

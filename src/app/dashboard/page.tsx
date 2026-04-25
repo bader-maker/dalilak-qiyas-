@@ -657,85 +657,80 @@ export default function Dashboard() {
           </div>
         ) : (
         <>
-        {/* Exam Type Selector */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 mb-6 border border-gray-100 dark:border-gray-700/60 transition-colors duration-300">
-          <div className="flex gap-2">
-            <button
-              onClick={() => setExamType("qudurat")}
-              className={`flex-1 py-3 px-4 rounded-xl font-bold text-sm transition-all ${
-                examType === "qudurat"
-                  ? "bg-[#006C35] text-white shadow-lg"
-                  : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-              }`}
-            >
-              {isEnglish ? "Qudurat / GAT" : "القدرات"}
-            </button>
-            <button
-              onClick={() => setExamType("tahsili")}
-              className={`flex-1 py-3 px-4 rounded-xl font-bold text-sm transition-all ${
-                examType === "tahsili"
-                  ? "bg-[#006C35] text-white shadow-lg"
-                  : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-              }`}
-            >
-              التحصيلي
-            </button>
+        {/* Exam Selection — grouped by Aptitude / Achievement */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          {/* Aptitude Tests group */}
+          <div
+            className={`bg-white dark:bg-gray-800 rounded-2xl p-5 border-2 transition-all ${
+              examType === "qudurat"
+                ? "border-[#006C35] shadow-sm shadow-[#006C35]/10"
+                : "border-gray-100 dark:border-gray-700/60"
+            }`}
+          >
+            <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-3">
+              <span className="w-9 h-9 bg-[#006C35]/10 dark:bg-[#006C35]/20 rounded-xl flex items-center justify-center text-lg flex-shrink-0">🧠</span>
+              {isEnglish ? "Aptitude Tests" : "اختبارات القدرات"}
+            </h3>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => { setExamType("qudurat"); setQuduratType("general"); }}
+                className={`py-2.5 px-3 rounded-lg font-medium text-sm transition-all ${
+                  examType === "qudurat" && quduratType === "general"
+                    ? "bg-[#D4AF37] text-black shadow-sm"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                }`}
+              >
+                {isEnglish ? "Qudrat" : "القدرات العامة"}
+              </button>
+              <button
+                onClick={() => { setExamType("qudurat"); setQuduratType("gat"); }}
+                className={`py-2.5 px-3 rounded-lg font-medium text-sm transition-all ${
+                  examType === "qudurat" && quduratType === "gat"
+                    ? "bg-[#D4AF37] text-black shadow-sm"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                }`}
+              >
+                GAT
+              </button>
+            </div>
+          </div>
+
+          {/* Achievement Tests group */}
+          <div
+            className={`bg-white dark:bg-gray-800 rounded-2xl p-5 border-2 transition-all ${
+              examType === "tahsili"
+                ? "border-[#006C35] shadow-sm shadow-[#006C35]/10"
+                : "border-gray-100 dark:border-gray-700/60"
+            }`}
+          >
+            <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-3">
+              <span className="w-9 h-9 bg-[#D4AF37]/10 dark:bg-[#D4AF37]/20 rounded-xl flex items-center justify-center text-lg flex-shrink-0">🎓</span>
+              {isEnglish ? "Achievement Tests" : "اختبارات التحصيلي"}
+            </h3>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => { setExamType("tahsili"); setTahsiliType("tahsili"); }}
+                className={`py-2.5 px-3 rounded-lg font-medium text-sm transition-all ${
+                  examType === "tahsili" && tahsiliType === "tahsili"
+                    ? "bg-[#D4AF37] text-black shadow-sm"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                }`}
+              >
+                {isEnglish ? "Tahsili" : "التحصيلي"}
+              </button>
+              <button
+                onClick={() => { setExamType("tahsili"); setTahsiliType("saat"); }}
+                className={`py-2.5 px-3 rounded-lg font-medium text-sm transition-all ${
+                  examType === "tahsili" && tahsiliType === "saat"
+                    ? "bg-[#D4AF37] text-black shadow-sm"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                }`}
+              >
+                SAAT
+              </button>
+            </div>
           </div>
         </div>
-
-        {/* Sub-type Selector - Qudurat & Tahsili */}
-        {examType === "qudurat" && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 mb-6 border border-gray-100 dark:border-gray-700/60 transition-colors duration-300">
-            <div className="flex gap-2">
-              <button
-                onClick={() => setQuduratType("general")}
-                className={`flex-1 py-2 px-4 rounded-lg font-medium text-sm transition-all ${
-                  quduratType === "general"
-                    ? "bg-[#D4AF37] text-black"
-                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                }`}
-              >
-                القدرات العامة
-              </button>
-              <button
-                onClick={() => setQuduratType("gat")}
-                className={`flex-1 py-2 px-4 rounded-lg font-medium text-sm transition-all ${
-                  quduratType === "gat"
-                    ? "bg-[#D4AF37] text-black"
-                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                }`}
-              >
-                GAT (English)
-              </button>
-            </div>
-          </div>
-        )}
-        {examType === "tahsili" && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 mb-6 border border-gray-100 dark:border-gray-700/60 transition-colors duration-300">
-            <div className="flex gap-2">
-              <button
-                onClick={() => setTahsiliType("tahsili")}
-                className={`flex-1 py-2 px-4 rounded-lg font-medium text-sm transition-all ${
-                  tahsiliType === "tahsili"
-                    ? "bg-[#D4AF37] text-black"
-                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                }`}
-              >
-                التحصيلي
-              </button>
-              <button
-                onClick={() => setTahsiliType("saat")}
-                className={`flex-1 py-2 px-4 rounded-lg font-medium text-sm transition-all ${
-                  tahsiliType === "saat"
-                    ? "bg-[#D4AF37] text-black"
-                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                }`}
-              >
-                SAAT (English)
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Progress & Leaderboard Section */}
         <div key={`progress-${animationKey}`} className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 animate-fade-in">
