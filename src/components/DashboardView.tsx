@@ -421,47 +421,86 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
           </Link>
         </div>
 
-        {/* Nav */}
-        <nav className="flex-1 px-4 py-6 overflow-y-auto">
+        {/* Nav — route-aware. The sidebar items are derived from `lockedExamType`
+            so /qudrat shows the Qudrat product menu (الرئيسية، التقدم، كمي،
+            لفظي، تدريب، بنك الاختبارات), /tahsili shows the Tahsili product
+            menu (الرئيسية، التقدم، التدريب، بنك الاختبارات), and the legacy
+            unlocked /dashboard view keeps its original cross-product items.
+            Anchor links (#overview, #progress, #practice, #test-bank) jump to
+            section IDs added below. كمي/لفظي/التدريب route to the practice
+            picker with the appropriate `?focus=` deep link. */}
+        <nav className="flex-1 px-4 py-6 overflow-y-auto flex flex-col">
           <p className="px-3 mb-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
             {isEnglish ? "Menu" : "القائمة"}
           </p>
           <div className="space-y-1.5">
-            {/* Aptitude route (Qudrat + GAT) */}
-            <Link
-              href="/qudrat"
-              aria-current={lockedExamType === "qudurat" ? "page" : undefined}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${
-                lockedExamType === "qudurat"
-                  ? "font-semibold bg-[#006C35] text-white shadow-sm shadow-[#006C35]/30"
-                  : "font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white"
-              }`}
-            >
-              <span className="w-5 h-5 flex items-center justify-center text-base flex-shrink-0" aria-hidden="true">🧠</span>
-              <span>{isEnglish ? "Aptitude" : "القدرات"}</span>
-            </Link>
-            {/* Achievement route (Tahsili + SAAT) */}
-            <Link
-              href="/tahsili"
-              aria-current={lockedExamType === "tahsili" ? "page" : undefined}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${
-                lockedExamType === "tahsili"
-                  ? "font-semibold bg-[#006C35] text-white shadow-sm shadow-[#006C35]/30"
-                  : "font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white"
-              }`}
-            >
-              <span className="w-5 h-5 flex items-center justify-center text-base flex-shrink-0" aria-hidden="true">🎓</span>
-              <span>{isEnglish ? "Achievement" : "التحصيلي"}</span>
-            </Link>
-            <Link
-              href="/practice"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white transition-colors"
-            >
-              <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
-              <span>{isEnglish ? "Practice" : "التدريب"}</span>
-            </Link>
+            {(lockedExamType === "qudurat"
+              ? [
+                  { href: "#overview",                          labelAr: "الرئيسية",       labelEn: "Home",         icon: "home" as const },
+                  { href: "#progress",                          labelAr: "التقدم",         labelEn: "Progress",     icon: "chart" as const },
+                  { href: "/practice?focus=quantitative_ar",    labelAr: "كمي",            labelEn: "Quantitative", icon: "calc" as const },
+                  { href: "/practice?focus=verbal_ar",          labelAr: "لفظي",           labelEn: "Verbal",       icon: "pen" as const },
+                  { href: "/practice",                          labelAr: "تدريب",          labelEn: "Practice",     icon: "book" as const },
+                  { href: "#test-bank",                         labelAr: "بنك الاختبارات", labelEn: "Test Bank",    icon: "stack" as const },
+                ]
+              : lockedExamType === "tahsili"
+              ? [
+                  { href: "#overview",                          labelAr: "الرئيسية",       labelEn: "Home",       icon: "home" as const },
+                  { href: "#progress",                          labelAr: "التقدم",         labelEn: "Progress",   icon: "chart" as const },
+                  { href: "/practice?focus=math_ar",            labelAr: "التدريب",        labelEn: "Training",   icon: "book" as const },
+                  { href: "#test-bank",                         labelAr: "بنك الاختبارات", labelEn: "Test Bank",  icon: "stack" as const },
+                ]
+              : [
+                  // Legacy /dashboard fallback — preserves the original cross-
+                  // product items so the unlocked view isn't broken.
+                  { href: "/qudrat",        labelAr: "القدرات",       labelEn: "Aptitude",      icon: "brain" as const },
+                  { href: "/tahsili",       labelAr: "التحصيلي",       labelEn: "Achievement",   icon: "cap" as const },
+                  { href: "/practice",      labelAr: "التدريب",        labelEn: "Practice",      icon: "book" as const },
+                  { href: "/profile",       labelAr: "الملف الشخصي", labelEn: "Profile",       icon: "user" as const },
+                ]
+            ).map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white transition-colors"
+              >
+                <span className="w-5 h-5 flex items-center justify-center flex-shrink-0" aria-hidden="true">
+                  {item.icon === "home" && (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3v-6h6v6h3a1 1 0 001-1V10" /></svg>
+                  )}
+                  {item.icon === "chart" && (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                  )}
+                  {item.icon === "calc" && (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m-6 4h6m-6 4h2m4 0h2M5 5a2 2 0 012-2h10a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5z" /></svg>
+                  )}
+                  {item.icon === "pen" && (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                  )}
+                  {item.icon === "book" && (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+                  )}
+                  {item.icon === "stack" && (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                  )}
+                  {item.icon === "brain" && (
+                    <span className="text-base">🧠</span>
+                  )}
+                  {item.icon === "cap" && (
+                    <span className="text-base">🎓</span>
+                  )}
+                  {item.icon === "user" && (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                  )}
+                </span>
+                <span>{isEnglish ? item.labelEn : item.labelAr}</span>
+              </Link>
+            ))}
+          </div>
+
+          {/* Bottom section — الاشتراكات + الدعم الفني. Pinned to the bottom of
+              the nav scroll area so it always sits beneath the main items. */}
+          <div className="mt-auto pt-6 border-t border-gray-100 dark:border-gray-700 space-y-1.5">
             <Link
               href="/subscriptions"
               className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white transition-colors"
@@ -471,15 +510,18 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
               </svg>
               <span>{isEnglish ? "Subscriptions" : "الاشتراكات"}</span>
             </Link>
-            <Link
-              href="/profile"
+            {/* الدعم الفني — no /support route exists yet, so this is a non-
+                breaking placeholder that opens the user's mail client to the
+                support address already published in the landing footer. */}
+            <a
+              href="mailto:support@dalilqiyas.sa"
               className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white transition-colors"
             >
               <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
               </svg>
-              <span>{isEnglish ? "Profile" : "الملف الشخصي"}</span>
-            </Link>
+              <span>{isEnglish ? "Support" : "الدعم الفني"}</span>
+            </a>
           </div>
         </nav>
 
@@ -665,8 +707,9 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
               {isEnglish ? "Subscribe Now" : "اشترك الآن"}
             </button>
           </div>
-        {/* 2. Tabs — Welcome greeting + Overview/Progress dashboard view toggle, wrapped in its own card */}
-        <div key={animationKey} className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700/60 mb-6 animate-fade-in transition-colors duration-300">
+        {/* 2. Tabs — Welcome greeting + Overview/Progress dashboard view toggle, wrapped in its own card.
+            id="overview" lets the sidebar's الرئيسية anchor scroll users back to the top of the dashboard. */}
+        <div id="overview" key={animationKey} className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700/60 mb-6 animate-fade-in transition-colors duration-300 scroll-mt-20">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-1">
@@ -712,7 +755,10 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
             inside their own card (preserves the existing dashboardView conditional;
             no logic changed, only the wrapping card / spacing for visual structure). */}
         {dashboardView === "progress" ? (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700/60 mb-6 transition-colors duration-300">
+          // Same id="progress" anchor as the overview-mode Progress section
+          // so the sidebar's التقدم link works regardless of which dashboard
+          // view (overview/progress) the user is currently in.
+          <div id="progress" className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700/60 mb-6 transition-colors duration-300 scroll-mt-20">
             {/* Free Feature Banner */}
             <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-2xl p-4 border border-green-200 dark:border-green-800 mb-6">
               <div className="flex items-center gap-3">
@@ -885,8 +931,9 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
           </div>
         </div>
 
-        {/* 5. Progress — Progress & Leaderboard pair */}
-        <div key={`progress-${animationKey}`} className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 animate-fade-in">
+        {/* 5. Progress — Progress & Leaderboard pair.
+            id="progress" is the target of the sidebar's التقدم anchor. */}
+        <div id="progress" key={`progress-${animationKey}`} className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 animate-fade-in scroll-mt-20">
           {/* Progress Card */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700/60 transition-colors duration-300">
             <h2 className="text-base font-bold text-gray-900 dark:text-white mb-5 flex items-center gap-3">
@@ -979,8 +1026,9 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
         </div>
 
         {/* 6. Tasks — Practice Mode CTA. Kept as the gold gradient hero
-            since it represents the user's next actionable task. */}
-        <div className="bg-gradient-to-r from-[#D4AF37] to-[#E8C547] rounded-2xl p-6 mb-6 text-black">
+            since it represents the user's next actionable task.
+            id="practice" is available as a deep-link anchor for in-page nav. */}
+        <div id="practice" className="bg-gradient-to-r from-[#D4AF37] to-[#E8C547] rounded-2xl p-6 mb-6 text-black scroll-mt-20">
           <div className="flex items-center gap-4 mb-4">
             <div className="w-16 h-16 bg-black/10 rounded-2xl flex items-center justify-center text-3xl">
               🎯
@@ -1020,8 +1068,9 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
           </div>
         </div>
 
-        {/* 7. Practice — Test Bank wrapped in its own card */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700/60 mb-6 transition-colors duration-300">
+        {/* 7. Practice — Test Bank wrapped in its own card.
+            id="test-bank" is the target of the sidebar's بنك الاختبارات anchor. */}
+        <div id="test-bank" className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700/60 mb-6 transition-colors duration-300 scroll-mt-20">
           <h2 className="text-base font-bold text-gray-900 dark:text-white mb-5 flex items-center gap-3">
             <span className="w-9 h-9 bg-[#D4AF37]/10 dark:bg-[#D4AF37]/20 rounded-xl flex items-center justify-center text-lg flex-shrink-0">📚</span>
             {isEnglish ? "Test Bank" : "بنك الاختبارات"}

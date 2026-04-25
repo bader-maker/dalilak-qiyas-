@@ -1,0 +1,141 @@
+We need to refine the route-specific dashboards.
+
+Current:
+- /qudrat and /tahsili exist
+- They share DashboardView
+- Sidebar is still too general
+
+Goal:
+Each route should feel like its own product area, entered from the Landing Page.
+
+IMPORTANT:
+- Do not change TestEngine
+- Do not change practice/test logic
+- Do not change API or AI logic
+- Do not remove existing content
+- This is navigation/sidebar organization only
+
+--------------------------------
+LANDING PAGE ENTRY
+--------------------------------
+
+Landing page should be the main entry point.
+
+It should clearly route users to:
+1. القدرات → /qudrat
+2. التحصيلي → /tahsili
+
+Do not send users to /dashboard as the main entry anymore unless needed for backward compatibility.
+
+--------------------------------
+/qudrat SIDEBAR
+--------------------------------
+
+For /qudrat, sidebar should be:
+
+Main section:
+1. الرئيسية
+2. التقدم
+3. كمي
+4. لفظي
+5. تدريب
+6. بنك الاختبارات
+
+Bottom section:
+7. الاشتراكات
+8. الدعم الفني
+
+Behavior:
+- الرئيسية scrolls or links to the main overview section
+- التقدم scrolls or links to progress section
+- كمي filters/selects quantitative Qudrat training/test content
+- لفظي filters/selects verbal Qudrat training/test content
+- تدريب links to Qudrat practice picker
+- بنك الاختبارات scrolls/links to test bank section
+- الاشتراكات links to /subscriptions
+- الدعم الفني links to support/contact if existing, otherwise keep as non-breaking placeholder
+
+--------------------------------
+/tahsili SIDEBAR
+--------------------------------
+
+For /tahsili, sidebar should be:
+
+Main section:
+1. الرئيسية
+2. التقدم
+3. التدريب
+4. بنك الاختبارات
+
+Bottom section:
+5. الاشتراكات
+6. الدعم الفني
+
+Behavior:
+- الرئيسية scrolls or links to main overview
+- التقدم scrolls or links to progress section
+- التدريب links to Tahsili practice picker
+- بنك الاختبارات scrolls/links to test bank section
+- الاشتراكات links to /subscriptions
+- الدعم الفني links to support/contact if existing, otherwise keep as non-breaking placeholder
+
+--------------------------------
+IMPLEMENTATION NOTES
+--------------------------------
+
+1. Keep using shared DashboardView if possible.
+2. Add route-aware sidebar config:
+   - if lockedExamType === "qudurat" → use Qudrat sidebar items
+   - if lockedExamType === "tahsili" → use Tahsili sidebar items
+
+3. Do not create fake routes unless needed.
+4. For internal dashboard sections, prefer anchor links:
+   - #overview
+   - #progress
+   - #practice
+   - #test-bank
+
+5. Add matching section IDs to existing sections:
+   - overview
+   - progress
+   - practice
+   - test-bank
+
+6. Make sure Arabic RTL layout stays correct.
+7. Keep desktop sidebar on the right.
+8. Keep mobile route switcher if needed.
+
+--------------------------------
+DO NOT DO
+--------------------------------
+
+- Do not merge /qudrat and /tahsili again
+- Do not show GAT/SAAT as main sidebar items
+- Do not change question engines
+- Do not change subscription bundle logic
+- Do not delete sections
+
+--------------------------------
+VALIDATION
+--------------------------------
+
+Check:
+1. /qudrat sidebar shows:
+   الرئيسية، التقدم، كمي، لفظي، تدريب، بنك الاختبارات، الاشتراكات، الدعم الفني
+
+2. /tahsili sidebar shows:
+   الرئيسية، التقدم، التدريب، بنك الاختبارات، الاشتراكات، الدعم الفني
+
+3. /qudrat Training goes to Qudrat practice
+4. /tahsili Training goes to Tahsili practice
+5. Test bank links/anchors work
+6. Progress anchors work
+7. Landing page routes users to /qudrat and /tahsili
+8. No core logic changed
+
+Return:
+1. Files changed
+2. Sidebar config added
+3. Section IDs added
+4. Landing page entry behavior
+5. Confirmation no core logic changed

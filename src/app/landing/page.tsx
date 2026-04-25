@@ -44,11 +44,16 @@ export default function LandingPage() {
     { icon: Zap, title: "اختبارات تحاكي الواقع", desc: "نفس نمط أسئلة قياس وتوقيتها الحقيقي" },
   ];
 
+  // Each category card now links to its product route so the landing page can
+  // act as the main entry point that sends users straight into /qudrat or
+  // /tahsili (no /dashboard intermediary). The Qudrat sub-types route to
+  // /qudrat where the user can pick القدرات العامة vs GAT inside the
+  // dashboard's Exam Context card.
   const categories = [
-    { icon: Brain, title: "القدرات", desc: "تدريب شامل على القسمين اللفظي والكمي مع شروحات تفاعلية", count: "+2,500 سؤال" },
-    { icon: GraduationCap, title: "التحصيلي", desc: "مراجعة منهجية لمواد الفيزياء والكيمياء والأحياء والرياضيات", count: "+1,800 سؤال" },
-    { icon: Target, title: "القدرات العامة", desc: "تأهيل احترافي لاختبارات القدرات للجامعيين", count: "+1,200 سؤال" },
-    { icon: Globe, title: "GAT English", desc: "تدريب متخصص على اختبار القدرات باللغة الإنجليزية", count: "+900 سؤال" },
+    { icon: Brain,         title: "القدرات",       desc: "تدريب شامل على القسمين اللفظي والكمي مع شروحات تفاعلية", count: "+2,500 سؤال", href: "/qudrat"  },
+    { icon: GraduationCap, title: "التحصيلي",       desc: "مراجعة منهجية لمواد الفيزياء والكيمياء والأحياء والرياضيات", count: "+1,800 سؤال", href: "/tahsili" },
+    { icon: Target,        title: "القدرات العامة", desc: "تأهيل احترافي لاختبارات القدرات للجامعيين",               count: "+1,200 سؤال", href: "/qudrat"  },
+    { icon: Globe,         title: "GAT English",    desc: "تدريب متخصص على اختبار القدرات باللغة الإنجليزية",        count: "+900 سؤال",   href: "/qudrat"  },
   ];
 
   const resources = [
@@ -252,7 +257,7 @@ export default function LandingPage() {
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {categories.map((c) => (
-              <div key={c.title} className="bg-white rounded-2xl shadow-lg p-6 card-hover border border-[#006C35]/5">
+              <Link key={c.title} href={c.href} className="bg-white rounded-2xl shadow-lg p-6 card-hover border border-[#006C35]/5 block hover:border-[#006C35]/30 transition-colors">
                 <div className="w-14 h-14 bg-gradient-to-br from-[#006C35] to-[#008542] rounded-xl flex items-center justify-center mb-5 shadow-md">
                   <c.icon className="w-7 h-7 text-white" />
                 </div>
@@ -262,7 +267,7 @@ export default function LandingPage() {
                   <span className="text-xs font-bold text-[#006C35]">{c.count}</span>
                   <ArrowLeft className="w-4 h-4 text-[#006C35]" />
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
