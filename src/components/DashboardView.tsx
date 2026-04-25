@@ -665,8 +665,8 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
               {isEnglish ? "Subscribe Now" : "اشترك الآن"}
             </button>
           </div>
-        {/* Welcome Section */}
-        <div key={animationKey} className="mb-6 animate-fade-in">
+        {/* 2. Tabs — Welcome greeting + Overview/Progress dashboard view toggle, wrapped in its own card */}
+        <div key={animationKey} className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700/60 mb-6 animate-fade-in transition-colors duration-300">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-1">
@@ -708,11 +708,13 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
           </div>
         </div>
 
-        {/* Progress Charts View */}
+        {/* Progress Charts View — when toggle is "progress", render only the charts
+            inside their own card (preserves the existing dashboardView conditional;
+            no logic changed, only the wrapping card / spacing for visual structure). */}
         {dashboardView === "progress" ? (
-          <div className="space-y-6">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700/60 mb-6 transition-colors duration-300">
             {/* Free Feature Banner */}
-            <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-2xl p-4 border border-green-200 dark:border-green-800">
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-2xl p-4 border border-green-200 dark:border-green-800 mb-6">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-green-100 dark:bg-green-900/40 rounded-full flex items-center justify-center">
                   <span className="text-xl">📊</span>
@@ -739,90 +741,151 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
           </div>
         ) : (
         <>
-        {/* Exam Selection — grouped by Aptitude / Achievement.
-            When the page is locked to one exam category (/qudrat or
-            /tahsili), only the matching group card renders so users
-            see a single clear variant toggle instead of cross-category
-            navigation. */}
-        <div className={`grid ${lockedExamType ? "grid-cols-1" : "grid-cols-1 md:grid-cols-2"} gap-4 mb-6`}>
-          {/* Aptitude Tests group */}
-          {(!lockedExamType || lockedExamType === "qudurat") && (
-          <div
-            className={`bg-white dark:bg-gray-800 rounded-2xl p-5 border-2 transition-all ${
-              examType === "qudurat"
-                ? "border-[#006C35] shadow-sm shadow-[#006C35]/10"
-                : "border-gray-100 dark:border-gray-700/60"
-            }`}
-          >
-            <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-3">
-              <span className="w-9 h-9 bg-[#006C35]/10 dark:bg-[#006C35]/20 rounded-xl flex items-center justify-center text-lg flex-shrink-0">🧠</span>
-              {isEnglish ? "Aptitude Tests" : "اختبارات القدرات"}
-            </h3>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => { setExamType("qudurat"); setQuduratType("general"); }}
-                className={`py-2.5 px-3 rounded-lg font-medium text-sm transition-all ${
-                  examType === "qudurat" && quduratType === "general"
-                    ? "bg-[#D4AF37] text-black shadow-sm"
-                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                }`}
-              >
-                {isEnglish ? "Qudrat" : "القدرات العامة"}
-              </button>
-              <button
-                onClick={() => { setExamType("qudurat"); setQuduratType("gat"); }}
-                className={`py-2.5 px-3 rounded-lg font-medium text-sm transition-all ${
-                  examType === "qudurat" && quduratType === "gat"
-                    ? "bg-[#D4AF37] text-black shadow-sm"
-                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                }`}
-              >
-                GAT
-              </button>
+        {/* 3. Exam Context Card — single white card containing both the
+            Aptitude and Achievement chooser groups (originally two
+            independent rounded cards). When the page is locked to one exam
+            category (/qudrat or /tahsili), only the matching group renders
+            so users see a single clear variant toggle instead of
+            cross-category navigation. Inner per-group cards keep their
+            original border + selected-state styling verbatim — no color,
+            handler, or copy changes. */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700/60 mb-6 transition-colors duration-300">
+          <div className={`grid ${lockedExamType ? "grid-cols-1" : "grid-cols-1 md:grid-cols-2"} gap-4`}>
+            {/* Aptitude Tests group */}
+            {(!lockedExamType || lockedExamType === "qudurat") && (
+            <div
+              className={`bg-white dark:bg-gray-800 rounded-2xl p-5 border-2 transition-all ${
+                examType === "qudurat"
+                  ? "border-[#006C35] shadow-sm shadow-[#006C35]/10"
+                  : "border-gray-100 dark:border-gray-700/60"
+              }`}
+            >
+              <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-3">
+                <span className="w-9 h-9 bg-[#006C35]/10 dark:bg-[#006C35]/20 rounded-xl flex items-center justify-center text-lg flex-shrink-0">🧠</span>
+                {isEnglish ? "Aptitude Tests" : "اختبارات القدرات"}
+              </h3>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => { setExamType("qudurat"); setQuduratType("general"); }}
+                  className={`py-2.5 px-3 rounded-lg font-medium text-sm transition-all ${
+                    examType === "qudurat" && quduratType === "general"
+                      ? "bg-[#D4AF37] text-black shadow-sm"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                  }`}
+                >
+                  {isEnglish ? "Qudrat" : "القدرات العامة"}
+                </button>
+                <button
+                  onClick={() => { setExamType("qudurat"); setQuduratType("gat"); }}
+                  className={`py-2.5 px-3 rounded-lg font-medium text-sm transition-all ${
+                    examType === "qudurat" && quduratType === "gat"
+                      ? "bg-[#D4AF37] text-black shadow-sm"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                  }`}
+                >
+                  GAT
+                </button>
+              </div>
             </div>
-          </div>
-          )}
+            )}
 
-          {/* Achievement Tests group */}
-          {(!lockedExamType || lockedExamType === "tahsili") && (
-          <div
-            className={`bg-white dark:bg-gray-800 rounded-2xl p-5 border-2 transition-all ${
-              examType === "tahsili"
-                ? "border-[#006C35] shadow-sm shadow-[#006C35]/10"
-                : "border-gray-100 dark:border-gray-700/60"
-            }`}
-          >
-            <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-3">
-              <span className="w-9 h-9 bg-[#D4AF37]/10 dark:bg-[#D4AF37]/20 rounded-xl flex items-center justify-center text-lg flex-shrink-0">🎓</span>
-              {isEnglish ? "Achievement Tests" : "اختبارات التحصيلي"}
-            </h3>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => { setExamType("tahsili"); setTahsiliType("tahsili"); }}
-                className={`py-2.5 px-3 rounded-lg font-medium text-sm transition-all ${
-                  examType === "tahsili" && tahsiliType === "tahsili"
-                    ? "bg-[#D4AF37] text-black shadow-sm"
-                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                }`}
-              >
-                {isEnglish ? "Tahsili" : "التحصيلي"}
-              </button>
-              <button
-                onClick={() => { setExamType("tahsili"); setTahsiliType("saat"); }}
-                className={`py-2.5 px-3 rounded-lg font-medium text-sm transition-all ${
-                  examType === "tahsili" && tahsiliType === "saat"
-                    ? "bg-[#D4AF37] text-black shadow-sm"
-                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                }`}
-              >
-                SAAT
-              </button>
+            {/* Achievement Tests group */}
+            {(!lockedExamType || lockedExamType === "tahsili") && (
+            <div
+              className={`bg-white dark:bg-gray-800 rounded-2xl p-5 border-2 transition-all ${
+                examType === "tahsili"
+                  ? "border-[#006C35] shadow-sm shadow-[#006C35]/10"
+                  : "border-gray-100 dark:border-gray-700/60"
+              }`}
+            >
+              <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-3">
+                <span className="w-9 h-9 bg-[#D4AF37]/10 dark:bg-[#D4AF37]/20 rounded-xl flex items-center justify-center text-lg flex-shrink-0">🎓</span>
+                {isEnglish ? "Achievement Tests" : "اختبارات التحصيلي"}
+              </h3>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => { setExamType("tahsili"); setTahsiliType("tahsili"); }}
+                  className={`py-2.5 px-3 rounded-lg font-medium text-sm transition-all ${
+                    examType === "tahsili" && tahsiliType === "tahsili"
+                      ? "bg-[#D4AF37] text-black shadow-sm"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                  }`}
+                >
+                  {isEnglish ? "Tahsili" : "التحصيلي"}
+                </button>
+                <button
+                  onClick={() => { setExamType("tahsili"); setTahsiliType("saat"); }}
+                  className={`py-2.5 px-3 rounded-lg font-medium text-sm transition-all ${
+                    examType === "tahsili" && tahsiliType === "saat"
+                      ? "bg-[#D4AF37] text-black shadow-sm"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                  }`}
+                >
+                  SAAT
+                </button>
+              </div>
             </div>
+            )}
           </div>
-          )}
         </div>
 
-        {/* Progress & Leaderboard Section */}
+        {/* 4. Hero (AI / Catbot) — Free Trial Test centered hero card.
+            Reordered to sit immediately after the Exam Context so the user's
+            first action option is front and center. Content is centered per
+            the layout spec (text-center, items-center, justify-center). */}
+        <div className="bg-gradient-to-r from-[#006C35] to-[#00A651] rounded-2xl p-6 mb-6 text-white text-center">
+          <div className="flex flex-col items-center gap-4 mb-4">
+            <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center text-3xl">
+              🎁
+            </div>
+            <div>
+              <h2 className="text-xl font-bold">
+                {examType === "qudurat"
+                  ? (quduratType === "general" ? quduratGeneralFreeTest.title : gatFreeTest.title)
+                  : (tahsiliType === "tahsili" ? tahsiliFreeTest.title : saatFreeTest.title)
+                }
+              </h2>
+              <p className="text-white/80 text-sm">
+                {examType === "qudurat"
+                  ? (quduratType === "general" ? quduratGeneralFreeTest.description : gatFreeTest.description)
+                  : (tahsiliType === "tahsili" ? tahsiliFreeTest.description : saatFreeTest.description)
+                }
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-4 items-center justify-center">
+            <div className="flex items-center gap-2 bg-white/20 rounded-lg px-3 py-2">
+              <span>📝</span>
+              <span className="text-sm">
+                {examType === "qudurat"
+                  ? (quduratType === "general" ? quduratGeneralFreeTest.questions : gatFreeTest.questions)
+                  : (tahsiliType === "tahsili" ? tahsiliFreeTest.questions : saatFreeTest.questions)
+                } {isEnglish ? "questions" : "سؤال"}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 bg-white/20 rounded-lg px-3 py-2">
+              <span>⏱️</span>
+              <span className="text-sm">
+                {examType === "qudurat"
+                  ? (quduratType === "general" ? quduratGeneralFreeTest.duration : gatFreeTest.duration)
+                  : (tahsiliType === "tahsili" ? tahsiliFreeTest.duration : saatFreeTest.duration)
+                } {isEnglish ? "minutes" : "دقيقة"}
+              </span>
+            </div>
+            <Link
+              href={examType === "qudurat"
+                ? (quduratType === "general" ? "/test/qudrat-ar" : "/test/gat-en")
+                : (tahsiliType === "tahsili" ? "/test/tahsili-ar" : "/test/saat-en")
+              }
+              className="bg-[#D4AF37] text-black font-bold py-2 px-6 rounded-lg hover:bg-[#E8C547] transition-colors"
+            >
+              {isEnglish ? "Start Free Test" : "ابدأ الاختبار المجاني"}
+            </Link>
+          </div>
+        </div>
+
+        {/* 5. Progress — Progress & Leaderboard pair */}
         <div key={`progress-${animationKey}`} className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 animate-fade-in">
           {/* Progress Card */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700/60 transition-colors duration-300">
@@ -915,114 +978,8 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
           </div>
         </div>
 
-        {/* Performance Analysis Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700/60 mb-6 transition-colors duration-300">
-          <h2 className="text-base font-bold text-gray-900 dark:text-white mb-5 flex items-center gap-3">
-            <span className="w-9 h-9 bg-[#006C35]/10 dark:bg-[#006C35]/20 rounded-xl flex items-center justify-center text-lg flex-shrink-0">📈</span>
-            {isEnglish ? "Performance Analysis" : "تحليل الأداء"}
-          </h2>
-
-          {/* Topics Performance */}
-          <div className="space-y-3 mb-6">
-            {currentPerformance.topics.map((topic) => (
-              <div key={topic.name}>
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-sm text-gray-700 dark:text-gray-300">{topic.name}</span>
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">{topic.score}%</span>
-                </div>
-                <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      topic.score >= 80 ? "bg-green-500" : topic.score >= 60 ? "bg-yellow-500" : "bg-red-500"
-                    }`}
-                    style={{ width: `${topic.score}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Strengths & Weaknesses */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4">
-              <h3 className="font-medium text-green-800 dark:text-green-400 mb-2 flex items-center gap-2">
-                <span>💪</span>
-                {isEnglish ? "Strengths" : "نقاط القوة"}
-              </h3>
-              <ul className="space-y-1">
-                {currentPerformance.strengths.map((item) => (
-                  <li key={item} className="text-sm text-green-700 dark:text-green-300">• {item}</li>
-                ))}
-              </ul>
-            </div>
-            <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4">
-              <h3 className="font-medium text-red-800 dark:text-red-400 mb-2 flex items-center gap-2">
-                <span>🎯</span>
-                {isEnglish ? "Focus Areas" : "مجالات التركيز"}
-              </h3>
-              <ul className="space-y-1">
-                {currentPerformance.weaknesses.map((item) => (
-                  <li key={item} className="text-sm text-red-700 dark:text-red-300">• {item}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        {/* Free Trial Test Section */}
-        <div className="bg-gradient-to-r from-[#006C35] to-[#00A651] rounded-2xl p-6 mb-6 text-white">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center text-3xl">
-              🎁
-            </div>
-            <div>
-              <h2 className="text-xl font-bold">
-                {examType === "qudurat"
-                  ? (quduratType === "general" ? quduratGeneralFreeTest.title : gatFreeTest.title)
-                  : (tahsiliType === "tahsili" ? tahsiliFreeTest.title : saatFreeTest.title)
-                }
-              </h2>
-              <p className="text-white/80 text-sm">
-                {examType === "qudurat"
-                  ? (quduratType === "general" ? quduratGeneralFreeTest.description : gatFreeTest.description)
-                  : (tahsiliType === "tahsili" ? tahsiliFreeTest.description : saatFreeTest.description)
-                }
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-4 items-center">
-            <div className="flex items-center gap-2 bg-white/20 rounded-lg px-3 py-2">
-              <span>📝</span>
-              <span className="text-sm">
-                {examType === "qudurat"
-                  ? (quduratType === "general" ? quduratGeneralFreeTest.questions : gatFreeTest.questions)
-                  : (tahsiliType === "tahsili" ? tahsiliFreeTest.questions : saatFreeTest.questions)
-                } {isEnglish ? "questions" : "سؤال"}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 bg-white/20 rounded-lg px-3 py-2">
-              <span>⏱️</span>
-              <span className="text-sm">
-                {examType === "qudurat"
-                  ? (quduratType === "general" ? quduratGeneralFreeTest.duration : gatFreeTest.duration)
-                  : (tahsiliType === "tahsili" ? tahsiliFreeTest.duration : saatFreeTest.duration)
-                } {isEnglish ? "minutes" : "دقيقة"}
-              </span>
-            </div>
-            <Link
-              href={examType === "qudurat"
-                ? (quduratType === "general" ? "/test/qudrat-ar" : "/test/gat-en")
-                : (tahsiliType === "tahsili" ? "/test/tahsili-ar" : "/test/saat-en")
-              }
-              className="bg-[#D4AF37] text-black font-bold py-2 px-6 rounded-lg hover:bg-[#E8C547] transition-colors ms-auto"
-            >
-              {isEnglish ? "Start Free Test" : "ابدأ الاختبار المجاني"}
-            </Link>
-          </div>
-        </div>
-
-        {/* Practice Mode Section */}
+        {/* 6. Tasks — Practice Mode CTA. Kept as the gold gradient hero
+            since it represents the user's next actionable task. */}
         <div className="bg-gradient-to-r from-[#D4AF37] to-[#E8C547] rounded-2xl p-6 mb-6 text-black">
           <div className="flex items-center gap-4 mb-4">
             <div className="w-16 h-16 bg-black/10 rounded-2xl flex items-center justify-center text-3xl">
@@ -1063,8 +1020,8 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
           </div>
         </div>
 
-        {/* Test Bank Section */}
-        <div className="mb-6">
+        {/* 7. Practice — Test Bank wrapped in its own card */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700/60 mb-6 transition-colors duration-300">
           <h2 className="text-base font-bold text-gray-900 dark:text-white mb-5 flex items-center gap-3">
             <span className="w-9 h-9 bg-[#D4AF37]/10 dark:bg-[#D4AF37]/20 rounded-xl flex items-center justify-center text-lg flex-shrink-0">📚</span>
             {isEnglish ? "Test Bank" : "بنك الاختبارات"}
@@ -1234,6 +1191,62 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
               )}
             </>
           )}
+        </div>
+
+        {/* 8. Reports — Performance Analysis (relocated to the end of the
+            overview flow). Already styled as its own card; identical content,
+            no logic changes. */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700/60 mb-6 transition-colors duration-300">
+          <h2 className="text-base font-bold text-gray-900 dark:text-white mb-5 flex items-center gap-3">
+            <span className="w-9 h-9 bg-[#006C35]/10 dark:bg-[#006C35]/20 rounded-xl flex items-center justify-center text-lg flex-shrink-0">📈</span>
+            {isEnglish ? "Performance Analysis" : "تحليل الأداء"}
+          </h2>
+
+          {/* Topics Performance */}
+          <div className="space-y-3 mb-6">
+            {currentPerformance.topics.map((topic) => (
+              <div key={topic.name}>
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-sm text-gray-700 dark:text-gray-300">{topic.name}</span>
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">{topic.score}%</span>
+                </div>
+                <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      topic.score >= 80 ? "bg-green-500" : topic.score >= 60 ? "bg-yellow-500" : "bg-red-500"
+                    }`}
+                    style={{ width: `${topic.score}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Strengths & Weaknesses */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4">
+              <h3 className="font-medium text-green-800 dark:text-green-400 mb-2 flex items-center gap-2">
+                <span>💪</span>
+                {isEnglish ? "Strengths" : "نقاط القوة"}
+              </h3>
+              <ul className="space-y-1">
+                {currentPerformance.strengths.map((item) => (
+                  <li key={item} className="text-sm text-green-700 dark:text-green-300">• {item}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4">
+              <h3 className="font-medium text-red-800 dark:text-red-400 mb-2 flex items-center gap-2">
+                <span>🎯</span>
+                {isEnglish ? "Focus Areas" : "مجالات التركيز"}
+              </h3>
+              <ul className="space-y-1">
+                {currentPerformance.weaknesses.map((item) => (
+                  <li key={item} className="text-sm text-red-700 dark:text-red-300">• {item}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
         </div>
 
         {/* Features Section */}
