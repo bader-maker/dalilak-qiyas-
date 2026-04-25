@@ -2169,6 +2169,7 @@ function PracticeTestContent() {
           answers={answers}
           correctAnswers={questions.map(q => q.correct)}
           times={times}
+          isArabic={isArabicExam}
         />
         <TrainingAICoachCard input={coachInput} isPremium={isPremium} />
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
