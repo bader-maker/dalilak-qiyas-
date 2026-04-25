@@ -154,3 +154,15 @@ Reorganized the exam selection UI on `/dashboard` from a two-step flow (category
 - **Layout**: `grid grid-cols-1 md:grid-cols-2 gap-4 mb-6` — stacks on mobile, side-by-side from `md` breakpoint. Both groups visible at all times in RTL.
 - **Routing/data unchanged**: `getCurrentProgress`, `getCurrentPerformance`, `getCurrentLeaderboard`, `isEnglish`, `practiceHref`, the Free Trial Start Test href ternary, Test Bank conditionals (`{examType === 'qudurat' && ...}` / `{examType === 'tahsili' && ...}`), and all `*FreeTest` / `*Topics` / `*ComprehensiveTests` lookups all read from the same state and continue to work without modification.
 - **Behavior note**: previously switching category preserved the last sub-selection; now every pill click is explicit (clicking GAT always lands on `(qudurat, gat)`). This is appropriate since both groups are visible simultaneously — no hidden memory state needed.
+
+## Subscriptions page exam grouping (2026-04-25)
+
+Applied the dashboard's two-group concept (Aptitude/Achievement) to `/subscriptions` — but only as **internal restructure of each existing plan card's body**. Billing model is unchanged: still two bundle plans, Arabic (Qudrat+Tahsili) and English (GAT+SAAT). User explicitly chose this approach over duplicating cards or splitting into 4 fake plans.
+
+- **Inside each plan card body**, replaced the flat features `<ul>` with three blocks:
+  1. **Aptitude sub-section** (green icon chip 🧠 matching dashboard): one bullet for the relevant aptitude exam (Qudrat in Arabic card, GAT in English card).
+  2. **Achievement sub-section** (gold icon chip 🎓 matching dashboard): one bullet for the relevant achievement exam (Tahsili / SAAT).
+  3. **"ميزات إضافية" / "Plus"** section, separated by a top border, listing the 4 common bundle features.
+- **English card body got `dir="ltr"`** so English bullet list flows naturally LTR; page root stays `dir="rtl"`.
+- Used `ps-9` logical padding-start for sub-list indentation.
+- **Untouched**: `handleSubscribe('arabic')` / `handleSubscribe('english')` handlers, `confirmSubscription`, the subscription modal, `userSubscriptions` data, `selectedPackage`/`selectedPlan` state, pricing strings, gradient headers, Subscribe button styling/labels/disabled logic, Current Subscriptions Status section, FAQ section, page header/nav, the `grid grid-cols-1 md:grid-cols-2 gap-6` plan layout.

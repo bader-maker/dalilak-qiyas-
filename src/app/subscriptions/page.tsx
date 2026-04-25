@@ -197,21 +197,55 @@ export default function SubscriptionsPage() {
             </div>
 
             <div className="p-6">
-              <ul className="space-y-3 mb-6">
-                {[
-                  "اختبارات القدرات العامة (20+ اختبار شامل)",
-                  "اختبارات التحصيلي (20+ اختبار شامل)",
-                  "بنك أسئلة لكل مادة",
-                  "شروحات مفصلة لكل سؤال",
-                  "تحليلات أداء متقدمة",
-                  "تدريب غير محدود",
-                ].map((feature, index) => (
-                  <li key={index} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                    <span className="text-green-500 flex-shrink-0">✓</span>
-                    {feature}
-                  </li>
-                ))}
-              </ul>
+              <div className="space-y-5 mb-6">
+                {/* Aptitude — باقات القدرات */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="w-7 h-7 bg-[#006C35]/10 dark:bg-[#006C35]/20 rounded-lg flex items-center justify-center text-base flex-shrink-0">🧠</span>
+                    <span className="text-xs font-bold text-[#006C35] dark:text-[#00A651]">القدرات</span>
+                  </div>
+                  <ul className="space-y-2 ps-9">
+                    <li className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                      <span className="text-green-500 flex-shrink-0">✓</span>
+                      القدرات العامة (Qudrat) — 20+ اختبار شامل
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Achievement — باقات التحصيلي */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="w-7 h-7 bg-[#D4AF37]/10 dark:bg-[#D4AF37]/20 rounded-lg flex items-center justify-center text-base flex-shrink-0">🎓</span>
+                    <span className="text-xs font-bold text-[#B8941F] dark:text-[#D4AF37]">التحصيلي</span>
+                  </div>
+                  <ul className="space-y-2 ps-9">
+                    <li className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                      <span className="text-green-500 flex-shrink-0">✓</span>
+                      التحصيلي (Tahsili) — 20+ اختبار شامل
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Common bundle features */}
+                <div className="pt-4 border-t border-gray-100 dark:border-gray-700/60">
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-3">
+                    ميزات إضافية
+                  </p>
+                  <ul className="space-y-2">
+                    {[
+                      "بنك أسئلة لكل مادة",
+                      "شروحات مفصلة لكل سؤال",
+                      "تحليلات أداء متقدمة",
+                      "تدريب غير محدود",
+                    ].map((feature, index) => (
+                      <li key={index} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                        <span className="text-green-500 flex-shrink-0">✓</span>
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
 
               <button
                 onClick={() => handleSubscribe("arabic")}
@@ -244,22 +278,56 @@ export default function SubscriptionsPage() {
               <p className="text-white/60 text-sm mt-1">or 49 SAR / month</p>
             </div>
 
-            <div className="p-6">
-              <ul className="space-y-3 mb-6">
-                {[
-                  "GAT Tests (20+ comprehensive tests)",
-                  "SAAT Tests (20+ comprehensive tests)",
-                  "Subject-specific question banks",
-                  "Detailed explanations for each question",
-                  "Advanced performance analytics",
-                  "Unlimited practice",
-                ].map((feature, index) => (
-                  <li key={index} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                    <span className="text-green-500 flex-shrink-0">✓</span>
-                    {feature}
-                  </li>
-                ))}
-              </ul>
+            <div className="p-6" dir="ltr">
+              <div className="space-y-5 mb-6">
+                {/* Aptitude */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="w-7 h-7 bg-[#006C35]/10 dark:bg-[#006C35]/20 rounded-lg flex items-center justify-center text-base flex-shrink-0">🧠</span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#006C35] dark:text-[#00A651]">Aptitude</span>
+                  </div>
+                  <ul className="space-y-2 ps-9">
+                    <li className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                      <span className="text-green-500 flex-shrink-0">✓</span>
+                      GAT — 20+ comprehensive tests
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Achievement */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="w-7 h-7 bg-[#D4AF37]/10 dark:bg-[#D4AF37]/20 rounded-lg flex items-center justify-center text-base flex-shrink-0">🎓</span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#B8941F] dark:text-[#D4AF37]">Achievement</span>
+                  </div>
+                  <ul className="space-y-2 ps-9">
+                    <li className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                      <span className="text-green-500 flex-shrink-0">✓</span>
+                      SAAT — 20+ comprehensive tests
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Common bundle features */}
+                <div className="pt-4 border-t border-gray-100 dark:border-gray-700/60">
+                  <p className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">
+                    Plus
+                  </p>
+                  <ul className="space-y-2">
+                    {[
+                      "Subject-specific question banks",
+                      "Detailed explanations for each question",
+                      "Advanced performance analytics",
+                      "Unlimited practice",
+                    ].map((feature, index) => (
+                      <li key={index} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                        <span className="text-green-500 flex-shrink-0">✓</span>
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
 
               <button
                 onClick={() => handleSubscribe("english")}
