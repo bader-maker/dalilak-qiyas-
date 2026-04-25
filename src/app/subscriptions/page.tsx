@@ -5,38 +5,46 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import type { BundleId } from "@/data/types";
+
+/**
+ * Subscriptions page.
+ *
+ * Bundles match the dashboard's route taxonomy (/qudrat and /tahsili);
+ * see `BundleId` in `@/data/types` for the canonical identifiers.
+ *
+ * No backend / payment integration exists yet. `userSubscriptions` is mock
+ * UI-only state and `confirmSubscription` opens an alert in lieu of a
+ * payment gateway redirect. When a real entitlement backend is wired up
+ * the same `BundleId` literals should be used as the entitlement primary
+ * keys so this UI does not have to change again.
+ */
 
 export default function SubscriptionsPage() {
   const router = useRouter();
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const [selectedPackage, setSelectedPackage] = useState<"arabic" | "english" | null>(null);
+  const [selectedPackage, setSelectedPackage] = useState<BundleId | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<"monthly" | "annual">("annual");
 
-  // Mock subscription data - in real app, this would come from database
-  const userSubscriptions = {
-    arabic: {
-      isSubscribed: false,
-      plan: null as "monthly" | "annual" | null,
-      expiresAt: null as string | null,
-    },
-    english: {
-      isSubscribed: false,
-      plan: null as "monthly" | "annual" | null,
-      expiresAt: null as string | null,
-    },
+  // Mock subscription state — would come from a real entitlement service.
+  const userSubscriptions: Record<BundleId, {
+    isSubscribed: boolean;
+    plan: "monthly" | "annual" | null;
+    expiresAt: string | null;
+  }> = {
+    aptitude: { isSubscribed: false, plan: null, expiresAt: null },
+    achievement: { isSubscribed: false, plan: null, expiresAt: null },
   };
 
-  const handleSubscribe = (packageType: "arabic" | "english") => {
-    setSelectedPackage(packageType);
+  const handleSubscribe = (bundleId: BundleId) => {
+    setSelectedPackage(bundleId);
   };
 
   const confirmSubscription = () => {
-    // In real app, this would redirect to payment gateway
-    alert(selectedPackage === "arabic"
-      ? `جاري التوجيه لصفحة الدفع - الباقة العربية (${selectedPlan === "annual" ? "199 ريال/سنة" : "49 ريال/شهر"})`
-      : `Redirecting to payment - English Package (${selectedPlan === "annual" ? "199 SAR/year" : "49 SAR/month"})`
-    );
+    const priceLabel = selectedPlan === "annual" ? "199 ريال/سنة" : "49 ريال/شهر";
+    const bundleLabel = selectedPackage === "aptitude" ? "باقة القدرات" : "باقة التحصيلي";
+    alert(`جاري التوجيه لصفحة الدفع — ${bundleLabel} (${priceLabel})`);
     setSelectedPackage(null);
   };
 
@@ -60,6 +68,7 @@ export default function SubscriptionsPage() {
               <button
                 onClick={toggleTheme}
                 className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+                aria-label="تبديل المظهر"
               >
                 {theme === "light" ? (
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -102,20 +111,20 @@ export default function SubscriptionsPage() {
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Arabic Package Status */}
+            {/* Aptitude Bundle Status */}
             <div className={`rounded-xl p-4 border-2 ${
-              userSubscriptions.arabic.isSubscribed
+              userSubscriptions.aptitude.isSubscribed
                 ? "border-green-500 bg-green-50 dark:bg-green-900/20"
                 : "border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50"
             }`}>
               <div className="flex items-center gap-3 mb-2">
-                <span className="text-2xl">🇸🇦</span>
+                <span className="w-10 h-10 bg-[#006C35]/10 dark:bg-[#006C35]/20 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">🧠</span>
                 <div>
-                  <h3 className="font-bold text-gray-900 dark:text-white">القدرات + التحصيلي</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">الباقة العربية</p>
+                  <h3 className="font-bold text-gray-900 dark:text-white">باقة القدرات</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">القدرات العامة + GAT</p>
                 </div>
               </div>
-              {userSubscriptions.arabic.isSubscribed ? (
+              {userSubscriptions.aptitude.isSubscribed ? (
                 <div className="mt-3">
                   <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 rounded-full text-sm font-medium">
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -124,7 +133,7 @@ export default function SubscriptionsPage() {
                     مشترك
                   </span>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                    ينتهي في: {userSubscriptions.arabic.expiresAt}
+                    ينتهي في: {userSubscriptions.aptitude.expiresAt}
                   </p>
                 </div>
               ) : (
@@ -136,35 +145,35 @@ export default function SubscriptionsPage() {
               )}
             </div>
 
-            {/* English Package Status */}
+            {/* Achievement Bundle Status */}
             <div className={`rounded-xl p-4 border-2 ${
-              userSubscriptions.english.isSubscribed
+              userSubscriptions.achievement.isSubscribed
                 ? "border-green-500 bg-green-50 dark:bg-green-900/20"
                 : "border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50"
             }`}>
               <div className="flex items-center gap-3 mb-2">
-                <span className="text-2xl">🇬🇧</span>
+                <span className="w-10 h-10 bg-[#D4AF37]/10 dark:bg-[#D4AF37]/20 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">🎓</span>
                 <div>
-                  <h3 className="font-bold text-gray-900 dark:text-white">GAT + SAAT</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">English Package</p>
+                  <h3 className="font-bold text-gray-900 dark:text-white">باقة التحصيلي</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">التحصيلي + SAAT</p>
                 </div>
               </div>
-              {userSubscriptions.english.isSubscribed ? (
+              {userSubscriptions.achievement.isSubscribed ? (
                 <div className="mt-3">
                   <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 rounded-full text-sm font-medium">
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                     </svg>
-                    Subscribed
+                    مشترك
                   </span>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                    Expires: {userSubscriptions.english.expiresAt}
+                    ينتهي في: {userSubscriptions.achievement.expiresAt}
                   </p>
                 </div>
               ) : (
                 <div className="mt-3">
                   <span className="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 rounded-full text-sm">
-                    Not subscribed
+                    غير مشترك
                   </span>
                 </div>
               )}
@@ -179,14 +188,14 @@ export default function SubscriptionsPage() {
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Arabic Package */}
+          {/* Aptitude Bundle — Qudrat + GAT */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
             <div className="bg-gradient-to-r from-[#006C35] to-[#00A651] p-6 text-white">
               <div className="flex items-center gap-3 mb-4">
-                <span className="text-4xl">🇸🇦</span>
+                <span className="w-12 h-12 bg-white/15 backdrop-blur-sm rounded-xl flex items-center justify-center text-3xl flex-shrink-0 ring-1 ring-white/20">🧠</span>
                 <div>
-                  <h3 className="text-xl font-bold">الباقة العربية</h3>
-                  <p className="text-white/80 text-sm">القدرات العامة + التحصيلي</p>
+                  <h3 className="text-xl font-bold">باقة القدرات</h3>
+                  <p className="text-white/80 text-sm">القدرات العامة (Qudrat) + GAT</p>
                 </div>
               </div>
               <div className="flex items-baseline gap-2">
@@ -198,30 +207,21 @@ export default function SubscriptionsPage() {
 
             <div className="p-6">
               <div className="space-y-5 mb-6">
-                {/* Aptitude — باقات القدرات */}
+                {/* Included exams */}
                 <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="w-7 h-7 bg-[#006C35]/10 dark:bg-[#006C35]/20 rounded-lg flex items-center justify-center text-base flex-shrink-0">🧠</span>
-                    <span className="text-xs font-bold text-[#006C35] dark:text-[#00A651]">القدرات</span>
-                  </div>
-                  <ul className="space-y-2 ps-9">
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-3">
+                    الاختبارات المشمولة
+                  </p>
+                  <ul className="space-y-2.5">
                     <li className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                      <span className="text-base flex-shrink-0" aria-hidden="true">🇸🇦</span>
                       <span className="text-green-500 flex-shrink-0">✓</span>
                       القدرات العامة (Qudrat) — 20+ اختبار شامل
                     </li>
-                  </ul>
-                </div>
-
-                {/* Achievement — باقات التحصيلي */}
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="w-7 h-7 bg-[#D4AF37]/10 dark:bg-[#D4AF37]/20 rounded-lg flex items-center justify-center text-base flex-shrink-0">🎓</span>
-                    <span className="text-xs font-bold text-[#B8941F] dark:text-[#D4AF37]">التحصيلي</span>
-                  </div>
-                  <ul className="space-y-2 ps-9">
                     <li className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                      <span className="text-base flex-shrink-0" aria-hidden="true">🇬🇧</span>
                       <span className="text-green-500 flex-shrink-0">✓</span>
-                      التحصيلي (Tahsili) — 20+ اختبار شامل
+                      GAT — 20+ comprehensive tests
                     </li>
                   </ul>
                 </div>
@@ -233,7 +233,7 @@ export default function SubscriptionsPage() {
                   </p>
                   <ul className="space-y-2">
                     {[
-                      "بنك أسئلة لكل مادة",
+                      "بنك أسئلة كمي ولفظي شامل",
                       "شروحات مفصلة لكل سؤال",
                       "تحليلات أداء متقدمة",
                       "تدريب غير محدود",
@@ -248,60 +248,51 @@ export default function SubscriptionsPage() {
               </div>
 
               <button
-                onClick={() => handleSubscribe("arabic")}
-                disabled={userSubscriptions.arabic.isSubscribed}
+                onClick={() => handleSubscribe("aptitude")}
+                disabled={userSubscriptions.aptitude.isSubscribed}
                 className={`w-full py-3 rounded-xl font-bold transition-colors ${
-                  userSubscriptions.arabic.isSubscribed
+                  userSubscriptions.aptitude.isSubscribed
                     ? "bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
                     : "bg-[#D4AF37] text-black hover:bg-[#E8C547]"
                 }`}
               >
-                {userSubscriptions.arabic.isSubscribed ? "مشترك بالفعل" : "اشترك الآن"}
+                {userSubscriptions.aptitude.isSubscribed ? "مشترك بالفعل" : "اشترك الآن"}
               </button>
             </div>
           </div>
 
-          {/* English Package */}
+          {/* Achievement Bundle — Tahsili + SAAT */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="bg-gradient-to-r from-[#1e3a5f] to-[#2d5a87] p-6 text-white">
+            <div className="bg-gradient-to-r from-[#B8941F] to-[#D4AF37] p-6 text-white">
               <div className="flex items-center gap-3 mb-4">
-                <span className="text-4xl">🇬🇧</span>
+                <span className="w-12 h-12 bg-white/15 backdrop-blur-sm rounded-xl flex items-center justify-center text-3xl flex-shrink-0 ring-1 ring-white/20">🎓</span>
                 <div>
-                  <h3 className="text-xl font-bold">English Package</h3>
-                  <p className="text-white/80 text-sm">GAT + SAAT</p>
+                  <h3 className="text-xl font-bold">باقة التحصيلي</h3>
+                  <p className="text-white/80 text-sm">التحصيلي (Tahsili) + SAAT</p>
                 </div>
               </div>
               <div className="flex items-baseline gap-2">
                 <span className="text-4xl font-bold">199</span>
-                <span className="text-white/80">SAR / year</span>
+                <span className="text-white/80">ريال / سنة</span>
               </div>
-              <p className="text-white/60 text-sm mt-1">or 49 SAR / month</p>
+              <p className="text-white/60 text-sm mt-1">أو 49 ريال / شهر</p>
             </div>
 
-            <div className="p-6" dir="ltr">
+            <div className="p-6">
               <div className="space-y-5 mb-6">
-                {/* Aptitude */}
+                {/* Included exams */}
                 <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="w-7 h-7 bg-[#006C35]/10 dark:bg-[#006C35]/20 rounded-lg flex items-center justify-center text-base flex-shrink-0">🧠</span>
-                    <span className="text-xs font-bold uppercase tracking-wider text-[#006C35] dark:text-[#00A651]">Aptitude</span>
-                  </div>
-                  <ul className="space-y-2 ps-9">
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-3">
+                    الاختبارات المشمولة
+                  </p>
+                  <ul className="space-y-2.5">
                     <li className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                      <span className="text-base flex-shrink-0" aria-hidden="true">🇸🇦</span>
                       <span className="text-green-500 flex-shrink-0">✓</span>
-                      GAT — 20+ comprehensive tests
+                      التحصيلي (Tahsili) — 20+ اختبار شامل
                     </li>
-                  </ul>
-                </div>
-
-                {/* Achievement */}
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="w-7 h-7 bg-[#D4AF37]/10 dark:bg-[#D4AF37]/20 rounded-lg flex items-center justify-center text-base flex-shrink-0">🎓</span>
-                    <span className="text-xs font-bold uppercase tracking-wider text-[#B8941F] dark:text-[#D4AF37]">Achievement</span>
-                  </div>
-                  <ul className="space-y-2 ps-9">
                     <li className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                      <span className="text-base flex-shrink-0" aria-hidden="true">🇬🇧</span>
                       <span className="text-green-500 flex-shrink-0">✓</span>
                       SAAT — 20+ comprehensive tests
                     </li>
@@ -310,15 +301,15 @@ export default function SubscriptionsPage() {
 
                 {/* Common bundle features */}
                 <div className="pt-4 border-t border-gray-100 dark:border-gray-700/60">
-                  <p className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">
-                    Plus
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-3">
+                    ميزات إضافية
                   </p>
                   <ul className="space-y-2">
                     {[
-                      "Subject-specific question banks",
-                      "Detailed explanations for each question",
-                      "Advanced performance analytics",
-                      "Unlimited practice",
+                      "بنك أسئلة لكل مادة (رياضيات، فيزياء، كيمياء، أحياء)",
+                      "شروحات مفصلة لكل سؤال",
+                      "تحليلات أداء متقدمة",
+                      "تدريب غير محدود",
                     ].map((feature, index) => (
                       <li key={index} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                         <span className="text-green-500 flex-shrink-0">✓</span>
@@ -330,15 +321,15 @@ export default function SubscriptionsPage() {
               </div>
 
               <button
-                onClick={() => handleSubscribe("english")}
-                disabled={userSubscriptions.english.isSubscribed}
+                onClick={() => handleSubscribe("achievement")}
+                disabled={userSubscriptions.achievement.isSubscribed}
                 className={`w-full py-3 rounded-xl font-bold transition-colors ${
-                  userSubscriptions.english.isSubscribed
+                  userSubscriptions.achievement.isSubscribed
                     ? "bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
                     : "bg-[#D4AF37] text-black hover:bg-[#E8C547]"
                 }`}
               >
-                {userSubscriptions.english.isSubscribed ? "Already Subscribed" : "Subscribe Now"}
+                {userSubscriptions.achievement.isSubscribed ? "مشترك بالفعل" : "اشترك الآن"}
               </button>
             </div>
           </div>
@@ -354,7 +345,11 @@ export default function SubscriptionsPage() {
           <div className="space-y-4">
             <div>
               <h3 className="font-medium text-gray-900 dark:text-white mb-1">هل يمكنني الاشتراك في الباقتين معاً؟</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">نعم، يمكنك الاشتراك في الباقة العربية والإنجليزية بشكل منفصل.</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">نعم، يمكنك الاشتراك في باقة القدرات وباقة التحصيلي بشكل منفصل لتغطية اختبارات قياس بالكامل.</p>
+            </div>
+            <div>
+              <h3 className="font-medium text-gray-900 dark:text-white mb-1">ما الفرق بين الباقتين؟</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">باقة القدرات تشمل اختبار القدرات العامة (Qudrat) ونسخته الإنجليزية (GAT). باقة التحصيلي تشمل الاختبار التحصيلي (Tahsili) ونسخته الإنجليزية (SAAT).</p>
             </div>
             <div>
               <h3 className="font-medium text-gray-900 dark:text-white mb-1">هل يمكنني إلغاء الاشتراك؟</h3>
@@ -375,6 +370,7 @@ export default function SubscriptionsPage() {
             <button
               onClick={() => setSelectedPackage(null)}
               className="absolute top-4 left-4 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              aria-label="إغلاق"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -383,13 +379,13 @@ export default function SubscriptionsPage() {
 
             <div className="text-center mb-6">
               <div className="text-5xl mb-3">
-                {selectedPackage === "arabic" ? "🇸🇦" : "🇬🇧"}
+                {selectedPackage === "aptitude" ? "🧠" : "🎓"}
               </div>
               <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-                {selectedPackage === "arabic" ? "الباقة العربية" : "English Package"}
+                {selectedPackage === "aptitude" ? "باقة القدرات" : "باقة التحصيلي"}
               </h2>
               <p className="text-gray-600 dark:text-gray-400 text-sm">
-                {selectedPackage === "arabic" ? "القدرات + التحصيلي" : "GAT + SAAT"}
+                {selectedPackage === "aptitude" ? "القدرات العامة + GAT" : "التحصيلي + SAAT"}
               </p>
             </div>
 
@@ -416,16 +412,16 @@ export default function SubscriptionsPage() {
                     </div>
                     <div>
                       <div className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                        {selectedPackage === "arabic" ? "سنوي" : "Annual"}
+                        سنوي
                         <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 text-xs rounded-full">
-                          {selectedPackage === "arabic" ? "وفر 66%" : "Save 66%"}
+                          وفر 66%
                         </span>
                       </div>
                     </div>
                   </div>
                   <div className="text-left">
                     <div className="text-2xl font-bold text-[#006C35] dark:text-[#00A651]">199</div>
-                    <div className="text-xs text-gray-500">{selectedPackage === "arabic" ? "ريال/سنة" : "SAR/year"}</div>
+                    <div className="text-xs text-gray-500">ريال/سنة</div>
                   </div>
                 </div>
               </button>
@@ -451,13 +447,13 @@ export default function SubscriptionsPage() {
                     </div>
                     <div>
                       <div className="font-bold text-gray-900 dark:text-white">
-                        {selectedPackage === "arabic" ? "شهري" : "Monthly"}
+                        شهري
                       </div>
                     </div>
                   </div>
                   <div className="text-left">
                     <div className="text-2xl font-bold text-gray-700 dark:text-gray-300">49</div>
-                    <div className="text-xs text-gray-500">{selectedPackage === "arabic" ? "ريال/شهر" : "SAR/month"}</div>
+                    <div className="text-xs text-gray-500">ريال/شهر</div>
                   </div>
                 </div>
               </button>
@@ -467,14 +463,11 @@ export default function SubscriptionsPage() {
               onClick={confirmSubscription}
               className="w-full bg-[#D4AF37] text-black font-bold py-3 rounded-xl hover:bg-[#E8C547] transition-colors"
             >
-              {selectedPackage === "arabic" ? "متابعة للدفع" : "Continue to Payment"}
+              متابعة للدفع
             </button>
 
             <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-4">
-              {selectedPackage === "arabic"
-                ? "ستتم إعادة توجيهك لصفحة الدفع الآمنة"
-                : "You will be redirected to secure payment page"
-              }
+              ستتم إعادة توجيهك لصفحة الدفع الآمنة
             </p>
           </div>
         </div>

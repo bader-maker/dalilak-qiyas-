@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import AIAssistant from "@/components/AIAssistant";
 import ProgressCharts from "@/components/ProgressCharts";
+import type { BundleId } from "@/data/types";
 
 interface DashboardViewProps {
   /**
@@ -23,7 +24,7 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
   const { user, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
-  const [subscriptionPackage, setSubscriptionPackage] = useState<"arabic" | "english">("arabic");
+  const [subscriptionPackage, setSubscriptionPackage] = useState<BundleId>("aptitude");
   const [selectedPlan, setSelectedPlan] = useState<"monthly" | "annual">("annual");
   const [examType, setExamType] = useState<"qudurat" | "tahsili">(lockedExamType ?? "qudurat");
   const [quduratType, setQuduratType] = useState<"general" | "gat">("general");
@@ -194,7 +195,13 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
   const isEnglish = (examType === "qudurat" && quduratType === "gat") || (examType === "tahsili" && tahsiliType === "saat");
 
   const openSubscribeModal = () => {
-    setSubscriptionPackage(isEnglish ? "english" : "arabic");
+    // Pre-select the bundle that matches the dashboard route the user is on:
+    //   /qudrat  → "aptitude"    (Qudrat + GAT)
+    //   /tahsili → "achievement" (Tahsili + SAAT)
+    // Falls back to the user's currently active examType for the legacy
+    // unified dashboard view (when lockedExamType is undefined).
+    const bundle = (lockedExamType ?? examType) === "tahsili" ? "achievement" : "aptitude";
+    setSubscriptionPackage(bundle);
     setShowSubscribeModal(true);
   };
 
@@ -1287,83 +1294,89 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
             </button>
 
             <div className="text-center mb-6">
-              <div className="text-5xl mb-3">🎓</div>
+              <div className="text-5xl mb-3" aria-hidden="true">🎯</div>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                اختر باقتك المناسبة
+                {isEnglish ? "Choose your bundle" : "اختر باقتك المناسبة"}
               </h2>
               <p className="text-gray-600 dark:text-gray-400 text-sm">
-                اشترك الآن واحصل على وصول كامل لجميع الاختبارات
+                {isEnglish
+                  ? "Subscribe now and unlock full access to every test"
+                  : "اشترك الآن واحصل على وصول كامل لجميع الاختبارات"}
               </p>
             </div>
 
-            {/* Package Selector */}
+            {/* Package Selector — bundles match the dashboard's exam categories */}
             <div className="flex gap-2 mb-6 p-1 bg-gray-100 dark:bg-gray-700 rounded-xl">
               <button
-                onClick={() => setSubscriptionPackage("arabic")}
+                onClick={() => setSubscriptionPackage("aptitude")}
                 className={`flex-1 py-3 px-4 rounded-lg font-bold text-sm transition-all ${
-                  subscriptionPackage === "arabic"
+                  subscriptionPackage === "aptitude"
                     ? "bg-[#006C35] text-white shadow-lg"
                     : "text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
                 }`}
               >
                 <div className="flex flex-col items-center gap-1">
-                  <span>🇸🇦</span>
-                  <span>القدرات + التحصيلي</span>
+                  <span aria-hidden="true">🧠</span>
+                  <span>{isEnglish ? "Aptitude (Qudrat + GAT)" : "باقة القدرات"}</span>
                 </div>
               </button>
               <button
-                onClick={() => setSubscriptionPackage("english")}
+                onClick={() => setSubscriptionPackage("achievement")}
                 className={`flex-1 py-3 px-4 rounded-lg font-bold text-sm transition-all ${
-                  subscriptionPackage === "english"
+                  subscriptionPackage === "achievement"
                     ? "bg-[#006C35] text-white shadow-lg"
                     : "text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
                 }`}
               >
                 <div className="flex flex-col items-center gap-1">
-                  <span>🇬🇧</span>
-                  <span>GAT + SAAT</span>
+                  <span aria-hidden="true">🎓</span>
+                  <span>{isEnglish ? "Achievement (Tahsili + SAAT)" : "باقة التحصيلي"}</span>
                 </div>
               </button>
             </div>
 
-            {/* Package Details */}
+            {/* Package Details — shows the two exams included in the chosen bundle */}
             <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 mb-6">
               <h3 className="font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                {subscriptionPackage === "arabic" ? (
+                {subscriptionPackage === "aptitude" ? (
                   <>
-                    <span className="text-lg">📚</span>
-                    باقة الاختبارات العربية
+                    <span className="text-lg" aria-hidden="true">🧠</span>
+                    {isEnglish ? "Aptitude Bundle" : "باقة القدرات"}
                   </>
                 ) : (
                   <>
-                    <span className="text-lg">📖</span>
-                    English Tests Package
+                    <span className="text-lg" aria-hidden="true">🎓</span>
+                    {isEnglish ? "Achievement Bundle" : "باقة التحصيلي"}
                   </>
                 )}
               </h3>
               <div className="flex flex-wrap gap-2">
-                {subscriptionPackage === "arabic" ? (
+                {subscriptionPackage === "aptitude" ? (
                   <>
-                    <span className="px-3 py-1 bg-[#006C35]/10 dark:bg-[#006C35]/20 text-[#006C35] dark:text-[#4ade80] rounded-full text-xs font-medium">
-                      القدرات العامة
+                    <span className="px-3 py-1 bg-[#006C35]/10 dark:bg-[#006C35]/20 text-[#006C35] dark:text-[#4ade80] rounded-full text-xs font-medium flex items-center gap-1">
+                      <span aria-hidden="true">🇸🇦</span>
+                      {isEnglish ? "Qudrat" : "القدرات العامة"}
                     </span>
-                    <span className="px-3 py-1 bg-[#006C35]/10 dark:bg-[#006C35]/20 text-[#006C35] dark:text-[#4ade80] rounded-full text-xs font-medium">
-                      التحصيلي
+                    <span className="px-3 py-1 bg-[#006C35]/10 dark:bg-[#006C35]/20 text-[#006C35] dark:text-[#4ade80] rounded-full text-xs font-medium flex items-center gap-1">
+                      <span aria-hidden="true">🇬🇧</span>
+                      GAT
                     </span>
                     <span className="px-3 py-1 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-full text-xs">
-                      +100 اختبار
+                      {isEnglish ? "40+ tests" : "+40 اختبار"}
                     </span>
                   </>
                 ) : (
                   <>
-                    <span className="px-3 py-1 bg-[#006C35]/10 dark:bg-[#006C35]/20 text-[#006C35] dark:text-[#4ade80] rounded-full text-xs font-medium">
-                      GAT
+                    <span className="px-3 py-1 bg-[#006C35]/10 dark:bg-[#006C35]/20 text-[#006C35] dark:text-[#4ade80] rounded-full text-xs font-medium flex items-center gap-1">
+                      <span aria-hidden="true">🇸🇦</span>
+                      {isEnglish ? "Tahsili" : "التحصيلي"}
                     </span>
-                    <span className="px-3 py-1 bg-[#006C35]/10 dark:bg-[#006C35]/20 text-[#006C35] dark:text-[#4ade80] rounded-full text-xs font-medium">
+                    <span className="px-3 py-1 bg-[#006C35]/10 dark:bg-[#006C35]/20 text-[#006C35] dark:text-[#4ade80] rounded-full text-xs font-medium flex items-center gap-1">
+                      <span aria-hidden="true">🇬🇧</span>
                       SAAT
                     </span>
                     <span className="px-3 py-1 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-full text-xs">
-                      +100 tests
+                      {isEnglish ? "40+ tests" : "+40 اختبار"}
                     </span>
                   </>
                 )}
@@ -1374,7 +1387,7 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
             <div className="space-y-3 mb-6">
               <button
                 onClick={() => setSelectedPlan("annual")}
-                className={`w-full rounded-xl p-4 transition-all text-right ${
+                className={`w-full rounded-xl p-4 transition-all ${isEnglish ? "text-left" : "text-right"} ${
                   selectedPlan === "annual"
                     ? "border-2 border-[#D4AF37] bg-[#D4AF37]/10 dark:bg-[#D4AF37]/20"
                     : "border-2 border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"
@@ -1393,20 +1406,20 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
                     </div>
                     <div>
                       <div className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                        {subscriptionPackage === "arabic" ? "الخطة السنوية" : "Annual Plan"}
+                        {isEnglish ? "Annual Plan" : "الخطة السنوية"}
                         <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 text-xs rounded-full">
-                          {subscriptionPackage === "arabic" ? "وفر 66%" : "Save 66%"}
+                          {isEnglish ? "Save 66%" : "وفر 66%"}
                         </span>
                       </div>
                       <div className="text-sm text-gray-500 dark:text-gray-400">
-                        {subscriptionPackage === "arabic" ? "16.5 ريال/شهر" : "16.5 SAR/month"}
+                        {isEnglish ? "16.5 SAR/month" : "16.5 ريال/شهر"}
                       </div>
                     </div>
                   </div>
                   <div className="text-left">
                     <div className="text-2xl font-bold text-[#006C35] dark:text-[#00A651]">199</div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {subscriptionPackage === "arabic" ? "ريال/سنة" : "SAR/year"}
+                      {isEnglish ? "SAR/year" : "ريال/سنة"}
                     </div>
                   </div>
                 </div>
@@ -1414,7 +1427,7 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
 
               <button
                 onClick={() => setSelectedPlan("monthly")}
-                className={`w-full rounded-xl p-4 transition-all text-right ${
+                className={`w-full rounded-xl p-4 transition-all ${isEnglish ? "text-left" : "text-right"} ${
                   selectedPlan === "monthly"
                     ? "border-2 border-[#D4AF37] bg-[#D4AF37]/10 dark:bg-[#D4AF37]/20"
                     : "border-2 border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"
@@ -1433,56 +1446,77 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
                     </div>
                     <div>
                       <div className="font-bold text-gray-900 dark:text-white">
-                        {subscriptionPackage === "arabic" ? "الخطة الشهرية" : "Monthly Plan"}
+                        {isEnglish ? "Monthly Plan" : "الخطة الشهرية"}
                       </div>
                       <div className="text-sm text-gray-500 dark:text-gray-400">
-                        {subscriptionPackage === "arabic" ? "مرونة في الدفع" : "Flexible payment"}
+                        {isEnglish ? "Flexible payment" : "مرونة في الدفع"}
                       </div>
                     </div>
                   </div>
                   <div className="text-left">
                     <div className="text-2xl font-bold text-gray-700 dark:text-gray-300">49</div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {subscriptionPackage === "arabic" ? "ريال/شهر" : "SAR/month"}
+                      {isEnglish ? "SAR/month" : "ريال/شهر"}
                     </div>
                   </div>
                 </div>
               </button>
             </div>
 
-            {/* Features List */}
+            {/* Features List — copy reflects the two exams in the selected bundle */}
             <ul className="space-y-2 mb-6">
-              {(subscriptionPackage === "arabic" ? [
-                "الوصول الكامل لاختبارات القدرات والتحصيلي",
-                "أكثر من 100 اختبار شامل",
-                "شروحات مفصلة لكل سؤال",
-                "تحليلات أداء متقدمة",
-                "تدريب غير محدود",
-              ] : [
-                "Full access to GAT and SAAT tests",
-                "100+ comprehensive tests",
-                "Detailed explanations for each question",
-                "Advanced performance analytics",
-                "Unlimited practice",
-              ]).map((feature, index) => (
-                <li key={index} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                  <span className="text-green-500 flex-shrink-0">✓</span>
-                  {feature}
-                </li>
-              ))}
+              {(() => {
+                const aptitudeFeatures = isEnglish
+                  ? [
+                      "Full access to Qudrat (Arabic) + GAT (English) tests",
+                      "40+ comprehensive aptitude tests",
+                      "Detailed explanations for each question",
+                      "Advanced performance analytics",
+                      "Unlimited practice",
+                    ]
+                  : [
+                      "وصول كامل لاختبارات القدرات (Qudrat) و GAT",
+                      "أكثر من 40 اختبار قدرات شامل",
+                      "شروحات مفصلة لكل سؤال",
+                      "تحليلات أداء متقدمة",
+                      "تدريب غير محدود",
+                    ];
+                const achievementFeatures = isEnglish
+                  ? [
+                      "Full access to Tahsili (Arabic) + SAAT (English) tests",
+                      "40+ comprehensive achievement tests",
+                      "Subject-specific banks (math, physics, chemistry, biology)",
+                      "Detailed explanations for each question",
+                      "Unlimited practice",
+                    ]
+                  : [
+                      "وصول كامل لاختبارات التحصيلي (Tahsili) و SAAT",
+                      "أكثر من 40 اختبار تحصيلي شامل",
+                      "بنك أسئلة لكل مادة (رياضيات، فيزياء، كيمياء، أحياء)",
+                      "شروحات مفصلة لكل سؤال",
+                      "تدريب غير محدود",
+                    ];
+                const features = subscriptionPackage === "aptitude" ? aptitudeFeatures : achievementFeatures;
+                return features.map((feature, index) => (
+                  <li key={index} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                    <span className="text-green-500 flex-shrink-0">✓</span>
+                    {feature}
+                  </li>
+                ));
+              })()}
             </ul>
 
             <button className="w-full bg-[#D4AF37] text-black font-bold py-3 rounded-xl hover:bg-[#E8C547] transition-colors flex items-center justify-center gap-2">
-              <span>{subscriptionPackage === "arabic" ? "اشترك الآن" : "Subscribe Now"}</span>
+              <span>{isEnglish ? "Subscribe Now" : "اشترك الآن"}</span>
               <span className="font-normal">
-                ({selectedPlan === "annual" ? "199" : "49"} {subscriptionPackage === "arabic" ? "ريال" : "SAR"})
+                ({selectedPlan === "annual" ? "199" : "49"} {isEnglish ? "SAR" : "ريال"})
               </span>
             </button>
 
             <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-4">
-              {subscriptionPackage === "arabic"
-                ? "يمكنك إلغاء الاشتراك في أي وقت"
-                : "You can cancel your subscription at any time"
+              {isEnglish
+                ? "You can cancel your subscription at any time"
+                : "يمكنك إلغاء الاشتراك في أي وقت"
               }
             </p>
           </div>

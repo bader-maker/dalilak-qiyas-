@@ -1,0 +1,61 @@
+Update the subscriptions business presentation to match the new route architecture.
+
+Current issue:
+Subscriptions are currently grouped as:
+- Arabic bundle = Qudrat + Tahsili
+- English bundle = GAT + SAAT
+
+New required structure:
+1. Aptitude Bundle / باقة القدرات
+   Includes:
+   - Qudrat / القدرات العامة
+   - GAT
+
+2. Achievement Bundle / باقة التحصيلي
+   Includes:
+   - Tahsili / التحصيلي
+   - SAAT
+
+IMPORTANT:
+- Do not change payment integration unless plan IDs must be renamed only in UI.
+- Do not create 4 separate plans.
+- Keep exactly 2 bundles.
+- Update the displayed plan names, descriptions, included exams, and labels.
+- Ensure subscribe buttons still call the correct existing handlers.
+- If current backend plan IDs are "arabic" and "english", keep them temporarily but map them clearly:
+  - "arabic" handler can become aptitude bundle only if backend supports it
+  - "english" handler can become achievement bundle only if backend supports it
+- If backend entitlement logic still grants Arabic/English bundles, do NOT fake the UI. Flag it clearly and only update UI after entitlement mapping is updated.
+
+Tasks:
+1. Inspect current subscription plan IDs and entitlement logic.
+2. Confirm whether the two existing plans can safely be reinterpreted as:
+   - aptitude
+   - achievement
+3. If yes:
+   - Rename Arabic Bundle → باقة القدرات
+   - Rename English Bundle → باقة التحصيلي
+   - Update included exams:
+     - Aptitude: Qudrat + GAT
+     - Achievement: Tahsili + SAAT
+   - Update descriptions and feature text.
+   - Keep pricing and payment handlers unchanged only if they map correctly.
+4. If no:
+   - Do not change UI misleadingly.
+   - Return what backend entitlement changes are needed first.
+
+Validation:
+1. Page shows only two bundles:
+   - باقة القدرات
+   - باقة التحصيلي
+2. Aptitude bundle clearly includes Qudrat + GAT
+3. Achievement bundle clearly includes Tahsili + SAAT
+4. Payment handlers still work
+5. Entitlements match what user buys
+6. No fake or misleading plan labels
+
+Return:
+1. Whether backend supports this remapping
+2. Files changed
+3. UI changes made
+4. Any entitlement/payment risks

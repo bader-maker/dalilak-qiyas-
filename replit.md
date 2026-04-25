@@ -187,3 +187,43 @@ Refactored the unified dashboard into two focused routes that mirror the dashboa
 ### Mobile category switcher
 
 The desktop sidebar that hosts the `/qudrat` ↔ `/tahsili` links is `hidden lg:flex`, so on mobile the locked group card alone would leave users stranded. DashboardView includes a `lg:hidden` segmented control at the top of `<main>` that mirrors the two route links with `aria-current="page"` on the active one. Sidebar links also carry `aria-current="page"` for accessibility.
+
+## Subscriptions restructured to bundle-by-category (2026-04-25)
+
+Aligned subscriptions UI with the new dashboard route taxonomy.
+
+### Backend audit findings
+
+There is **no payment integration, no entitlement service, no DB tables, and no `/api/subscription*` routes**. `userSubscriptions` was hardcoded mock state with `isSubscribed:false`; `confirmSubscription()` shows an `alert()`. The `"arabic"` / `"english"` plan IDs were pure UI string literals with no consumers outside the component, so renaming carried zero entitlement risk.
+
+### What changed
+
+- **Plan IDs**: `"arabic"` → `"aptitude"`, `"english"` → `"achievement"` everywhere they appear.
+- **Bundle composition** (still exactly 2 bundles, not 4):
+  - `aptitude` → Aptitude Bundle / **باقة القدرات** = Qudrat (🇸🇦) + GAT (🇬🇧)
+  - `achievement` → Achievement Bundle / **باقة التحصيلي** = Tahsili (🇸🇦) + SAAT (🇬🇧)
+- **Pricing unchanged** (199 SAR/year, 49 SAR/month).
+- **Subscribe handlers**: `handleSubscribe(bundleId)` and `confirmSubscription()` keep the same shape; only the alert / confirmation copy was updated to the new bundle names.
+- **Visual identity**: Aptitude card keeps the brand-green hero gradient (`#006C35 → #00A651`) to match the dashboard sidebar 🧠. Achievement card hero changed from navy (`#1e3a5f → #2d5a87`, formerly "English") to brand-gold (`#B8941F → #D4AF37`) to match the sidebar 🎓. Flag emojis (🇸🇦 / 🇬🇧) now appear inline next to each *test name* inside each bundle so users can see at a glance which language each included test is in.
+- **FAQ** updated: added a "ما الفرق بين الباقتين؟" entry explaining the new structure; existing answers reworded to reference بـاقة القدرات / باقة التحصيلي instead of "العربية/الإنجليزية".
+
+### Dashboard Subscribe Modal
+
+`src/components/DashboardView.tsx` modal restructured to mirror the same two bundles. The modal's bundle pre-selection is now driven by `lockedExamType ?? examType` instead of UI language — so opening the modal from `/qudrat` pre-selects Aptitude and from `/tahsili` pre-selects Achievement, regardless of whether the user is on the Arabic (Qudrat/Tahsili) or English (GAT/SAAT) tab. All pricing/CTA labels follow the existing `isEnglish` flag for UI language consistency, while bundle CONTENT (which exams are included) is determined by the selected `subscriptionPackage`.
+
+### Files changed
+
+- `src/app/subscriptions/page.tsx` — full rewrite (~497 lines).
+- `src/components/DashboardView.tsx` — Subscribe Modal selector / details / features list / CTA + `openSubscribeModal` pre-selection logic.
+
+### Risks / TODOs for when a real backend is wired up
+
+- The `BundleId` type literal `"aptitude" | "achievement"` lives on the client. When entitlements move to the server, mirror these exact identifiers in the entitlement table / payment provider plan IDs to avoid another rename cycle.
+- `userSubscriptions` is still mock; replace the constant with a fetch from the entitlement service (keyed by `BundleId`).
+- `confirmSubscription()` needs to be wired to the actual payment gateway redirect (currently `alert`).
+
+### Post-review cleanup
+
+- Hoisted `BundleId` type to `src/data/types.ts` (canonical home alongside `ExamCategory` etc.); both files import it via `import type { BundleId } from "@/data/types"` to prevent future drift.
+- Dashboard Subscribe Modal heading + tagline now honor `isEnglish` ("Choose your bundle" / "Subscribe now and unlock full access to every test") instead of being hardcoded Arabic.
+- Pricing option button alignment (`text-right` ↔ `text-left`) toggles based on `isEnglish` for proper RTL/LTR layout in both UI languages.

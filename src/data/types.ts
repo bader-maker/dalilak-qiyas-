@@ -50,6 +50,16 @@ export type Difficulty = "easy" | "medium" | "hard";
 export type Language = "ar" | "en";
 
 // ===========================================
+// SUBSCRIPTION BUNDLES
+// ===========================================
+// Bundles align 1:1 with the dashboard route taxonomy:
+//   "aptitude"    → /qudrat  (Qudrat + GAT)
+//   "achievement" → /tahsili (Tahsili + SAAT)
+// Keep this canonical so a future entitlement backend can use the
+// same identifiers as primary keys without another rename cycle.
+export type BundleId = "aptitude" | "achievement";
+
+// ===========================================
 // QUESTION INTERFACE WITH FULL METADATA
 // ===========================================
 export interface Question {
