@@ -543,6 +543,11 @@ const trainingQuestions: TrainingQuestion[] = [
 
 // Explicit Arabic option labels (avoids broken hamza variants from charCode math)
 const OPTION_LABELS = ["أ", "ب", "ج", "د", "هـ", "و"] as const;
+// English option labels for GAT / SAAT (and any other English-exam focus value).
+// Selected at render time based on the resolved exam locale (see `optionLabels`
+// inside `PracticeTestContent`). Kept in sync length-wise with `OPTION_LABELS`
+// so the same `OPTION_LABELS[idx] ?? String(idx + 1)` fallback applies to both.
+const OPTION_LABELS_EN = ["A", "B", "C", "D", "E", "F"] as const;
 
 // ===== Smart training metadata: branch → idea / fast method / why important =====
 type BranchInfo = { idea: string; fast_method: string; why: string };
@@ -1190,6 +1195,42 @@ function PracticeTestContent() {
   const focus = rawFocus && KNOWN_FOCUS_VALUES.has(rawFocus.toLowerCase())
     ? rawFocus.toLowerCase()
     : null;
+
+  // ---------------------------------------------------------------------------
+  // Exam-language localization
+  // ---------------------------------------------------------------------------
+  // The result/test UI strings (and option labels) follow the exam category,
+  // not the app's default Arabic. Without this, GAT/SAAT (English exams) showed
+  // Arabic results, Arabic option labels, and an RTL layout that visually
+  // reversed the option order.
+  //
+  // Rule: `_ar` suffix OR no focus → Arabic/RTL (Qudrat-AR & Tahsili-AR).
+  //       `_en` suffix → English/LTR (GAT-EN & SAAT-EN).
+  // KNOWN_FOCUS_VALUES already validates the suffix, so the endsWith check
+  // can't be fooled by an arbitrary URL value.
+  const isArabicExam = focus === null || focus.endsWith("_ar");
+  const examDir: "rtl" | "ltr" = isArabicExam ? "rtl" : "ltr";
+  const examTextAlign = isArabicExam ? "text-right" : "text-left";
+  // Tiny inline localizer — keeps the UI strings co-located with their
+  // single use-site instead of pulling them into a separate i18n file
+  // for what is effectively two-locale, dozen-string surface.
+  const tx = (ar: string, en: string) => (isArabicExam ? ar : en);
+  const optionLabels = isArabicExam ? OPTION_LABELS : OPTION_LABELS_EN;
+
+  // ---------------------------------------------------------------------------
+  // Back-to-Training destination
+  // ---------------------------------------------------------------------------
+  // Previously hard-coded to `/practice` (the Qudrat picker), so finishing
+  // any non-Qudrat session dumped the user back into the wrong category.
+  // Forwarding `?focus=<focus>` lands them on the same picker the dashboard
+  // sent them to (the non-Qudrat picker pre-selects the matching subject
+  // tab; the Qudrat picker pre-selects the matching section tab via
+  // `focusToSection`). Auto-redirect on the practice page only fires for
+  // Qudrat-AR + a `?topics=` deep-link, so this URL never re-launches a
+  // session — it always lands on the picker.
+  const backToTrainingHref = focus
+    ? `/practice?focus=${encodeURIComponent(focus)}`
+    : "/practice";
 
   // `topics` carries an optional comma-separated list of sub-topic slugs
   // sent from a result page that identified the user's weakest topics
@@ -1941,10 +1982,10 @@ function PracticeTestContent() {
 
   if (questions.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center" dir="rtl">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center" dir={examDir}>
         <div className="text-center">
           <div className="animate-spin w-12 h-12 border-4 border-[#006C35] border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">جاري تحميل الأسئلة...</p>
+          <p className="text-gray-600 dark:text-gray-400">{tx("جاري تحميل الأسئلة...", "Loading questions...")}</p>
         </div>
       </div>
     );
@@ -1955,7 +1996,7 @@ function PracticeTestContent() {
     const percentage = Math.round((score / questions.length) * 100);
 
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4" dir="rtl">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4" dir={examDir}>
         <div className="max-w-2xl mx-auto">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg border border-gray-200 dark:border-gray-700 text-center">
             <div className={`w-32 h-32 rounded-full mx-auto mb-6 flex items-center justify-center ${
@@ -1971,24 +2012,31 @@ function PracticeTestContent() {
             </div>
             
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              {percentage >= 70 ? 'أداء ممتاز!' : percentage >= 50 ? 'أداء جيد!' : 'تحتاج مزيد من التدريب'}
+              {percentage >= 70
+                ? tx('أداء ممتاز!', 'Excellent performance!')
+                : percentage >= 50
+                ? tx('أداء جيد!', 'Good performance!')
+                : tx('تحتاج مزيد من التدريب', 'Needs more practice')}
             </h2>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              أجبت على {score} من {questions.length} بشكل صحيح
+              {tx(
+                `أجبت على ${score} من ${questions.length} بشكل صحيح`,
+                `You answered ${score} out of ${questions.length} correctly`
+              )}
             </p>
 
             <div className="flex gap-4 justify-center">
               <button
-                onClick={() => router.push("/practice")}
+                onClick={() => router.push(backToTrainingHref)}
                 className="px-6 py-3 bg-[#006C35] text-white rounded-xl font-bold hover:bg-[#004d26]"
               >
-                العودة للتدريب
+                {tx('العودة للتدريب', 'Back to Training')}
               </button>
               <button
                 onClick={() => window.location.reload()}
                 className="px-6 py-3 border-2 border-[#006C35] text-[#006C35] rounded-xl font-bold hover:bg-[#006C35]/5"
               >
-                إعادة المحاولة
+                {tx('إعادة المحاولة', 'Try Again')}
               </button>
             </div>
           </div>
@@ -2000,17 +2048,23 @@ function PracticeTestContent() {
   const currentQ = questions[currentIndex];
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900" dir="rtl">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900" dir={examDir}>
       <header className="bg-[#006C35] text-white sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <button onClick={() => router.push("/practice")} className="p-2 hover:bg-white/10 rounded-lg">
+              <button
+                onClick={() => router.push(backToTrainingHref)}
+                aria-label={tx("العودة للتدريب", "Back to Training")}
+                className="p-2 hover:bg-white/10 rounded-lg"
+              >
+                {/* Universal left-pointing back chevron — preserved from the
+                    original UI in both locales (Material/iOS convention). */}
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
-              <span className="font-bold">وضع التدريب</span>
+              <span className="font-bold">{tx("وضع التدريب", "Practice Mode")}</span>
             </div>
             <div className="flex items-center gap-4">
               <div className={`px-3 py-1 rounded-full text-sm font-medium ${timeLeft < 30 ? 'bg-red-500' : 'bg-white/20'}`}>
@@ -2039,10 +2093,16 @@ function PracticeTestContent() {
               currentQ.difficulty === 'easy' ? 'bg-green-100 text-green-700' :
               currentQ.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-700' :
               'bg-red-100 text-red-700'
-            }`}>{currentQ.difficulty === 'easy' ? 'سهل' : currentQ.difficulty === 'medium' ? 'متوسط' : 'صعب'}</span>
+            }`}>{
+              currentQ.difficulty === 'easy'
+                ? tx('سهل', 'Easy')
+                : currentQ.difficulty === 'medium'
+                ? tx('متوسط', 'Medium')
+                : tx('صعب', 'Hard')
+            }</span>
           </div>
 
-          <h2 dir="rtl" style={{ unicodeBidi: "isolate" }} className="text-xl font-bold text-gray-900 dark:text-white mb-6">{currentQ.question}</h2>
+          <h2 dir={examDir} style={{ unicodeBidi: "isolate" }} className="text-xl font-bold text-gray-900 dark:text-white mb-6">{currentQ.question}</h2>
 
           {!showExplanation && (
             <div className="mb-4">
@@ -2067,12 +2127,12 @@ function PracticeTestContent() {
                   }}
                   className="px-4 py-2 rounded-xl border-2 border-dashed border-[#D4AF37] text-[#D4AF37] dark:text-[#fbbf24] text-sm font-bold hover:bg-[#D4AF37]/10 transition"
                 >
-                  💡 عرض تلميح
+                  {tx('💡 عرض تلميح', '💡 Show Hint')}
                 </button>
               ) : (
                 <div className="p-3 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/40">
                   <div className="flex items-center gap-2 mb-1 text-[#D4AF37] dark:text-[#fbbf24] text-xs font-bold">
-                    <span>💡</span> تلميح للتفكير
+                    <span>💡</span> {tx('تلميح للتفكير', 'Thinking Hint')}
                   </div>
                   <p className="text-sm text-gray-800 dark:text-gray-100 leading-relaxed">
                     {currentQ.hint}
@@ -2087,15 +2147,15 @@ function PracticeTestContent() {
               const isSelected = selectedAnswer === idx;
               const isCorrect = idx === currentQ.correct;
               const showResult = showExplanation;
-              const label = OPTION_LABELS[idx] ?? String(idx + 1);
+              const label = optionLabels[idx] ?? String(idx + 1);
 
               return (
                 <button
                   key={idx}
                   onClick={() => handleAnswer(idx)}
                   disabled={showExplanation}
-                  dir="rtl"
-                  className={`w-full p-4 rounded-xl border-2 text-right transition-all ${
+                  dir={examDir}
+                  className={`w-full p-4 rounded-xl border-2 ${examTextAlign} transition-all ${
                     showResult
                       ? isCorrect
                         ? "border-green-500 bg-green-50 dark:bg-green-900/30"
@@ -2121,9 +2181,9 @@ function PracticeTestContent() {
                       {label}
                     </span>
                     <span
-                      dir="rtl"
+                      dir={examDir}
                       style={{ unicodeBidi: "isolate" }}
-                      className="text-gray-900 dark:text-white flex-1 text-right"
+                      className={`text-gray-900 dark:text-white flex-1 ${examTextAlign}`}
                     >
                       {option}
                     </span>
@@ -2137,13 +2197,13 @@ function PracticeTestContent() {
             selectedAnswer === currentQ.correct ? (
               <div className="p-3 rounded-xl bg-green-50 dark:bg-green-900/30 border border-green-300 dark:border-green-700 mb-4">
                 <div className="flex items-center gap-2 text-green-800 dark:text-green-200 text-sm font-bold">
-                  <span>✅</span> {currentQ.reinforcement || "أحسنت — استمر على هذا الأسلوب."}
+                  <span>✅</span> {currentQ.reinforcement || tx("أحسنت — استمر على هذا الأسلوب.", "Well done — keep up this approach.")}
                 </div>
               </div>
             ) : (
               <div className="p-3 rounded-xl bg-red-50 dark:bg-red-900/30 border-2 border-red-400 dark:border-red-700 mb-4">
                 <div className="flex items-center gap-2 text-red-800 dark:text-red-200 text-sm font-bold">
-                  <span>❌</span> انتبه لهذا النمط من الخطأ
+                  <span>❌</span> {tx("انتبه لهذا النمط من الخطأ", "Watch out for this error pattern")}
                 </div>
                 <p className="mt-1 text-sm text-red-700 dark:text-red-200 leading-relaxed">
                   {currentQ.common_mistake}
@@ -2156,26 +2216,26 @@ function PracticeTestContent() {
             <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/40 p-4 mb-4 grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
                 <div className="flex items-center gap-2 mb-1 text-gray-500 dark:text-gray-400 text-xs font-bold">
-                  <span>🧠</span> فكرة السؤال
+                  <span>🧠</span> {tx("فكرة السؤال", "Question Idea")}
                 </div>
                 <p className="text-sm text-gray-900 dark:text-white font-medium">
-                  {currentQ.idea || "هذا من الأنماط الشائعة في هذا القسم"}
+                  {currentQ.idea || tx("هذا من الأنماط الشائعة في هذا القسم", "This is a common pattern in this section")}
                 </p>
               </div>
               <div>
                 <div className="flex items-center gap-2 mb-1 text-[#006C35] dark:text-[#4ade80] text-xs font-bold">
-                  <span>⚡</span> أسرع طريقة للحل
+                  <span>⚡</span> {tx("أسرع طريقة للحل", "Fastest Method")}
                 </div>
                 <p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed">
-                  {currentQ.fast_method || "اقرأ السؤال بتأنٍّ وحدّد المعطيات قبل الحل"}
+                  {currentQ.fast_method || tx("اقرأ السؤال بتأنٍّ وحدّد المعطيات قبل الحل", "Read the question carefully and identify the given data before solving")}
                 </p>
               </div>
               <div>
                 <div className="flex items-center gap-2 mb-1 text-red-600 dark:text-red-400 text-xs font-bold">
-                  <span>⚠️</span> سبب الخطأ الشائع
+                  <span>⚠️</span> {tx("سبب الخطأ الشائع", "Common Mistake")}
                 </div>
                 <p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed">
-                  {currentQ.common_mistake || "احذر التسرّع قبل قراءة جميع الخيارات."}
+                  {currentQ.common_mistake || tx("احذر التسرّع قبل قراءة جميع الخيارات.", "Don't rush before reading all options.")}
                 </p>
               </div>
             </div>
@@ -2183,7 +2243,7 @@ function PracticeTestContent() {
 
           {showExplanation && (
             <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 mb-6">
-              <h4 className="font-bold text-blue-800 dark:text-blue-300 mb-2">الشرح:</h4>
+              <h4 className="font-bold text-blue-800 dark:text-blue-300 mb-2">{tx("الشرح:", "Explanation:")}</h4>
               <p className="text-blue-700 dark:text-blue-200 whitespace-pre-line">{currentQ.explanation}</p>
             </div>
           )}
@@ -2194,13 +2254,15 @@ function PracticeTestContent() {
                 onClick={practiceSimilar}
                 className="w-full py-3 bg-white dark:bg-gray-800 border-2 border-[#D4AF37] text-[#D4AF37] dark:text-[#fbbf24] font-bold rounded-xl hover:bg-[#D4AF37]/10"
               >
-                🔁 تدرب على نفس النمط
+                {tx("🔁 تدرب على نفس النمط", "🔁 Practice the Same Pattern")}
               </button>
               <button
                 onClick={nextQuestion}
                 className="w-full py-3 bg-[#006C35] text-white font-bold rounded-xl hover:bg-[#004d26]"
               >
-                {currentIndex < questions.length - 1 ? 'السؤال التالي' : 'عرض النتائج'}
+                {currentIndex < questions.length - 1
+                  ? tx('السؤال التالي', 'Next Question')
+                  : tx('عرض النتائج', 'Show Results')}
               </button>
             </div>
           )}

@@ -1,0 +1,110 @@
+We have two remaining bugs in the practice/test flow.
+
+IMPORTANT:
+- Do not modify TestEngine.
+- Do not change the main UI design.
+- Fix logic/routing/localization only.
+- Preserve Qudrat Arabic behavior.
+
+--------------------------------
+BUG 1 — Return to Training routes to Qudrat
+--------------------------------
+
+Current bug:
+After finishing a practice session, when the user clicks "Back to Training" / "Return to Training", it always opens the General Qudrat practice page.
+
+Expected:
+The user must return to the same practice picker/page they originally came from.
+
+Examples:
+- If user started from /practice?focus=gat → return to /practice?focus=gat
+- If user started from /practice?focus=gat-quantitative or equivalent → return to the GAT picker with the correct tab selected if supported
+- If user started from /practice?focus=tahsili → return to /practice?focus=tahsili
+- If user started from /practice?focus=physics_ar → return to Tahsili picker with Physics selected
+- If user started from /practice?focus=saat → return to /practice?focus=saat
+- If user started from /practice?focus=physics_en → return to SAAT picker with Physics selected
+- Qudrat should continue returning to its existing Qudrat practice picker
+
+Tasks:
+1. Inspect /practice/test result/completion actions.
+2. Find the "Back to Training" / "Return to Training" link.
+3. Remove any hard-coded /practice route.
+4. Preserve the original source/focus in the URL when starting a practice session.
+5. Pass a returnTo or sourceFocus query param if needed.
+6. On completion, route back to the original practice picker.
+7. Make sure returning does not auto-start another test.
+
+--------------------------------
+BUG 2 — SAAT and GAT results are shown in Arabic
+--------------------------------
+
+Current bug:
+SAAT and GAT practice results/analysis are displayed in Arabic.
+Also answer option labels/order language appears Arabic.
+
+Expected:
+Language should follow exam category:
+- Qudrat = Arabic
+- Tahsili = Arabic
+- GAT = English
+- SAAT = English
+
+Tasks:
+1. Inspect /practice/test results screen and analysis text.
+2. Find any hard-coded Arabic labels.
+3. Create/use a locale helper based on focus/category:
+   - isEnglishExam = GAT or SAAT or English subject focus
+   - isArabicExam = Qudrat or Tahsili or Arabic subject focus
+4. Localize result labels:
+   - score/result headings
+   - correct/incorrect labels
+   - time labels
+   - analysis headings
+   - answer option labels
+   - review buttons
+   - return buttons
+5. For GAT/SAAT, use English option labels:
+   A, B, C, D
+6. For Qudrat/Tahsili, preserve Arabic option labels:
+   أ، ب، ج، د
+7. Make sure answer order itself is not incorrectly reversed by RTL layout for English exams.
+8. Keep Arabic RTL for Qudrat/Tahsili and English LTR for GAT/SAAT.
+
+--------------------------------
+Validation
+--------------------------------
+
+Smoke test:
+
+1. Start GAT practice:
+   /practice?focus=gat
+   choose Quantitative
+   finish test
+   click Return to Training
+   EXPECT: returns to GAT picker, not Qudrat
+
+2. Start SAAT practice:
+   /practice?focus=saat
+   choose Physics
+   finish test
+   click Return to Training
+   EXPECT: returns to SAAT picker with Physics selected if possible
+
+3. Start Qudrat practice:
+   /practice
+   finish test
+   click Return to Training
+   EXPECT: returns to Qudrat picker as before
+
+4. Results language:
+   - GAT result page is English and LTR
+   - SAAT result page is English and LTR
+   - Qudrat result page remains Arabic and RTL
+   - Tahsili result page remains Arabic and RTL
+
+Return:
+1. Root causes
+2. Files changed
+3. Routing behavior before/after
+4. Localization behavior before/after
+5. Confirmation TestEngine was not modified
