@@ -9,7 +9,9 @@ import {
   TrainingSession,
   generateQuestionVariation,
   type TrainingQuestion,
-  type SelectedQuestion
+  type SelectedQuestion,
+  type Bilingual,
+  type Localized,
 } from "@/lib/trainingEngine";
 import {
   summarizePerformance,
@@ -550,69 +552,76 @@ const OPTION_LABELS = ["أ", "ب", "ج", "د", "هـ", "و"] as const;
 const OPTION_LABELS_EN = ["A", "B", "C", "D", "E", "F"] as const;
 
 // ===== Smart training metadata: branch → idea / fast method / why important =====
-type BranchInfo = { idea: string; fast_method: string; why: string };
+// All three fields are bilingual ({ ar, en }) so the same enrichment pipeline
+// can serve both Qudrat-AR (Arabic chrome) and GAT/SAAT (English chrome).
+// Render via `pickLocale(value, isArabicExam)` — it falls back to ar when en
+// is missing so additions can ship Arabic-only safely.
+type BranchInfo = { idea: Bilingual; fast_method: Bilingual; why: Bilingual };
 const branchMeta: Record<string, Record<string, BranchInfo>> = {
   algebra: {
-    equations: { idea: "حل معادلة", fast_method: "اعزل المتغير في طرف واحد قبل أي خطوة حسابية", why: "المعادلات تتكرر في كل اختبار قياس تقريباً" },
-    simplify: { idea: "تبسيط عبارة", fast_method: "ابدأ بالحدود ذات الدرجة الأعلى عند التبسيط", why: "تبسيط العبارات أساس لحل أسئلة أكبر" },
-    patterns: { idea: "نمط جبري", fast_method: "احسب الفرق بين الحدود لتحديد نوع النمط", why: "أنماط الأرقام شائعة في القسم الكمي" },
-    substitution: { idea: "تعويض", fast_method: "عوّض بأرقام بسيطة بدل الحل الجبري الكامل", why: "التعويض يوفر وقتاً كبيراً في الاختبار" },
-    comparison: { idea: "مقارنة", fast_method: "وحّد الطرفين قبل المقارنة", why: "أسئلة المقارنة تختبر سرعتك في التقدير" },
+    equations: { idea: { ar: "حل معادلة", en: "Solve an equation" }, fast_method: { ar: "اعزل المتغير في طرف واحد قبل أي خطوة حسابية", en: "Isolate the variable on one side before any arithmetic step" }, why: { ar: "المعادلات تتكرر في كل اختبار قياس تقريباً", en: "Equations appear on virtually every Qiyas exam" } },
+    simplify: { idea: { ar: "تبسيط عبارة", en: "Simplify an expression" }, fast_method: { ar: "ابدأ بالحدود ذات الدرجة الأعلى عند التبسيط", en: "Start with the highest-degree terms when simplifying" }, why: { ar: "تبسيط العبارات أساس لحل أسئلة أكبر", en: "Simplifying expressions underpins many longer problems" } },
+    patterns: { idea: { ar: "نمط جبري", en: "Algebraic pattern" }, fast_method: { ar: "احسب الفرق بين الحدود لتحديد نوع النمط", en: "Compute the difference between consecutive terms to identify the pattern" }, why: { ar: "أنماط الأرقام شائعة في القسم الكمي", en: "Number patterns appear often in the Quantitative section" } },
+    substitution: { idea: { ar: "تعويض", en: "Substitution" }, fast_method: { ar: "عوّض بأرقام بسيطة بدل الحل الجبري الكامل", en: "Substitute small numbers instead of solving algebraically" }, why: { ar: "التعويض يوفر وقتاً كبيراً في الاختبار", en: "Substitution saves significant time on the exam" } },
+    comparison: { idea: { ar: "مقارنة", en: "Comparison" }, fast_method: { ar: "وحّد الطرفين قبل المقارنة", en: "Put both sides in the same form before comparing" }, why: { ar: "أسئلة المقارنة تختبر سرعتك في التقدير", en: "Comparison questions test your speed of estimation" } },
   },
   geometry: {
-    triangles: { idea: "مثلث", fast_method: "تذكّر مجموع زوايا المثلث 180° واستخدم فيثاغورس عند الحاجة", why: "خصائص المثلث تتكرر في معظم الأسئلة الهندسية" },
-    circles: { idea: "دائرة", fast_method: "احفظ صيغة المحيط 2πر والمساحة πر²", why: "أسئلة الدائرة من الأنماط الكلاسيكية" },
-    areas: { idea: "مساحة/حجم", fast_method: "اكتب صيغة المساحة قبل الحساب لتجنب الخطأ", why: "حساب المساحات والأحجام مهارة أساسية" },
-    angles: { idea: "زاوية", fast_method: "استخدم خصائص الزوايا المتجاورة والمتقابلة", why: "الزوايا تظهر في أسئلة هندسية كثيرة" },
-    symmetry: { idea: "تشابه/تماثل", fast_method: "قارن نسب الأضلاع لتحديد التشابه", why: "التشابه يربط بين الأشكال المتعددة" },
+    triangles: { idea: { ar: "مثلث", en: "Triangle" }, fast_method: { ar: "تذكّر مجموع زوايا المثلث 180° واستخدم فيثاغورس عند الحاجة", en: "Remember angles sum to 180° and use Pythagoras when needed" }, why: { ar: "خصائص المثلث تتكرر في معظم الأسئلة الهندسية", en: "Triangle properties appear in most geometry questions" } },
+    circles: { idea: { ar: "دائرة", en: "Circle" }, fast_method: { ar: "احفظ صيغة المحيط 2πر والمساحة πر²", en: "Memorize the formulas: circumference = 2πr, area = πr²" }, why: { ar: "أسئلة الدائرة من الأنماط الكلاسيكية", en: "Circle questions are a classic exam pattern" } },
+    areas: { idea: { ar: "مساحة/حجم", en: "Area / Volume" }, fast_method: { ar: "اكتب صيغة المساحة قبل الحساب لتجنب الخطأ", en: "Write the area formula before computing to avoid mistakes" }, why: { ar: "حساب المساحات والأحجام مهارة أساسية", en: "Computing area and volume is a foundational skill" } },
+    angles: { idea: { ar: "زاوية", en: "Angle" }, fast_method: { ar: "استخدم خصائص الزوايا المتجاورة والمتقابلة", en: "Use the properties of adjacent and vertically opposite angles" }, why: { ar: "الزوايا تظهر في أسئلة هندسية كثيرة", en: "Angles appear in many geometry questions" } },
+    symmetry: { idea: { ar: "تشابه/تماثل", en: "Similarity / Symmetry" }, fast_method: { ar: "قارن نسب الأضلاع لتحديد التشابه", en: "Compare side ratios to determine similarity" }, why: { ar: "التشابه يربط بين الأشكال المتعددة", en: "Similarity links related shapes together" } },
   },
   ratios: {
-    percent: { idea: "نسبة مئوية", fast_method: "حوّل النسبة لكسر بسيط قبل الضرب", why: "النسب المئوية من أكثر الأسئلة تكراراً" },
-    direct: { idea: "تناسب", fast_method: "للتناسب الطردي: ضرب تبادلي مباشرة", why: "التناسب يربط بين الكميات المختلفة" },
-    rates: { idea: "معدل/سرعة", fast_method: "المسافة = السرعة × الزمن — احفظها واستخدمها", why: "أسئلة السرعة من المسائل اللفظية الشائعة" },
-    word: { idea: "مسألة لفظية", fast_method: "استخرج المعطيات أولاً ثم اكتب المعادلة", why: "المسائل اللفظية تختبر الفهم والتحليل" },
+    percent: { idea: { ar: "نسبة مئوية", en: "Percentage" }, fast_method: { ar: "حوّل النسبة لكسر بسيط قبل الضرب", en: "Convert the percent to a simple fraction before multiplying" }, why: { ar: "النسب المئوية من أكثر الأسئلة تكراراً", en: "Percentages are among the most frequent question types" } },
+    direct: { idea: { ar: "تناسب", en: "Proportion" }, fast_method: { ar: "للتناسب الطردي: ضرب تبادلي مباشرة", en: "For direct proportion: cross-multiply directly" }, why: { ar: "التناسب يربط بين الكميات المختلفة", en: "Proportions relate one quantity to another" } },
+    rates: { idea: { ar: "معدل/سرعة", en: "Rate / Speed" }, fast_method: { ar: "المسافة = السرعة × الزمن — احفظها واستخدمها", en: "Distance = Speed × Time — memorize and use it" }, why: { ar: "أسئلة السرعة من المسائل اللفظية الشائعة", en: "Speed problems are common word-problem patterns" } },
+    word: { idea: { ar: "مسألة لفظية", en: "Word problem" }, fast_method: { ar: "استخرج المعطيات أولاً ثم اكتب المعادلة", en: "Extract the given data first, then write the equation" }, why: { ar: "المسائل اللفظية تختبر الفهم والتحليل", en: "Word problems test comprehension and analysis" } },
   },
   statistics: {
-    average: { idea: "متوسط/وسيط/منوال", fast_method: "رتّب الأرقام تصاعدياً قبل إيجاد الوسيط", why: "مقاييس النزعة المركزية أساس الإحصاء" },
-    probability: { idea: "احتمال", fast_method: "الاحتمال = الحالات المرغوبة ÷ كل الحالات", why: "الاحتمالات تظهر في أسئلة منوعة" },
-    tables: { idea: "تحليل جدول", fast_method: "اقرأ عناوين الأعمدة والصفوف أولاً", why: "قراءة الجداول مهارة عملية مهمة" },
-    charts: { idea: "قراءة مخطط", fast_method: "اقرأ عنوان المخطط ووحدات القياس قبل الإجابة", why: "المخططات تختصر معلومات كثيرة" },
+    average: { idea: { ar: "متوسط/وسيط/منوال", en: "Mean / Median / Mode" }, fast_method: { ar: "رتّب الأرقام تصاعدياً قبل إيجاد الوسيط", en: "Sort the numbers ascending before finding the median" }, why: { ar: "مقاييس النزعة المركزية أساس الإحصاء", en: "Measures of central tendency are foundational to statistics" } },
+    probability: { idea: { ar: "احتمال", en: "Probability" }, fast_method: { ar: "الاحتمال = الحالات المرغوبة ÷ كل الحالات", en: "Probability = favorable outcomes ÷ total outcomes" }, why: { ar: "الاحتمالات تظهر في أسئلة منوعة", en: "Probability appears in a variety of questions" } },
+    tables: { idea: { ar: "تحليل جدول", en: "Table analysis" }, fast_method: { ar: "اقرأ عناوين الأعمدة والصفوف أولاً", en: "Read the column and row headers first" }, why: { ar: "قراءة الجداول مهارة عملية مهمة", en: "Reading tables is an important practical skill" } },
+    charts: { idea: { ar: "قراءة مخطط", en: "Chart reading" }, fast_method: { ar: "اقرأ عنوان المخطط ووحدات القياس قبل الإجابة", en: "Read the chart title and the units before answering" }, why: { ar: "المخططات تختصر معلومات كثيرة", en: "Charts compress a lot of information" } },
   },
   analogy: {
-    relations: { idea: "علاقة لفظية", fast_method: "صُغ العلاقة بجملة واضحة قبل النظر للخيارات", why: "التناظر اللفظي قسم رئيسي في القدرات" },
-    "antonym-rel": { idea: "علاقة تضاد", fast_method: "حدد جذر الكلمة وابحث عن نقيضها مباشرة", why: "علاقات التضاد متكررة في التناظر" },
-    "synonym-rel": { idea: "علاقة ترادف", fast_method: "ابحث عن الكلمة الأقرب معنىً لا الأقرب لفظاً", why: "الترادف يختبر ثروتك اللغوية" },
-    category: { idea: "جزء وكل", fast_method: "حدد ما إذا كانت إحدى الكلمتين جزءاً من الأخرى", why: "علاقة الجزء بالكل من الأنماط الشائعة" },
+    relations: { idea: { ar: "علاقة لفظية", en: "Verbal relationship" }, fast_method: { ar: "صُغ العلاقة بجملة واضحة قبل النظر للخيارات", en: "State the relationship in a clear sentence before looking at the options" }, why: { ar: "التناظر اللفظي قسم رئيسي في القدرات", en: "Verbal analogies are a major section of the GAT" } },
+    "antonym-rel": { idea: { ar: "علاقة تضاد", en: "Antonym relationship" }, fast_method: { ar: "حدد جذر الكلمة وابحث عن نقيضها مباشرة", en: "Identify the word's root and look for its direct opposite" }, why: { ar: "علاقات التضاد متكررة في التناظر", en: "Antonym relationships recur in analogies" } },
+    "synonym-rel": { idea: { ar: "علاقة ترادف", en: "Synonym relationship" }, fast_method: { ar: "ابحث عن الكلمة الأقرب معنىً لا الأقرب لفظاً", en: "Look for the word closest in meaning, not in spelling" }, why: { ar: "الترادف يختبر ثروتك اللغوية", en: "Synonyms test the breadth of your vocabulary" } },
+    category: { idea: { ar: "جزء وكل", en: "Part and whole" }, fast_method: { ar: "حدد ما إذا كانت إحدى الكلمتين جزءاً من الأخرى", en: "Determine whether one word is a part of the other" }, why: { ar: "علاقة الجزء بالكل من الأنماط الشائعة", en: "Part-to-whole is a common pattern" } },
   },
   completion: {
-    "missing-word": { idea: "كلمة ناقصة", fast_method: "اقرأ الجملة كاملة قبل النظر للخيارات", why: "إكمال الجمل يقيس فهم السياق" },
-    "context-fit": { idea: "كلمة مناسبة للسياق", fast_method: "حدّد علامات السياق (ولكن، لذلك، رغم...)", why: "السياق يحدد الكلمة المناسبة" },
-    "verb-choice": { idea: "فعل مناسب", fast_method: "تأكد من زمن الفعل ومطابقته للفاعل", why: "اختيار الفعل الصحيح أساسي لمعنى الجملة" },
-    joining: { idea: "ربط الجمل", fast_method: "حدد العلاقة المنطقية بين الجملتين قبل اختيار الرابط", why: "أدوات الربط تربط الأفكار بدقة" },
+    "missing-word": { idea: { ar: "كلمة ناقصة", en: "Missing word" }, fast_method: { ar: "اقرأ الجملة كاملة قبل النظر للخيارات", en: "Read the whole sentence before looking at the options" }, why: { ar: "إكمال الجمل يقيس فهم السياق", en: "Sentence completion measures contextual understanding" } },
+    "context-fit": { idea: { ar: "كلمة مناسبة للسياق", en: "Context-appropriate word" }, fast_method: { ar: "حدّد علامات السياق (ولكن، لذلك، رغم...)", en: "Identify context cues (but, therefore, although...)" }, why: { ar: "السياق يحدد الكلمة المناسبة", en: "Context determines the right word" } },
+    "verb-choice": { idea: { ar: "فعل مناسب", en: "Verb choice" }, fast_method: { ar: "تأكد من زمن الفعل ومطابقته للفاعل", en: "Check verb tense and subject-verb agreement" }, why: { ar: "اختيار الفعل الصحيح أساسي لمعنى الجملة", en: "Picking the right verb is essential to the sentence's meaning" } },
+    joining: { idea: { ar: "ربط الجمل", en: "Joining clauses" }, fast_method: { ar: "حدد العلاقة المنطقية بين الجملتين قبل اختيار الرابط", en: "Identify the logical relation between the two clauses before picking a connector" }, why: { ar: "أدوات الربط تربط الأفكار بدقة", en: "Connectors link ideas precisely" } },
   },
   comprehension: {
-    "main-idea": { idea: "فكرة عامة", fast_method: "ابحث عن الجملة الموضوعية في بداية الفقرة", why: "الفكرة العامة من أهم أسئلة الاستيعاب" },
-    "word-meaning": { idea: "معنى مفردة", fast_method: "استنتج المعنى من السياق المحيط بالكلمة", why: "معاني المفردات تختبر فهم النص" },
-    inference: { idea: "استنتاج", fast_method: "اعتمد على ما يقوله النص لا على رأيك الشخصي", why: "الاستنتاج يقيس فهمك العميق" },
-    "back-to-text": { idea: "عودة للنص", fast_method: "ارجع للنص لكل سؤال ولا تعتمد على الذاكرة", why: "العودة للنص تجنبك الأخطاء" },
-    intent: { idea: "تحديد المقصود", fast_method: "ابحث عن كلمات مفتاحية في السؤال داخل النص", why: "تحديد المقصود يتطلب دقة في القراءة" },
+    "main-idea": { idea: { ar: "فكرة عامة", en: "Main idea" }, fast_method: { ar: "ابحث عن الجملة الموضوعية في بداية الفقرة", en: "Look for the topic sentence at the start of the paragraph" }, why: { ar: "الفكرة العامة من أهم أسئلة الاستيعاب", en: "Main-idea questions are among the most important in comprehension" } },
+    "word-meaning": { idea: { ar: "معنى مفردة", en: "Word meaning" }, fast_method: { ar: "استنتج المعنى من السياق المحيط بالكلمة", en: "Infer the meaning from the context around the word" }, why: { ar: "معاني المفردات تختبر فهم النص", en: "Word-meaning tests measure your understanding of the passage" } },
+    inference: { idea: { ar: "استنتاج", en: "Inference" }, fast_method: { ar: "اعتمد على ما يقوله النص لا على رأيك الشخصي", en: "Rely on what the text says, not on your personal opinion" }, why: { ar: "الاستنتاج يقيس فهمك العميق", en: "Inference measures deeper comprehension" } },
+    "back-to-text": { idea: { ar: "عودة للنص", en: "Return to the text" }, fast_method: { ar: "ارجع للنص لكل سؤال ولا تعتمد على الذاكرة", en: "Return to the text for every question — don't rely on memory" }, why: { ar: "العودة للنص تجنبك الأخطاء", en: "Going back to the text helps you avoid mistakes" } },
+    intent: { idea: { ar: "تحديد المقصود", en: "Identify the intent" }, fast_method: { ar: "ابحث عن كلمات مفتاحية في السؤال داخل النص", en: "Look for the question's keywords inside the text" }, why: { ar: "تحديد المقصود يتطلب دقة في القراءة", en: "Identifying intent requires careful reading" } },
   },
   contextual: {
-    morph: { idea: "خطأ صرفي", fast_method: "تأكد من تصريف الكلمة وموافقتها للقاعدة", why: "الأخطاء الصرفية شائعة في الكتابة" },
-    syntax: { idea: "خطأ نحوي", fast_method: "تحقق من علامات الإعراب ومطابقة الفاعل والفعل", why: "النحو أساس صحة الجملة" },
-    semantic: { idea: "خطأ دلالي", fast_method: "اقرأ الجملة بصوت منخفض لاكتشاف الخلل في المعنى", why: "الأخطاء الدلالية تخفي خللاً في المعنى" },
+    morph: { idea: { ar: "خطأ صرفي", en: "Morphological error" }, fast_method: { ar: "تأكد من تصريف الكلمة وموافقتها للقاعدة", en: "Check the word's inflection and that it follows the rule" }, why: { ar: "الأخطاء الصرفية شائعة في الكتابة", en: "Morphological errors are common in writing" } },
+    syntax: { idea: { ar: "خطأ نحوي", en: "Syntactic error" }, fast_method: { ar: "تحقق من علامات الإعراب ومطابقة الفاعل والفعل", en: "Check the case markings and subject-verb agreement" }, why: { ar: "النحو أساس صحة الجملة", en: "Syntax is the foundation of a correct sentence" } },
+    semantic: { idea: { ar: "خطأ دلالي", en: "Semantic error" }, fast_method: { ar: "اقرأ الجملة بصوت منخفض لاكتشاف الخلل في المعنى", en: "Read the sentence aloud quietly to spot the meaning issue" }, why: { ar: "الأخطاء الدلالية تخفي خللاً في المعنى", en: "Semantic errors hide a flaw in meaning" } },
   },
   vocabulary: {
-    antonyms: { idea: "متضاد", fast_method: "حلّل جذر الكلمة لاستنتاج عكسها", why: "المتضادات تختبر معرفتك بالمعاني المقابلة" },
-    synonyms: { idea: "مرادف", fast_method: "ابحث عن الكلمة الأقرب في المعنى لا في اللفظ", why: "المرادفات تثري فهمك اللغوي" },
-    meanings: { idea: "معنى مفردة", fast_method: "استنتج المعنى من السياق إن وُجد", why: "معاني المفردات أساس الفهم اللفظي" },
+    antonyms: { idea: { ar: "متضاد", en: "Antonym" }, fast_method: { ar: "حلّل جذر الكلمة لاستنتاج عكسها", en: "Analyze the word's root to deduce its opposite" }, why: { ar: "المتضادات تختبر معرفتك بالمعاني المقابلة", en: "Antonyms test your knowledge of opposite meanings" } },
+    synonyms: { idea: { ar: "مرادف", en: "Synonym" }, fast_method: { ar: "ابحث عن الكلمة الأقرب في المعنى لا في اللفظ", en: "Look for the word closest in meaning, not in spelling" }, why: { ar: "المرادفات تثري فهمك اللغوي", en: "Synonyms enrich your linguistic understanding" } },
+    meanings: { idea: { ar: "معنى مفردة", en: "Word meaning" }, fast_method: { ar: "استنتج المعنى من السياق إن وُجد", en: "Infer the meaning from context when available" }, why: { ar: "معاني المفردات أساس الفهم اللفظي", en: "Vocabulary meanings are the basis of verbal comprehension" } },
   },
 };
 
 // ===== Per-question derivation: extracts numbers / words from the question text
 // to produce specific (not generic) idea + fast method, while keeping branchMeta
-// as a structured fallback. No external AI — fully deterministic + safe. =====
-type Derived = { idea?: string; fast_method?: string; why_important?: string; subtype?: string; strategy_tag?: string };
+// as a structured fallback. No external AI — fully deterministic + safe.
+// All idea/fast_method/why_important values are bilingual ({ ar, en }) so
+// English exams (GAT/SAAT) get English analysis chrome from the same pipeline.
+// =====
+type Derived = { idea?: Bilingual; fast_method?: Bilingual; why_important?: Bilingual; subtype?: string; strategy_tag?: string };
 
 function num(s: string): number { return Number(s); }
 
@@ -623,236 +632,277 @@ function deriveSmartInfo(q: TrainingQuestion, fallback?: BranchInfo): Derived {
 
   switch (q.topic) {
     case "algebra": {
-      if ((m = t.match(/س\s*\+\s*(\d+)\s*=\s*(\d+)/))) {
+      if ((m = t.match(/س\s*\+\s*(\d+)\s*=\s*(\d+)/)) || (m = t.match(/x\s*\+\s*(\d+)\s*=\s*(\d+)/i))) {
         const a = num(m[1]), b = num(m[2]);
         return { subtype: "linear-add", strategy_tag: "isolate-x-subtract",
-          idea: `معادلة خطية: س + ${a} = ${b}`,
-          fast_method: `اطرح ${a} من الطرفين فوراً: س = ${b} − ${a} = ${b - a}`, why_important: why };
+          idea: { ar: `معادلة خطية: س + ${a} = ${b}`, en: `Linear equation: x + ${a} = ${b}` },
+          fast_method: { ar: `اطرح ${a} من الطرفين فوراً: س = ${b} − ${a} = ${b - a}`, en: `Subtract ${a} from both sides: x = ${b} − ${a} = ${b - a}` },
+          why_important: why };
       }
-      if ((m = t.match(/2س\s*-\s*(\d+)\s*=\s*(\d+)/))) {
+      if ((m = t.match(/2س\s*-\s*(\d+)\s*=\s*(\d+)/)) || (m = t.match(/2x\s*-\s*(\d+)\s*=\s*(\d+)/i))) {
         const a = num(m[1]), b = num(m[2]); const x = (b + a) / 2;
         return { subtype: "linear-mul-sub", strategy_tag: "balance-then-divide",
-          idea: `معادلة خطية: 2س − ${a} = ${b}`,
-          fast_method: `أضف ${a} للطرفين ثم اقسم على 2: س = (${b} + ${a}) ÷ 2 = ${x}`, why_important: why };
+          idea: { ar: `معادلة خطية: 2س − ${a} = ${b}`, en: `Linear equation: 2x − ${a} = ${b}` },
+          fast_method: { ar: `أضف ${a} للطرفين ثم اقسم على 2: س = (${b} + ${a}) ÷ 2 = ${x}`, en: `Add ${a} to both sides then divide by 2: x = (${b} + ${a}) ÷ 2 = ${x}` },
+          why_important: why };
       }
-      if ((m = t.match(/(\d+)س\s*=\s*(\d+)/))) {
+      if ((m = t.match(/(\d+)س\s*=\s*(\d+)/)) || (m = t.match(/(\d+)x\s*=\s*(\d+)/i))) {
         const a = num(m[1]), b = num(m[2]); const x = b / a;
         return { subtype: "linear-mul", strategy_tag: "divide-both-sides",
-          idea: `معادلة ضرب: ${a}س = ${b}`,
-          fast_method: `اقسم الطرفين على ${a}: س = ${b} ÷ ${a} = ${x}`, why_important: why };
+          idea: { ar: `معادلة ضرب: ${a}س = ${b}`, en: `Multiplication equation: ${a}x = ${b}` },
+          fast_method: { ar: `اقسم الطرفين على ${a}: س = ${b} ÷ ${a} = ${x}`, en: `Divide both sides by ${a}: x = ${b} ÷ ${a} = ${x}` },
+          why_important: why };
       }
-      if ((m = t.match(/س²\s*=\s*(\d+)/))) {
+      if ((m = t.match(/س²\s*=\s*(\d+)/)) || (m = t.match(/x²\s*=\s*(\d+)/i)) || (m = t.match(/x\^2\s*=\s*(\d+)/i))) {
         const b = num(m[1]); const r = Math.sqrt(b);
         return { subtype: "square-eq", strategy_tag: "sqrt-both-sides",
-          idea: `معادلة تربيعية بسيطة: س² = ${b}`,
-          fast_method: `خذ الجذر التربيعي للطرفين: س = ±√${b} = ±${r}`, why_important: why };
+          idea: { ar: `معادلة تربيعية بسيطة: س² = ${b}`, en: `Simple quadratic: x² = ${b}` },
+          fast_method: { ar: `خذ الجذر التربيعي للطرفين: س = ±√${b} = ±${r}`, en: `Take the square root of both sides: x = ±√${b} = ±${r}` },
+          why_important: why };
       }
-      if ((m = t.match(/\|س\s*-\s*(\d+)\|\s*=\s*(\d+)/))) {
+      if ((m = t.match(/\|س\s*-\s*(\d+)\|\s*=\s*(\d+)/)) || (m = t.match(/\|x\s*-\s*(\d+)\|\s*=\s*(\d+)/i))) {
         const a = num(m[1]), b = num(m[2]);
         return { subtype: "abs-eq", strategy_tag: "abs-two-cases",
-          idea: `معادلة قيمة مطلقة: |س − ${a}| = ${b}`,
-          fast_method: `حلّ حالتين: س − ${a} = ${b} (س = ${a + b}) أو س − ${a} = −${b} (س = ${a - b})`, why_important: why };
+          idea: { ar: `معادلة قيمة مطلقة: |س − ${a}| = ${b}`, en: `Absolute-value equation: |x − ${a}| = ${b}` },
+          fast_method: { ar: `حلّ حالتين: س − ${a} = ${b} (س = ${a + b}) أو س − ${a} = −${b} (س = ${a - b})`, en: `Solve both cases: x − ${a} = ${b} (x = ${a + b}) or x − ${a} = −${b} (x = ${a - b})` },
+          why_important: why };
       }
       if ((m = t.match(/√(\d+)/))) {
         const v = num(m[1]);
         return { subtype: "sqrt", strategy_tag: "memorize-squares",
-          idea: `إيجاد الجذر التربيعي لـ ${v}`,
-          fast_method: `ابحث عن العدد الذي مربعه ${v}: الإجابة ${Math.sqrt(v)} لأن ${Math.sqrt(v)}² = ${v}`, why_important: why };
+          idea: { ar: `إيجاد الجذر التربيعي لـ ${v}`, en: `Find the square root of ${v}` },
+          fast_method: { ar: `ابحث عن العدد الذي مربعه ${v}: الإجابة ${Math.sqrt(v)} لأن ${Math.sqrt(v)}² = ${v}`, en: `Find the number whose square is ${v}: the answer is ${Math.sqrt(v)} because ${Math.sqrt(v)}² = ${v}` },
+          why_important: why };
       }
-      if ((m = t.match(/2س\s*-\s*(\d+)\s*>\s*(\d+)/))) {
+      if ((m = t.match(/2س\s*-\s*(\d+)\s*>\s*(\d+)/)) || (m = t.match(/2x\s*-\s*(\d+)\s*>\s*(\d+)/i))) {
         const a = num(m[1]), b = num(m[2]);
         return { subtype: "linear-ineq", strategy_tag: "isolate-keep-direction",
-          idea: `حل متباينة: 2س − ${a} > ${b}`,
-          fast_method: `أضف ${a} ثم اقسم على 2: س > ${(b + a) / 2}`, why_important: why };
+          idea: { ar: `حل متباينة: 2س − ${a} > ${b}`, en: `Solve an inequality: 2x − ${a} > ${b}` },
+          fast_method: { ar: `أضف ${a} ثم اقسم على 2: س > ${(b + a) / 2}`, en: `Add ${a}, then divide by 2: x > ${(b + a) / 2}` },
+          why_important: why };
       }
       if (/متباين|>|</.test(t)) {
         return { subtype: "ineq", strategy_tag: "ineq-flip-on-negative",
-          idea: `حل متباينة جبرية`,
-          fast_method: `اعزل المتغير، وانتبه: عند الضرب أو القسمة على عدد سالب يُعكس اتجاه المتباينة`, why_important: why };
+          idea: { ar: `حل متباينة جبرية`, en: `Solve an algebraic inequality` },
+          fast_method: { ar: `اعزل المتغير، وانتبه: عند الضرب أو القسمة على عدد سالب يُعكس اتجاه المتباينة`, en: `Isolate the variable — and remember: multiplying or dividing by a negative number flips the inequality direction` },
+          why_important: why };
       }
-      if (/بسّط|تبسيط/.test(t)) {
+      if (/بسّط|تبسيط|simplify/i.test(t)) {
         return { subtype: "simplify", strategy_tag: "factor-and-cancel",
-          idea: `تبسيط عبارة جبرية`,
-          fast_method: `حلّل البسط والمقام إلى عوامل، ثم اختصر العوامل المشتركة`, why_important: why };
+          idea: { ar: `تبسيط عبارة جبرية`, en: `Simplify an algebraic expression` },
+          fast_method: { ar: `حلّل البسط والمقام إلى عوامل، ثم اختصر العوامل المشتركة`, en: `Factor the numerator and denominator, then cancel common factors` },
+          why_important: why };
       }
-      if ((m = t.match(/\(س\s*\+\s*(\d+)\)\(س\s*-\s*(\d+)\)\s*=\s*0/))) {
+      if ((m = t.match(/\(س\s*\+\s*(\d+)\)\(س\s*-\s*(\d+)\)\s*=\s*0/)) || (m = t.match(/\(x\s*\+\s*(\d+)\)\(x\s*-\s*(\d+)\)\s*=\s*0/i))) {
         const a = num(m[1]), b = num(m[2]);
         return { subtype: "factored-zero", strategy_tag: "zero-product",
-          idea: `معادلة مُحلَّلة: (س + ${a})(س − ${b}) = 0`,
-          fast_method: `إذا كان حاصل الضرب صفراً فأحد العاملين صفر: س = −${a} أو س = ${b}`, why_important: why };
+          idea: { ar: `معادلة مُحلَّلة: (س + ${a})(س − ${b}) = 0`, en: `Factored equation: (x + ${a})(x − ${b}) = 0` },
+          fast_method: { ar: `إذا كان حاصل الضرب صفراً فأحد العاملين صفر: س = −${a} أو س = ${b}`, en: `If the product is zero then one factor is zero: x = −${a} or x = ${b}` },
+          why_important: why };
       }
-      if (/لو\u200c?₂|لو₂|لو\(/.test(t)) {
+      if (/لو\u200c?₂|لو₂|لو\(|\blog\b/i.test(t)) {
         return { subtype: "log", strategy_tag: "rewrite-as-power",
-          idea: `إيجاد قيمة لوغاريتم`,
-          fast_method: `أعد كتابة العدد كقوة لأساس اللوغاريتم، ثم الإجابة هي الأس`, why_important: why };
+          idea: { ar: `إيجاد قيمة لوغاريتم`, en: `Evaluate a logarithm` },
+          fast_method: { ar: `أعد كتابة العدد كقوة لأساس اللوغاريتم، ثم الإجابة هي الأس`, en: `Rewrite the number as a power of the logarithm's base — the answer is the exponent` },
+          why_important: why };
       }
-      if ((m = t.match(/س³\s*=\s*(\d+)/))) {
+      if ((m = t.match(/س³\s*=\s*(\d+)/)) || (m = t.match(/x³\s*=\s*(\d+)/i)) || (m = t.match(/x\^3\s*=\s*(\d+)/i))) {
         const b = num(m[1]);
         return { subtype: "cube-eq", strategy_tag: "cube-root",
-          idea: `معادلة تكعيبية: س³ = ${b}`,
-          fast_method: `خذ الجذر التكعيبي: س = ∛${b} = ${Math.round(Math.cbrt(b))}`, why_important: why };
+          idea: { ar: `معادلة تكعيبية: س³ = ${b}`, en: `Cubic equation: x³ = ${b}` },
+          fast_method: { ar: `خذ الجذر التكعيبي: س = ∛${b} = ${Math.round(Math.cbrt(b))}`, en: `Take the cube root: x = ∛${b} = ${Math.round(Math.cbrt(b))}` },
+          why_important: why };
       }
       break;
     }
 
     case "geometry": {
-      if ((m = t.match(/مربع طول ضلعه (\d+)/))) {
+      if ((m = t.match(/مربع طول ضلعه (\d+)/)) || (m = t.match(/square (?:with|of) side (\d+)/i))) {
         const s = num(m[1]);
-        if (/محيط/.test(t)) return { subtype: "square-perim", strategy_tag: "perim-square",
-          idea: `محيط مربع ضلعه ${s} سم`,
-          fast_method: `محيط المربع = 4 × الضلع = 4 × ${s} = ${4 * s} سم`, why_important: why };
+        if (/محيط|perimeter/i.test(t)) return { subtype: "square-perim", strategy_tag: "perim-square",
+          idea: { ar: `محيط مربع ضلعه ${s} سم`, en: `Perimeter of a square with side ${s} cm` },
+          fast_method: { ar: `محيط المربع = 4 × الضلع = 4 × ${s} = ${4 * s} سم`, en: `Perimeter of a square = 4 × side = 4 × ${s} = ${4 * s} cm` },
+          why_important: why };
         return { subtype: "square-area", strategy_tag: "area-square",
-          idea: `مساحة مربع ضلعه ${s} سم`,
-          fast_method: `مساحة المربع = الضلع² = ${s} × ${s} = ${s * s} سم²`, why_important: why };
+          idea: { ar: `مساحة مربع ضلعه ${s} سم`, en: `Area of a square with side ${s} cm` },
+          fast_method: { ar: `مساحة المربع = الضلع² = ${s} × ${s} = ${s * s} سم²`, en: `Area of a square = side² = ${s} × ${s} = ${s * s} cm²` },
+          why_important: why };
       }
-      if ((m = t.match(/المستطيل الذي طوله (\d+) .*?وعرضه (\d+)/))) {
+      if ((m = t.match(/المستطيل الذي طوله (\d+) .*?وعرضه (\d+)/)) || (m = t.match(/rectangle .*?length (\d+).*?width (\d+)/i))) {
         const L = num(m[1]), W = num(m[2]);
         return { subtype: "rect-area", strategy_tag: "area-rect",
-          idea: `مساحة مستطيل (${L}×${W})`,
-          fast_method: `مساحة المستطيل = الطول × العرض = ${L} × ${W} = ${L * W} سم²`, why_important: why };
+          idea: { ar: `مساحة مستطيل (${L}×${W})`, en: `Area of a rectangle (${L}×${W})` },
+          fast_method: { ar: `مساحة المستطيل = الطول × العرض = ${L} × ${W} = ${L * W} سم²`, en: `Area of a rectangle = length × width = ${L} × ${W} = ${L * W} cm²` },
+          why_important: why };
       }
-      if ((m = t.match(/مثلث قاعدته (\d+) .*?وارتفاعه (\d+)/))) {
+      if ((m = t.match(/مثلث قاعدته (\d+) .*?وارتفاعه (\d+)/)) || (m = t.match(/triangle .*?base (\d+).*?height (\d+)/i))) {
         const b = num(m[1]), h = num(m[2]);
         return { subtype: "tri-area", strategy_tag: "area-triangle",
-          idea: `مساحة مثلث (قاعدة ${b}، ارتفاع ${h})`,
-          fast_method: `مساحة المثلث = ½ × ${b} × ${h} = ${(b * h) / 2}`, why_important: why };
+          idea: { ar: `مساحة مثلث (قاعدة ${b}، ارتفاع ${h})`, en: `Area of a triangle (base ${b}, height ${h})` },
+          fast_method: { ar: `مساحة المثلث = ½ × ${b} × ${h} = ${(b * h) / 2}`, en: `Area of a triangle = ½ × ${b} × ${h} = ${(b * h) / 2}` },
+          why_important: why };
       }
-      if ((m = t.match(/دائرة نصف قطرها (\d+)/))) {
+      if ((m = t.match(/دائرة نصف قطرها (\d+)/)) || (m = t.match(/circle .*?radius (\d+)/i))) {
         const r = num(m[1]);
-        if (/مساحة/.test(t)) return { subtype: "circle-area", strategy_tag: "area-circle",
-          idea: `مساحة دائرة نصف قطرها ${r}`,
-          fast_method: `المساحة = π × ${r}² = π × ${r * r}`, why_important: why };
+        if (/مساحة|area/i.test(t)) return { subtype: "circle-area", strategy_tag: "area-circle",
+          idea: { ar: `مساحة دائرة نصف قطرها ${r}`, en: `Area of a circle with radius ${r}` },
+          fast_method: { ar: `المساحة = π × ${r}² = π × ${r * r}`, en: `Area = π × ${r}² = π × ${r * r}` },
+          why_important: why };
         return { subtype: "circle-circ", strategy_tag: "perim-circle",
-          idea: `محيط دائرة نصف قطرها ${r}`,
-          fast_method: `المحيط = 2 × π × ${r} = ${2 * r}π`, why_important: why };
+          idea: { ar: `محيط دائرة نصف قطرها ${r}`, en: `Circumference of a circle with radius ${r}` },
+          fast_method: { ar: `المحيط = 2 × π × ${r} = ${2 * r}π`, en: `Circumference = 2 × π × ${r} = ${2 * r}π` },
+          why_important: why };
       }
-      if (/فيثاغورس|الوتر|قائم/.test(t)) {
+      if (/فيثاغورس|الوتر|قائم|pythagor|hypoten|right.angled/i.test(t)) {
         return { subtype: "pythag", strategy_tag: "pythagoras",
-          idea: `تطبيق نظرية فيثاغورس`,
-          fast_method: `الوتر² = ضلع₁² + ضلع₂²، ثم خذ الجذر التربيعي للناتج`, why_important: why };
+          idea: { ar: `تطبيق نظرية فيثاغورس`, en: `Apply the Pythagorean theorem` },
+          fast_method: { ar: `الوتر² = ضلع₁² + ضلع₂²، ثم خذ الجذر التربيعي للناتج`, en: `Hypotenuse² = leg₁² + leg₂², then take the square root` },
+          why_important: why };
       }
-      if ((m = t.match(/مكعب طول ضلعه (\d+)/) ?? t.match(/مكعب الذي طول ضلعه (\d+)/))) {
+      if ((m = t.match(/مكعب طول ضلعه (\d+)/) ?? t.match(/مكعب الذي طول ضلعه (\d+)/) ?? t.match(/cube .*?side (\d+)/i))) {
         const s = num(m[1]);
         return { subtype: "cube-vol", strategy_tag: "volume-cube",
-          idea: `حجم مكعب ضلعه ${s}`,
-          fast_method: `حجم المكعب = الضلع³ = ${s}³ = ${s * s * s} سم³`, why_important: why };
+          idea: { ar: `حجم مكعب ضلعه ${s}`, en: `Volume of a cube with side ${s}` },
+          fast_method: { ar: `حجم المكعب = الضلع³ = ${s}³ = ${s * s * s} سم³`, en: `Volume of a cube = side³ = ${s}³ = ${s * s * s} cm³` },
+          why_important: why };
       }
-      if (/زاوي|زوايا/.test(t)) {
+      if (/زاوي|زوايا|\bangles?\b/i.test(t)) {
         return { subtype: "angles", strategy_tag: "angle-sum",
-          idea: `حساب قياس زاوية`,
-          fast_method: `استخدم: مجموع زوايا المثلث 180°، الرباعي 360°، الخط المستقيم 180°`, why_important: why };
+          idea: { ar: `حساب قياس زاوية`, en: `Compute an angle measure` },
+          fast_method: { ar: `استخدم: مجموع زوايا المثلث 180°، الرباعي 360°، الخط المستقيم 180°`, en: `Use: triangle angles sum to 180°, quadrilateral 360°, straight line 180°` },
+          why_important: why };
       }
-      if (/شبه المنحرف/.test(t)) {
+      if (/شبه المنحرف|trapezoid|trapezium/i.test(t)) {
         return { subtype: "trapezoid-area", strategy_tag: "area-trapezoid",
-          idea: `مساحة شبه منحرف`,
-          fast_method: `المساحة = ½ × (مجموع القاعدتين) × الارتفاع`, why_important: why };
+          idea: { ar: `مساحة شبه منحرف`, en: `Area of a trapezoid` },
+          fast_method: { ar: `المساحة = ½ × (مجموع القاعدتين) × الارتفاع`, en: `Area = ½ × (sum of the two parallel bases) × height` },
+          why_important: why };
       }
       break;
     }
 
     case "ratios": {
-      if ((m = t.match(/(\d+)%\s*من\s*(\d+)/))) {
+      if ((m = t.match(/(\d+)%\s*من\s*(\d+)/)) || (m = t.match(/(\d+)%\s*of\s*(\d+)/i))) {
         const p = num(m[1]), n = num(m[2]); const r = (p / 100) * n;
         return { subtype: "percent-of", strategy_tag: "percent-multiply",
-          idea: `حساب ${p}% من ${n}`,
-          fast_method: `اضرب ${n} في ${p}/100: ${n} × ${p / 100} = ${r}`, why_important: why };
+          idea: { ar: `حساب ${p}% من ${n}`, en: `Compute ${p}% of ${n}` },
+          fast_method: { ar: `اضرب ${n} في ${p}/100: ${n} × ${p / 100} = ${r}`, en: `Multiply ${n} by ${p}/100: ${n} × ${p / 100} = ${r}` },
+          why_important: why };
       }
-      if ((m = t.match(/خصم (\d+)%/))) {
+      if ((m = t.match(/خصم (\d+)%/)) || (m = t.match(/(\d+)%\s*discount/i))) {
         const p = num(m[1]);
         return { subtype: "percent-discount", strategy_tag: "percent-discount",
-          idea: `سعر بعد خصم ${p}%`,
-          fast_method: `السعر بعد الخصم = السعر × (100 − ${p})/100 = السعر × ${(100 - p) / 100}`, why_important: why };
+          idea: { ar: `سعر بعد خصم ${p}%`, en: `Price after a ${p}% discount` },
+          fast_method: { ar: `السعر بعد الخصم = السعر × (100 − ${p})/100 = السعر × ${(100 - p) / 100}`, en: `Discounted price = price × (100 − ${p})/100 = price × ${(100 - p) / 100}` },
+          why_important: why };
       }
-      if ((m = t.match(/زاد.*?(\d+)%/))) {
+      if ((m = t.match(/زاد.*?(\d+)%/)) || (m = t.match(/increas\w*\s*(?:by\s*)?(\d+)%/i))) {
         const p = num(m[1]);
         return { subtype: "percent-increase", strategy_tag: "percent-increase",
-          idea: `حساب نسبة زيادة بمقدار ${p}%`,
-          fast_method: `القيمة الجديدة = القيمة × (1 + ${p}/100) = القيمة × ${1 + p / 100}`, why_important: why };
+          idea: { ar: `حساب نسبة زيادة بمقدار ${p}%`, en: `Compute a ${p}% increase` },
+          fast_method: { ar: `القيمة الجديدة = القيمة × (1 + ${p}/100) = القيمة × ${1 + p / 100}`, en: `New value = original × (1 + ${p}/100) = original × ${1 + p / 100}` },
+          why_important: why };
       }
       if ((m = t.match(/نسبة\s+(?:الأولاد|أ).*?(\d+)\s*:\s*(\d+).*?(\d+)/))) {
         const a = m[1], b = m[2], v = m[3];
         return { subtype: "ratio-apply", strategy_tag: "cross-multiply",
-          idea: `تطبيق نسبة ${a}:${b} على القيمة ${v}`,
-          fast_method: `الضرب التبادلي: ${a}/${b} = ${v}/المجهول → المجهول = (${b} × ${v}) ÷ ${a}`, why_important: why };
+          idea: { ar: `تطبيق نسبة ${a}:${b} على القيمة ${v}`, en: `Apply ratio ${a}:${b} to the value ${v}` },
+          fast_method: { ar: `الضرب التبادلي: ${a}/${b} = ${v}/المجهول → المجهول = (${b} × ${v}) ÷ ${a}`, en: `Cross-multiply: ${a}/${b} = ${v}/unknown → unknown = (${b} × ${v}) ÷ ${a}` },
+          why_important: why };
       }
-      if ((m = t.match(/(\d+)\s*كم\s*في\s*(\d+)\s*ساعات/))) {
+      if ((m = t.match(/(\d+)\s*كم\s*في\s*(\d+)\s*ساعات/)) || (m = t.match(/(\d+)\s*km\s*in\s*(\d+)\s*hours?/i))) {
         const d = num(m[1]), h = num(m[2]);
         return { subtype: "speed", strategy_tag: "speed-formula",
-          idea: `سرعة: ${d} كم في ${h} ساعات`,
-          fast_method: `السرعة = المسافة ÷ الزمن = ${d} ÷ ${h} = ${d / h} كم/س`, why_important: why };
+          idea: { ar: `سرعة: ${d} كم في ${h} ساعات`, en: `Speed: ${d} km in ${h} hours` },
+          fast_method: { ar: `السرعة = المسافة ÷ الزمن = ${d} ÷ ${h} = ${d / h} كم/س`, en: `Speed = distance ÷ time = ${d} ÷ ${h} = ${d / h} km/h` },
+          why_important: why };
       }
-      if ((m = t.match(/(\d+)\s*عمال.*?(\d+)\s*أيام/))) {
+      if ((m = t.match(/(\d+)\s*عمال.*?(\d+)\s*أيام/)) || (m = t.match(/(\d+)\s*workers?.*?(\d+)\s*days?/i))) {
         const w = num(m[1]), d = num(m[2]);
         return { subtype: "work-inverse", strategy_tag: "work-inverse",
-          idea: `علاقة عكسية بين العمال والأيام (${w} عمال، ${d} أيام)`,
-          fast_method: `عدد العمال × عدد الأيام = ثابت = ${w * d}`, why_important: why };
+          idea: { ar: `علاقة عكسية بين العمال والأيام (${w} عمال، ${d} أيام)`, en: `Inverse relation between workers and days (${w} workers, ${d} days)` },
+          fast_method: { ar: `عدد العمال × عدد الأيام = ثابت = ${w * d}`, en: `Workers × days = constant = ${w * d}` },
+          why_important: why };
       }
       break;
     }
 
     case "statistics": {
-      if (/المتوسط الحسابي/.test(t)) {
-        const list = t.match(/:\s*([\d،,\s.]+)\s*هو/);
+      if (/المتوسط الحسابي|arithmetic mean|\bmean\b/i.test(t)) {
+        const list = t.match(/:\s*([\d،,\s.]+)\s*هو/) ?? t.match(/:\s*([\d,\s.]+)\s*is/i);
         const numsStr = list ? list[1].replace(/،/g, ",") : "";
         return { subtype: "mean", strategy_tag: "mean-formula",
-          idea: numsStr ? `المتوسط الحسابي للأعداد ${numsStr.trim()}` : `حساب المتوسط الحسابي`,
-          fast_method: `اجمع كل القيم ثم اقسم على عددها`, why_important: why };
+          idea: numsStr
+            ? { ar: `المتوسط الحسابي للأعداد ${numsStr.trim()}`, en: `Arithmetic mean of ${numsStr.trim()}` }
+            : { ar: `حساب المتوسط الحسابي`, en: `Compute the arithmetic mean` },
+          fast_method: { ar: `اجمع كل القيم ثم اقسم على عددها`, en: `Sum all values, then divide by their count` },
+          why_important: why };
       }
-      if (/الوسيط/.test(t)) {
+      if (/الوسيط|\bmedian\b/i.test(t)) {
         return { subtype: "median", strategy_tag: "sort-then-middle",
-          idea: `إيجاد الوسيط`,
-          fast_method: `رتّب الأعداد تصاعدياً ثم خذ القيمة في المنتصف (أو متوسط القيمتين الوسطيتين)`, why_important: why };
+          idea: { ar: `إيجاد الوسيط`, en: `Find the median` },
+          fast_method: { ar: `رتّب الأعداد تصاعدياً ثم خذ القيمة في المنتصف (أو متوسط القيمتين الوسطيتين)`, en: `Sort the numbers ascending, then take the middle value (or the average of the two middle values)` },
+          why_important: why };
       }
-      if (/المنوال/.test(t)) {
+      if (/المنوال|\bmode\b/i.test(t)) {
         return { subtype: "mode", strategy_tag: "most-frequent",
-          idea: `إيجاد المنوال`,
-          fast_method: `ابحث عن العدد الأكثر تكراراً في القائمة`, why_important: why };
+          idea: { ar: `إيجاد المنوال`, en: `Find the mode` },
+          fast_method: { ar: `ابحث عن العدد الأكثر تكراراً في القائمة`, en: `Find the most frequently occurring number in the list` },
+          why_important: why };
       }
-      if (/المدى/.test(t)) {
+      if (/المدى|\brange\b/i.test(t)) {
         return { subtype: "range", strategy_tag: "max-minus-min",
-          idea: `إيجاد المدى`,
-          fast_method: `المدى = أكبر قيمة − أصغر قيمة`, why_important: why };
+          idea: { ar: `إيجاد المدى`, en: `Find the range` },
+          fast_method: { ar: `المدى = أكبر قيمة − أصغر قيمة`, en: `Range = largest value − smallest value` },
+          why_important: why };
       }
-      if (/التباين/.test(t)) {
+      if (/التباين|variance|standard deviation/i.test(t)) {
         return { subtype: "stddev", strategy_tag: "sqrt-of-variance",
-          idea: `حساب الانحراف المعياري من التباين`,
-          fast_method: `الانحراف المعياري = √التباين`, why_important: why };
+          idea: { ar: `حساب الانحراف المعياري من التباين`, en: `Compute the standard deviation from the variance` },
+          fast_method: { ar: `الانحراف المعياري = √التباين`, en: `Standard deviation = √variance` },
+          why_important: why };
       }
-      if (/احتمال/.test(t)) {
+      if (/احتمال|probability/i.test(t)) {
         return { subtype: "probability", strategy_tag: "favorable-over-total",
-          idea: `حساب احتمال حدث`,
-          fast_method: `الاحتمال = عدد النواتج المرغوبة ÷ كل النواتج الممكنة`, why_important: why };
+          idea: { ar: `حساب احتمال حدث`, en: `Compute the probability of an event` },
+          fast_method: { ar: `الاحتمال = عدد النواتج المرغوبة ÷ كل النواتج الممكنة`, en: `Probability = favorable outcomes ÷ total possible outcomes` },
+          why_important: why };
       }
-      if (/كم طريقة لترتيب|كم طريقة لاختيار/.test(t)) {
+      if (/كم طريقة لترتيب|كم طريقة لاختيار|how many ways to (?:arrange|choose)/i.test(t)) {
         return { subtype: "permutation", strategy_tag: "factorial-or-combinations",
-          idea: `عدّ الترتيبات أو التوافيق`,
-          fast_method: `للترتيب: ن!. للاختيار بدون ترتيب: ن! ÷ (ر! × (ن−ر)!)`, why_important: why };
+          idea: { ar: `عدّ الترتيبات أو التوافيق`, en: `Count permutations or combinations` },
+          fast_method: { ar: `للترتيب: ن!. للاختيار بدون ترتيب: ن! ÷ (ر! × (ن−ر)!)`, en: `For ordered arrangements: n!. For unordered selection: n! ÷ (r! × (n−r)!)` },
+          why_important: why };
       }
       break;
     }
 
     case "analogy": {
-      if ((m = t.match(/^(.+?)\s*:\s*(.+?)\s*::\s*(.+?)\s*:\s*؟/))) {
+      if ((m = t.match(/^(.+?)\s*:\s*(.+?)\s*::\s*(.+?)\s*:\s*[؟?]/))) {
         const a = m[1].trim(), b = m[2].trim(), c = m[3].trim();
         return { subtype: "analogy-pair", strategy_tag: "name-the-relation",
-          idea: `العلاقة بين "${a}" و "${b}" مطبّقة على "${c}"`,
-          fast_method: `صُغ العلاقة بين "${a}" و "${b}" بجملة، ثم طبّقها على "${c}" للحصول على الإجابة`, why_important: why };
+          idea: { ar: `العلاقة بين "${a}" و "${b}" مطبّقة على "${c}"`, en: `The relation between "${a}" and "${b}" applied to "${c}"` },
+          fast_method: { ar: `صُغ العلاقة بين "${a}" و "${b}" بجملة، ثم طبّقها على "${c}" للحصول على الإجابة`, en: `State the relation between "${a}" and "${b}" in a sentence, then apply it to "${c}" to find the answer` },
+          why_important: why };
       }
       break;
     }
 
     case "vocabulary": {
       const wm = t.match(/\(([^)]+)\)/);
-      if (wm && /عكس/.test(t)) return { subtype: "antonym", strategy_tag: "antonym-lookup",
-        idea: `عكس كلمة "${wm[1]}"`,
-        fast_method: `فكّر في الجذر اللغوي لـ "${wm[1]}" وابحث عن الكلمة التي تعني نقيضها`, why_important: why };
-      if (wm && /مرادف|بمعنى/.test(t)) return { subtype: "synonym", strategy_tag: "synonym-lookup",
-        idea: `مرادف كلمة "${wm[1]}"`,
-        fast_method: `ابحث عن الكلمة الأقرب لـ "${wm[1]}" في المعنى لا في اللفظ`, why_important: why };
-      if (/المختلفة|الشاذة/.test(t)) {
+      if (wm && /عكس|opposite|antonym/i.test(t)) return { subtype: "antonym", strategy_tag: "antonym-lookup",
+        idea: { ar: `عكس كلمة "${wm[1]}"`, en: `Opposite of "${wm[1]}"` },
+        fast_method: { ar: `فكّر في الجذر اللغوي لـ "${wm[1]}" وابحث عن الكلمة التي تعني نقيضها`, en: `Think about the root of "${wm[1]}" and find a word that means the opposite` },
+        why_important: why };
+      if (wm && /مرادف|بمعنى|synonym|same meaning/i.test(t)) return { subtype: "synonym", strategy_tag: "synonym-lookup",
+        idea: { ar: `مرادف كلمة "${wm[1]}"`, en: `Synonym of "${wm[1]}"` },
+        fast_method: { ar: `ابحث عن الكلمة الأقرب لـ "${wm[1]}" في المعنى لا في اللفظ`, en: `Look for the word closest to "${wm[1]}" in meaning, not in spelling` },
+        why_important: why };
+      if (/المختلفة|الشاذة|odd one out|does not belong/i.test(t)) {
         return { subtype: "odd-one-out", strategy_tag: "shared-category",
-          idea: `تحديد الكلمة الشاذة عن المجموعة`,
-          fast_method: `جد الفئة المشتركة بين الكلمات الأخرى — الشاذة هي التي خرجت عن الفئة`, why_important: why };
+          idea: { ar: `تحديد الكلمة الشاذة عن المجموعة`, en: `Identify the word that doesn't belong to the group` },
+          fast_method: { ar: `جد الفئة المشتركة بين الكلمات الأخرى — الشاذة هي التي خرجت عن الفئة`, en: `Find the category shared by the other words — the odd one is the one outside that category` },
+          why_important: why };
       }
       break;
     }
@@ -860,8 +910,9 @@ function deriveSmartInfo(q: TrainingQuestion, fallback?: BranchInfo): Derived {
     case "completion": {
       const before = t.split(/_+/)[0]?.trim();
       if (before) return { subtype: "fill-blank", strategy_tag: "context-fit",
-        idea: `إكمال الجملة: "${before.length > 30 ? before.slice(0, 30) + "…" : before}"`,
-        fast_method: `اقرأ الجملة كاملة، ثم جرّب كل خيار شفهياً واختر الأكثر طبيعية ومنطقية`, why_important: why };
+        idea: { ar: `إكمال الجملة: "${before.length > 30 ? before.slice(0, 30) + "…" : before}"`, en: `Complete the sentence: "${before.length > 30 ? before.slice(0, 30) + "…" : before}"` },
+        fast_method: { ar: `اقرأ الجملة كاملة، ثم جرّب كل خيار شفهياً واختر الأكثر طبيعية ومنطقية`, en: `Read the whole sentence, then try each option silently and choose the most natural and logical one` },
+        why_important: why };
       break;
     }
   }
@@ -935,149 +986,153 @@ function deriveWordingStyle(q: TrainingQuestion): string {
 // --- Lightweight, client-side derivation for hint / common-mistake / reinforcement ---
 // These are intentionally short prompts/tips keyed by branch (then topic as fallback).
 // Hints MUST nudge the student's thinking without revealing the answer.
-const branchHints: Record<string, string> = {
-  equations: "ابدأ بعزل المتغير في طرف واحد — لا تحسب شيئاً قبل ذلك.",
-  simplify: "وحّد الحدود المتشابهة، ثم اختصر العوامل المشتركة.",
-  patterns: "احسب الفرق (أو النسبة) بين كل حدّين متتاليين أولاً.",
-  substitution: "جرّب التعويض برقم بسيط بدلاً من الحل الجبري الكامل.",
-  comparison: "وحّد الوحدات أو المقامات قبل أن تقارن.",
-  triangles: "تذكّر مجموع الزوايا 180° وفيثاغورس قبل أي حساب.",
-  circles: "اكتب صيغة المحيط 2πر أو المساحة πر² قبل التعويض.",
-  areas: "اكتب صيغة المساحة المناسبة للشكل أولاً.",
-  angles: "ابحث عن زوايا متجاورة أو متبادلة أو متقابلة.",
-  symmetry: "قارن نسب الأضلاع المتقابلة لتحديد التشابه.",
-  percent: "حوّل النسبة المئوية إلى كسر بسيط قبل الضرب.",
-  direct: "للتناسب الطردي: اضرب تبادلياً مباشرة.",
-  rates: "تذكّر: المسافة = السرعة × الزمن.",
-  word: "استخرج المعطيات أولاً ثم ترجمها إلى معادلة.",
-  average: "للوسيط: رتّب الأرقام تصاعدياً قبل أي شيء.",
-  probability: "الاحتمال = الحالات المرغوبة ÷ كل الحالات الممكنة.",
-  tables: "اقرأ عناوين الصفوف والأعمدة قبل البحث عن القيمة.",
-  charts: "اقرأ عنوان المخطط ووحدات المحاور أولاً.",
-  "relation-function": "اسأل: الكلمة الأولى تُستخدم لـ ماذا؟",
-  "relation-part-whole": "اسأل: هل الأولى جزء من الثانية أم العكس؟",
-  "relation-antonym": "ابحث عن المعنى المعاكس تماماً.",
-  "relation-synonym": "ابحث عن أقرب كلمة في المعنى.",
-  "missing-word": "اقرأ الجملة كاملة وحدد السياق العام قبل الاختيار.",
-  proverb: "تذكّر المثل الشهير ثم أكمل الكلمة الناقصة.",
-  sentence: "ابحث عن الكلمة التي تتسق مع نبرة الجملة بأكملها.",
-  "main-idea": "ابحث عن الفكرة التي تتكرر في النص أو يلخّصها العنوان.",
-  inference: "استبعد الخيارات الصريحة في النص — المطلوب ما يُستنتج.",
-  semantic: "جرّب وضع كل خيار في الجملة واسأل: أيّها يبقى منطقياً؟",
-  antonyms: "فكّر في المعنى المعاكس تماماً، ليس مجرد مختلف.",
-  synonyms: "ابحث عن الكلمة الأقرب للمعنى نفسه.",
+const branchHints: Record<string, Bilingual> = {
+  equations: { ar: "ابدأ بعزل المتغير في طرف واحد — لا تحسب شيئاً قبل ذلك.", en: "Start by isolating the variable on one side — don't compute anything before that." },
+  simplify: { ar: "وحّد الحدود المتشابهة، ثم اختصر العوامل المشتركة.", en: "Combine like terms, then cancel common factors." },
+  patterns: { ar: "احسب الفرق (أو النسبة) بين كل حدّين متتاليين أولاً.", en: "Compute the difference (or ratio) between consecutive terms first." },
+  substitution: { ar: "جرّب التعويض برقم بسيط بدلاً من الحل الجبري الكامل.", en: "Try substituting a small number instead of solving algebraically." },
+  comparison: { ar: "وحّد الوحدات أو المقامات قبل أن تقارن.", en: "Unify the units or denominators before you compare." },
+  triangles: { ar: "تذكّر مجموع الزوايا 180° وفيثاغورس قبل أي حساب.", en: "Remember angles sum to 180° and Pythagoras before any calculation." },
+  circles: { ar: "اكتب صيغة المحيط 2πر أو المساحة πر² قبل التعويض.", en: "Write the formula (circumference 2πr or area πr²) before substituting." },
+  areas: { ar: "اكتب صيغة المساحة المناسبة للشكل أولاً.", en: "Write the area formula for the shape first." },
+  angles: { ar: "ابحث عن زوايا متجاورة أو متبادلة أو متقابلة.", en: "Look for adjacent, alternate, or vertically opposite angles." },
+  symmetry: { ar: "قارن نسب الأضلاع المتقابلة لتحديد التشابه.", en: "Compare the ratios of corresponding sides to determine similarity." },
+  percent: { ar: "حوّل النسبة المئوية إلى كسر بسيط قبل الضرب.", en: "Convert the percent to a simple fraction before multiplying." },
+  direct: { ar: "للتناسب الطردي: اضرب تبادلياً مباشرة.", en: "For direct proportion: cross-multiply directly." },
+  rates: { ar: "تذكّر: المسافة = السرعة × الزمن.", en: "Remember: distance = speed × time." },
+  word: { ar: "استخرج المعطيات أولاً ثم ترجمها إلى معادلة.", en: "Extract the given data first, then translate it into an equation." },
+  average: { ar: "للوسيط: رتّب الأرقام تصاعدياً قبل أي شيء.", en: "For the median: sort the numbers ascending first." },
+  probability: { ar: "الاحتمال = الحالات المرغوبة ÷ كل الحالات الممكنة.", en: "Probability = favorable outcomes ÷ total possible outcomes." },
+  tables: { ar: "اقرأ عناوين الصفوف والأعمدة قبل البحث عن القيمة.", en: "Read the row and column headers before looking up the value." },
+  charts: { ar: "اقرأ عنوان المخطط ووحدات المحاور أولاً.", en: "Read the chart title and the axis units first." },
+  "relation-function": { ar: "اسأل: الكلمة الأولى تُستخدم لـ ماذا؟", en: "Ask: what is the first word used for?" },
+  "relation-part-whole": { ar: "اسأل: هل الأولى جزء من الثانية أم العكس؟", en: "Ask: is the first a part of the second, or the other way around?" },
+  "relation-antonym": { ar: "ابحث عن المعنى المعاكس تماماً.", en: "Look for the exactly opposite meaning." },
+  "relation-synonym": { ar: "ابحث عن أقرب كلمة في المعنى.", en: "Look for the word closest in meaning." },
+  "missing-word": { ar: "اقرأ الجملة كاملة وحدد السياق العام قبل الاختيار.", en: "Read the whole sentence and identify the overall context before choosing." },
+  proverb: { ar: "تذكّر المثل الشهير ثم أكمل الكلمة الناقصة.", en: "Recall the well-known proverb, then fill in the missing word." },
+  sentence: { ar: "ابحث عن الكلمة التي تتسق مع نبرة الجملة بأكملها.", en: "Look for the word that matches the tone of the whole sentence." },
+  "main-idea": { ar: "ابحث عن الفكرة التي تتكرر في النص أو يلخّصها العنوان.", en: "Look for the idea that recurs in the text or that the title summarizes." },
+  inference: { ar: "استبعد الخيارات الصريحة في النص — المطلوب ما يُستنتج.", en: "Eliminate options stated explicitly in the text — the question asks what can be inferred." },
+  semantic: { ar: "جرّب وضع كل خيار في الجملة واسأل: أيّها يبقى منطقياً؟", en: "Try placing each option into the sentence and ask: which one still makes sense?" },
+  antonyms: { ar: "فكّر في المعنى المعاكس تماماً، ليس مجرد مختلف.", en: "Think of the exactly opposite meaning, not merely a different one." },
+  synonyms: { ar: "ابحث عن الكلمة الأقرب للمعنى نفسه.", en: "Look for the word closest to the same meaning." },
 };
-const topicHintFallback: Record<string, string> = {
-  algebra: "اكتب المعادلة بوضوح ثم اعزل المتغير خطوة خطوة.",
-  geometry: "ارسم الشكل بسرعة على الورق ثم طبّق الصيغة.",
-  ratios: "استخرج المعطيات وحوّل النسبة إلى كسر قبل الضرب.",
-  statistics: "حدّد نوع المقياس المطلوب (متوسط/وسيط/منوال) أولاً.",
-  analogy: "حدّد العلاقة بين الكلمتين الأوليين بدقة قبل البحث.",
-  completion: "اقرأ الجملة كاملة وحدّد الكلمة المفقودة سياقياً.",
-  comprehension: "ارجع للنص وابحث عن الجملة المرتبطة بالسؤال.",
-  contextual: "جرّب كل خيار في الجملة واختر الأنسب معنىً.",
-  vocabulary: "فكّر في معنى الكلمة الأصلي قبل النظر للخيارات.",
-};
-
-const branchMistakes: Record<string, string> = {
-  equations: "كثيرون ينسون عكس الإشارة عند نقل الحد للطرف الآخر.",
-  simplify: "خطأ شائع: اختصار حدود غير متشابهة.",
-  patterns: "لا تكتفِ بحدّين — تحقّق من ثلاثة على الأقل قبل الجزم بالنمط.",
-  substitution: "احذر تعويض رقم يُسقط حالات (مثل 0 أو 1).",
-  comparison: "خطأ شائع: المقارنة قبل توحيد الوحدات أو المقامات.",
-  triangles: "لا تطبّق فيثاغورس إلا إذا كان المثلث قائم الزاوية.",
-  circles: "احذر الخلط بين نصف القطر والقطر في الصيغ.",
-  areas: "تأكّد من صيغة الشكل — مساحة المثلث ½ القاعدة × الارتفاع لا حاصل ضربهما فقط.",
-  angles: "خطأ شائع: افتراض أن الزوايا المتجاورة متساوية.",
-  symmetry: "التشابه يتطلّب تساوي النسب لا تساوي الأضلاع.",
-  percent: "‎15% من 60 ≠ 60% من 15؟ بل متساويان — لكن احذر الخلط بين الزيادة والنسبة الجديدة.",
-  direct: "خطأ شائع: استخدام التناسب العكسي مكان الطردي.",
-  rates: "‎احذر خلط الوحدات (دقائق مع ساعات).",
-  word: "خطأ شائع: الحل دون قراءة المطلوب فعلاً في نهاية السؤال.",
-  average: "خطأ شائع: حساب الوسيط دون ترتيب الأرقام أولاً.",
-  probability: "احذر عدّ الحالات المرغوبة بدل الحالات الكلية.",
-  tables: "تأكّد أنك تقرأ من الصف والعمود الصحيحين.",
-  charts: "احذر إهمال وحدة القياس على المحور.",
-  "relation-function": "خطأ شائع: اختيار كلمة مرتبطة بالمعنى لكنها ليست وظيفة.",
-  "relation-part-whole": "احذر عكس اتجاه العلاقة (الجزء قبل الكل).",
-  "relation-antonym": "كلمة مختلفة ≠ كلمة معاكسة — ابحث عن العكس التام.",
-  "relation-synonym": "تشابه جزئي لا يكفي — اختر الأقرب معنىً.",
-  "missing-word": "خطأ شائع: اختيار كلمة صحيحة لغوياً لكن تخالف السياق.",
-  proverb: "احذر تغيير صيغة المثل — التزم بنصّه الشائع.",
-  sentence: "خطأ شائع: تجاهل أداة الربط في الجملة.",
-  "main-idea": "احذر اختيار تفصيل ثانوي بدلاً من الفكرة العامة.",
-  inference: "ما يُذكر صراحة ليس استنتاجاً — ابحث عمّا يُفهم ضمنياً.",
-  semantic: "خطأ شائع: الاعتماد على المعنى المعجمي وحده دون السياق.",
-  antonyms: "احذر اختيار كلمة من نفس الحقل الدلالي بدل العكس.",
-  synonyms: "كلمتان متقاربتان ≠ مترادفتان — اختر الأدق.",
-};
-const topicMistakeFallback: Record<string, string> = {
-  algebra: "قراءة سريعة للمعادلة تؤدي غالباً لخطأ في الإشارة.",
-  geometry: "نسيان وحدة القياس أو الخلط بين المساحة والمحيط.",
-  ratios: "خلط الزيادة المئوية بالنسبة الجديدة من السعر.",
-  statistics: "قراءة الجدول/المخطط دون الانتباه للوحدات.",
-  analogy: "تحديد العلاقة بين الكلمتين بشكل عام بدل الدقيق.",
-  completion: "اختيار كلمة صحيحة لغوياً لكنها تخالف سياق الجملة.",
-  comprehension: "الإجابة من المعرفة العامة بدل ما ورد في النص فعلاً.",
-  contextual: "إهمال الكلمات المحيطة عند تحديد المعنى المقصود.",
-  vocabulary: "الاعتماد على التشابه اللفظي بدل التحقق من المعنى.",
+const topicHintFallback: Record<string, Bilingual> = {
+  algebra: { ar: "اكتب المعادلة بوضوح ثم اعزل المتغير خطوة خطوة.", en: "Write the equation clearly, then isolate the variable step by step." },
+  geometry: { ar: "ارسم الشكل بسرعة على الورق ثم طبّق الصيغة.", en: "Sketch the figure quickly on paper, then apply the formula." },
+  ratios: { ar: "استخرج المعطيات وحوّل النسبة إلى كسر قبل الضرب.", en: "Extract the given data and convert the ratio to a fraction before multiplying." },
+  statistics: { ar: "حدّد نوع المقياس المطلوب (متوسط/وسيط/منوال) أولاً.", en: "Identify which measure is asked for (mean / median / mode) first." },
+  analogy: { ar: "حدّد العلاقة بين الكلمتين الأوليين بدقة قبل البحث.", en: "Pin down the relation between the first two words precisely before searching." },
+  completion: { ar: "اقرأ الجملة كاملة وحدّد الكلمة المفقودة سياقياً.", en: "Read the whole sentence and determine the missing word from context." },
+  comprehension: { ar: "ارجع للنص وابحث عن الجملة المرتبطة بالسؤال.", en: "Return to the text and find the sentence related to the question." },
+  contextual: { ar: "جرّب كل خيار في الجملة واختر الأنسب معنىً.", en: "Try each option in the sentence and pick the one that best fits in meaning." },
+  vocabulary: { ar: "فكّر في معنى الكلمة الأصلي قبل النظر للخيارات.", en: "Think about the word's original meaning before looking at the options." },
 };
 
-const branchReinforcement: Record<string, string> = {
-  equations: "ممتاز — استمر بعزل المتغير قبل الحساب في كل سؤال.",
-  simplify: "أحسنت — التبسيط أولاً يوفّر عليك وقتاً ثميناً.",
-  patterns: "ممتاز — تحديد نوع النمط مبكراً يفتح الحل.",
-  substitution: "أحسنت — التعويض اختصار قوي في الاختبار.",
-  comparison: "ممتاز — توحيد الطرفين قبل المقارنة عادة محترفة.",
-  triangles: "أحسنت — استخدام خصائص المثلث الصحيحة من المرة الأولى.",
-  circles: "ممتاز — حفظ صيغ الدائرة يوفّر ثوانٍ في كل سؤال.",
-  areas: "أحسنت — كتابة الصيغة قبل الحساب يقلّل الأخطاء.",
-  angles: "ممتاز — استخدامك خصائص الزوايا في محله.",
-  symmetry: "أحسنت — مقارنة النسب طريق التشابه الأسرع.",
-  percent: "ممتاز — تحويل النسبة لكسر يجعل الحساب فورياً.",
-  direct: "أحسنت — الضرب التبادلي وفّر عليك خطوات كثيرة.",
-  rates: "ممتاز — قانون السرعة × الزمن في يدك الآن.",
-  word: "أحسنت — استخراج المعطيات أولاً نصف الحل.",
-  average: "ممتاز — ترتيب الأرقام قبل الوسيط عادة قوية.",
-  probability: "أحسنت — صيغة الاحتمال واضحة عندك.",
-  tables: "ممتاز — قراءة العناوين أولاً منهج محترف.",
-  charts: "أحسنت — انتباهك للوحدات يصنع الفرق.",
-  "relation-function": "ممتاز — تمييز علاقة الوظيفة من المرة الأولى.",
-  "relation-part-whole": "أحسنت — تحديد اتجاه العلاقة دقيق.",
-  "relation-antonym": "ممتاز — التقاط العكس التام مهارة قوية.",
-  "relation-synonym": "أحسنت — اختيار الأقرب معنىً صحيح.",
-  "missing-word": "ممتاز — قراءة السياق قبل الاختيار آتت ثمارها.",
-  proverb: "أحسنت — الالتزام بنص المثل الشائع صحيح.",
-  sentence: "ممتاز — انتبهت لأدوات الربط في الجملة.",
-  "main-idea": "أحسنت — ميّزت الفكرة الرئيسية عن التفاصيل.",
-  inference: "ممتاز — الاستنتاج الضمني أصعب أنواع الفهم.",
-  semantic: "أحسنت — السياق هو المفتاح وقد التقطته.",
-  antonyms: "ممتاز — العكس التام ليس قريباً، وقد ميّزته.",
-  synonyms: "أحسنت — اختيار الأدق معنىً مهارة عالية.",
+const branchMistakes: Record<string, Bilingual> = {
+  equations: { ar: "كثيرون ينسون عكس الإشارة عند نقل الحد للطرف الآخر.", en: "Many forget to flip the sign when moving a term to the other side." },
+  simplify: { ar: "خطأ شائع: اختصار حدود غير متشابهة.", en: "Common mistake: combining unlike terms." },
+  patterns: { ar: "لا تكتفِ بحدّين — تحقّق من ثلاثة على الأقل قبل الجزم بالنمط.", en: "Don't stop at two terms — verify with at least three before deciding the pattern." },
+  substitution: { ar: "احذر تعويض رقم يُسقط حالات (مثل 0 أو 1).", en: "Be careful substituting a number that drops cases (such as 0 or 1)." },
+  comparison: { ar: "خطأ شائع: المقارنة قبل توحيد الوحدات أو المقامات.", en: "Common mistake: comparing before unifying units or denominators." },
+  triangles: { ar: "لا تطبّق فيثاغورس إلا إذا كان المثلث قائم الزاوية.", en: "Apply Pythagoras only when the triangle is right-angled." },
+  circles: { ar: "احذر الخلط بين نصف القطر والقطر في الصيغ.", en: "Watch out for mixing up the radius and the diameter in formulas." },
+  areas: { ar: "تأكّد من صيغة الشكل — مساحة المثلث ½ القاعدة × الارتفاع لا حاصل ضربهما فقط.", en: "Verify the shape's formula — triangle area is ½ × base × height, not just base × height." },
+  angles: { ar: "خطأ شائع: افتراض أن الزوايا المتجاورة متساوية.", en: "Common mistake: assuming adjacent angles are equal." },
+  symmetry: { ar: "التشابه يتطلّب تساوي النسب لا تساوي الأضلاع.", en: "Similarity requires equal ratios — not equal sides." },
+  percent: { ar: "‎15% من 60 ≠ 60% من 15؟ بل متساويان — لكن احذر الخلط بين الزيادة والنسبة الجديدة.", en: "15% of 60 = 60% of 15 — but watch out for mixing percent increase with the new percent of the price." },
+  direct: { ar: "خطأ شائع: استخدام التناسب العكسي مكان الطردي.", en: "Common mistake: using inverse proportion in place of direct proportion." },
+  rates: { ar: "‎احذر خلط الوحدات (دقائق مع ساعات).", en: "Watch out for mixing units (minutes with hours)." },
+  word: { ar: "خطأ شائع: الحل دون قراءة المطلوب فعلاً في نهاية السؤال.", en: "Common mistake: solving without reading what's actually asked at the end of the question." },
+  average: { ar: "خطأ شائع: حساب الوسيط دون ترتيب الأرقام أولاً.", en: "Common mistake: computing the median without sorting the numbers first." },
+  probability: { ar: "احذر عدّ الحالات المرغوبة بدل الحالات الكلية.", en: "Be careful: don't use favorable outcomes in place of total outcomes (or vice versa)." },
+  tables: { ar: "تأكّد أنك تقرأ من الصف والعمود الصحيحين.", en: "Make sure you're reading from the right row and column." },
+  charts: { ar: "احذر إهمال وحدة القياس على المحور.", en: "Watch out for ignoring the axis unit." },
+  "relation-function": { ar: "خطأ شائع: اختيار كلمة مرتبطة بالمعنى لكنها ليست وظيفة.", en: "Common mistake: picking a related word that isn't actually a function/use." },
+  "relation-part-whole": { ar: "احذر عكس اتجاه العلاقة (الجزء قبل الكل).", en: "Don't reverse the direction of the relation (part vs. whole)." },
+  "relation-antonym": { ar: "كلمة مختلفة ≠ كلمة معاكسة — ابحث عن العكس التام.", en: "A different word ≠ an opposite word — look for the exact opposite." },
+  "relation-synonym": { ar: "تشابه جزئي لا يكفي — اختر الأقرب معنىً.", en: "Partial similarity isn't enough — pick the closest in meaning." },
+  "missing-word": { ar: "خطأ شائع: اختيار كلمة صحيحة لغوياً لكن تخالف السياق.", en: "Common mistake: picking a grammatically correct word that breaks the context." },
+  proverb: { ar: "احذر تغيير صيغة المثل — التزم بنصّه الشائع.", en: "Don't alter the proverb's wording — stick to its well-known form." },
+  sentence: { ar: "خطأ شائع: تجاهل أداة الربط في الجملة.", en: "Common mistake: ignoring the connector in the sentence." },
+  "main-idea": { ar: "احذر اختيار تفصيل ثانوي بدلاً من الفكرة العامة.", en: "Don't pick a secondary detail instead of the main idea." },
+  inference: { ar: "ما يُذكر صراحة ليس استنتاجاً — ابحث عمّا يُفهم ضمنياً.", en: "Anything stated explicitly isn't an inference — look for what is implied." },
+  semantic: { ar: "خطأ شائع: الاعتماد على المعنى المعجمي وحده دون السياق.", en: "Common mistake: relying on the dictionary meaning alone without context." },
+  antonyms: { ar: "احذر اختيار كلمة من نفس الحقل الدلالي بدل العكس.", en: "Don't pick a word from the same semantic field instead of its opposite." },
+  synonyms: { ar: "كلمتان متقاربتان ≠ مترادفتان — اختر الأدق.", en: "Two close words ≠ synonyms — pick the most precise one." },
 };
-const topicReinforcementFallback: Record<string, string> = {
-  algebra: "ممتاز — تطبيق صحيح لقواعد الجبر الأساسية.",
-  geometry: "أحسنت — تطبيق سليم للصيغ الهندسية.",
-  ratios: "ممتاز — تعاملك مع النسب دقيق.",
-  statistics: "أحسنت — قراءتك للبيانات صحيحة.",
-  analogy: "ممتاز — تحديد العلاقة بين الكلمات دقيق.",
-  completion: "أحسنت — اختيارك يتسق مع سياق الجملة.",
-  comprehension: "ممتاز — فهم سليم للنص.",
-  contextual: "أحسنت — استخدامك للسياق في محله.",
-  vocabulary: "ممتاز — معرفتك بالمفردات قوية.",
+const topicMistakeFallback: Record<string, Bilingual> = {
+  algebra: { ar: "قراءة سريعة للمعادلة تؤدي غالباً لخطأ في الإشارة.", en: "Reading the equation too fast usually leads to a sign error." },
+  geometry: { ar: "نسيان وحدة القياس أو الخلط بين المساحة والمحيط.", en: "Forgetting the unit, or mixing up area and perimeter." },
+  ratios: { ar: "خلط الزيادة المئوية بالنسبة الجديدة من السعر.", en: "Mixing the percent increase with the new percent of the price." },
+  statistics: { ar: "قراءة الجدول/المخطط دون الانتباه للوحدات.", en: "Reading the table/chart without paying attention to units." },
+  analogy: { ar: "تحديد العلاقة بين الكلمتين بشكل عام بدل الدقيق.", en: "Defining the relation between the two words too broadly instead of precisely." },
+  completion: { ar: "اختيار كلمة صحيحة لغوياً لكنها تخالف سياق الجملة.", en: "Picking a grammatically correct word that breaks the sentence's context." },
+  comprehension: { ar: "الإجابة من المعرفة العامة بدل ما ورد في النص فعلاً.", en: "Answering from general knowledge instead of what the text actually says." },
+  contextual: { ar: "إهمال الكلمات المحيطة عند تحديد المعنى المقصود.", en: "Ignoring surrounding words when pinning down the intended meaning." },
+  vocabulary: { ar: "الاعتماد على التشابه اللفظي بدل التحقق من المعنى.", en: "Relying on spelling similarity instead of verifying the meaning." },
 };
 
-function deriveHint(q: TrainingQuestion): string {
+const branchReinforcement: Record<string, Bilingual> = {
+  equations: { ar: "ممتاز — استمر بعزل المتغير قبل الحساب في كل سؤال.", en: "Excellent — keep isolating the variable before computing on every question." },
+  simplify: { ar: "أحسنت — التبسيط أولاً يوفّر عليك وقتاً ثميناً.", en: "Well done — simplifying first saves you precious time." },
+  patterns: { ar: "ممتاز — تحديد نوع النمط مبكراً يفتح الحل.", en: "Excellent — identifying the pattern type early unlocks the solution." },
+  substitution: { ar: "أحسنت — التعويض اختصار قوي في الاختبار.", en: "Well done — substitution is a powerful shortcut on the exam." },
+  comparison: { ar: "ممتاز — توحيد الطرفين قبل المقارنة عادة محترفة.", en: "Excellent — unifying both sides before comparing is a pro habit." },
+  triangles: { ar: "أحسنت — استخدام خصائص المثلث الصحيحة من المرة الأولى.", en: "Well done — applying the right triangle properties on the first try." },
+  circles: { ar: "ممتاز — حفظ صيغ الدائرة يوفّر ثوانٍ في كل سؤال.", en: "Excellent — memorizing the circle formulas saves seconds on every question." },
+  areas: { ar: "أحسنت — كتابة الصيغة قبل الحساب يقلّل الأخطاء.", en: "Well done — writing the formula before computing reduces mistakes." },
+  angles: { ar: "ممتاز — استخدامك خصائص الزوايا في محله.", en: "Excellent — your use of angle properties is spot on." },
+  symmetry: { ar: "أحسنت — مقارنة النسب طريق التشابه الأسرع.", en: "Well done — comparing ratios is the fastest route to similarity." },
+  percent: { ar: "ممتاز — تحويل النسبة لكسر يجعل الحساب فورياً.", en: "Excellent — converting the percent to a fraction makes the math instant." },
+  direct: { ar: "أحسنت — الضرب التبادلي وفّر عليك خطوات كثيرة.", en: "Well done — cross-multiplying saved you many steps." },
+  rates: { ar: "ممتاز — قانون السرعة × الزمن في يدك الآن.", en: "Excellent — the speed × time formula is at your fingertips now." },
+  word: { ar: "أحسنت — استخراج المعطيات أولاً نصف الحل.", en: "Well done — extracting the given data first is half the solution." },
+  average: { ar: "ممتاز — ترتيب الأرقام قبل الوسيط عادة قوية.", en: "Excellent — sorting before taking the median is a strong habit." },
+  probability: { ar: "أحسنت — صيغة الاحتمال واضحة عندك.", en: "Well done — the probability formula is clear to you." },
+  tables: { ar: "ممتاز — قراءة العناوين أولاً منهج محترف.", en: "Excellent — reading the headers first is a pro approach." },
+  charts: { ar: "أحسنت — انتباهك للوحدات يصنع الفرق.", en: "Well done — your attention to units makes the difference." },
+  "relation-function": { ar: "ممتاز — تمييز علاقة الوظيفة من المرة الأولى.", en: "Excellent — spotting the function relation on the first try." },
+  "relation-part-whole": { ar: "أحسنت — تحديد اتجاه العلاقة دقيق.", en: "Well done — your direction of the relation is precise." },
+  "relation-antonym": { ar: "ممتاز — التقاط العكس التام مهارة قوية.", en: "Excellent — catching the exact opposite is a strong skill." },
+  "relation-synonym": { ar: "أحسنت — اختيار الأقرب معنىً صحيح.", en: "Well done — picking the closest in meaning is correct." },
+  "missing-word": { ar: "ممتاز — قراءة السياق قبل الاختيار آتت ثمارها.", en: "Excellent — reading the context before choosing paid off." },
+  proverb: { ar: "أحسنت — الالتزام بنص المثل الشائع صحيح.", en: "Well done — sticking to the proverb's common form is correct." },
+  sentence: { ar: "ممتاز — انتبهت لأدوات الربط في الجملة.", en: "Excellent — you paid attention to the connectors in the sentence." },
+  "main-idea": { ar: "أحسنت — ميّزت الفكرة الرئيسية عن التفاصيل.", en: "Well done — you distinguished the main idea from the details." },
+  inference: { ar: "ممتاز — الاستنتاج الضمني أصعب أنواع الفهم.", en: "Excellent — implicit inference is the hardest kind of comprehension." },
+  semantic: { ar: "أحسنت — السياق هو المفتاح وقد التقطته.", en: "Well done — context is the key, and you caught it." },
+  antonyms: { ar: "ممتاز — العكس التام ليس قريباً، وقد ميّزته.", en: "Excellent — the exact opposite isn't merely close, and you spotted it." },
+  synonyms: { ar: "أحسنت — اختيار الأدق معنىً مهارة عالية.", en: "Well done — picking the most precise meaning is a high-level skill." },
+};
+const topicReinforcementFallback: Record<string, Bilingual> = {
+  algebra: { ar: "ممتاز — تطبيق صحيح لقواعد الجبر الأساسية.", en: "Excellent — a correct application of the basic algebra rules." },
+  geometry: { ar: "أحسنت — تطبيق سليم للصيغ الهندسية.", en: "Well done — a sound application of the geometric formulas." },
+  ratios: { ar: "ممتاز — تعاملك مع النسب دقيق.", en: "Excellent — your handling of ratios is precise." },
+  statistics: { ar: "أحسنت — قراءتك للبيانات صحيحة.", en: "Well done — your reading of the data is correct." },
+  analogy: { ar: "ممتاز — تحديد العلاقة بين الكلمات دقيق.", en: "Excellent — your identification of the relation between the words is precise." },
+  completion: { ar: "أحسنت — اختيارك يتسق مع سياق الجملة.", en: "Well done — your choice fits the sentence's context." },
+  comprehension: { ar: "ممتاز — فهم سليم للنص.", en: "Excellent — a solid understanding of the text." },
+  contextual: { ar: "أحسنت — استخدامك للسياق في محله.", en: "Well done — your use of context is spot on." },
+  vocabulary: { ar: "ممتاز — معرفتك بالمفردات قوية.", en: "Excellent — your vocabulary knowledge is strong." },
+};
+
+const HINT_FINAL_FALLBACK: Bilingual = { ar: "اقرأ السؤال بتأنٍّ وحدّد المعطيات قبل التفكير في الحل.", en: "Read the question carefully and identify the given data before thinking about the solution." };
+const MISTAKE_FINAL_FALLBACK: Bilingual = { ar: "خطأ شائع: التسرّع قبل قراءة جميع الخيارات.", en: "Common mistake: rushing before reading all the options." };
+const REINFORCE_FINAL_FALLBACK: Bilingual = { ar: "أحسنت — استمر على هذا الأسلوب.", en: "Well done — keep up this approach." };
+
+function deriveHint(q: TrainingQuestion): Bilingual {
   const key = q.strategy_tag || q.subtype || q.branch;
-  return (key && branchHints[key]) || topicHintFallback[q.topic] || "اقرأ السؤال بتأنٍّ وحدّد المعطيات قبل التفكير في الحل.";
+  return (key && branchHints[key]) || topicHintFallback[q.topic] || HINT_FINAL_FALLBACK;
 }
-function deriveCommonMistake(q: TrainingQuestion): string {
+function deriveCommonMistake(q: TrainingQuestion): Bilingual {
   const key = q.strategy_tag || q.subtype || q.branch;
-  return (key && branchMistakes[key]) || topicMistakeFallback[q.topic] || "خطأ شائع: التسرّع قبل قراءة جميع الخيارات.";
+  return (key && branchMistakes[key]) || topicMistakeFallback[q.topic] || MISTAKE_FINAL_FALLBACK;
 }
-function deriveReinforcement(q: TrainingQuestion): string {
+function deriveReinforcement(q: TrainingQuestion): Bilingual {
   const key = q.strategy_tag || q.subtype || q.branch;
-  return (key && branchReinforcement[key]) || topicReinforcementFallback[q.topic] || "أحسنت — استمر على هذا الأسلوب.";
+  return (key && branchReinforcement[key]) || topicReinforcementFallback[q.topic] || REINFORCE_FINAL_FALLBACK;
 }
 
 function enrichQuestion(q: TrainingQuestion): TrainingQuestion {
@@ -1215,6 +1270,18 @@ function PracticeTestContent() {
   // single use-site instead of pulling them into a separate i18n file
   // for what is effectively two-locale, dozen-string surface.
   const tx = (ar: string, en: string) => (isArabicExam ? ar : en);
+  // Picks the right locale from a per-question analysis field. Accepts:
+  //   - undefined           → returns "" (caller can fall back to a default)
+  //   - plain string        → returned as-is (legacy / single-locale data)
+  //   - { ar, en? }         → picks the matching locale; falls back to `ar`
+  //                           when the requested locale (en) is missing.
+  // Why fallback to ar: source data files may carry only Arabic, and we
+  // never want a missing English translation to render as a blank panel.
+  const pickLocale = (value: Localized | undefined): string => {
+    if (!value) return "";
+    if (typeof value === "string") return value;
+    return isArabicExam ? value.ar : (value.en ?? value.ar);
+  };
   const optionLabels = isArabicExam ? OPTION_LABELS : OPTION_LABELS_EN;
 
   // ---------------------------------------------------------------------------
@@ -2135,7 +2202,7 @@ function PracticeTestContent() {
                     <span>💡</span> {tx('تلميح للتفكير', 'Thinking Hint')}
                   </div>
                   <p className="text-sm text-gray-800 dark:text-gray-100 leading-relaxed">
-                    {currentQ.hint}
+                    {pickLocale(currentQ.hint)}
                   </p>
                 </div>
               )}
@@ -2197,7 +2264,7 @@ function PracticeTestContent() {
             selectedAnswer === currentQ.correct ? (
               <div className="p-3 rounded-xl bg-green-50 dark:bg-green-900/30 border border-green-300 dark:border-green-700 mb-4">
                 <div className="flex items-center gap-2 text-green-800 dark:text-green-200 text-sm font-bold">
-                  <span>✅</span> {currentQ.reinforcement || tx("أحسنت — استمر على هذا الأسلوب.", "Well done — keep up this approach.")}
+                  <span>✅</span> {pickLocale(currentQ.reinforcement) || tx("أحسنت — استمر على هذا الأسلوب.", "Well done — keep up this approach.")}
                 </div>
               </div>
             ) : (
@@ -2206,7 +2273,7 @@ function PracticeTestContent() {
                   <span>❌</span> {tx("انتبه لهذا النمط من الخطأ", "Watch out for this error pattern")}
                 </div>
                 <p className="mt-1 text-sm text-red-700 dark:text-red-200 leading-relaxed">
-                  {currentQ.common_mistake}
+                  {pickLocale(currentQ.common_mistake)}
                 </p>
               </div>
             )
@@ -2219,7 +2286,7 @@ function PracticeTestContent() {
                   <span>🧠</span> {tx("فكرة السؤال", "Question Idea")}
                 </div>
                 <p className="text-sm text-gray-900 dark:text-white font-medium">
-                  {currentQ.idea || tx("هذا من الأنماط الشائعة في هذا القسم", "This is a common pattern in this section")}
+                  {pickLocale(currentQ.idea) || tx("هذا من الأنماط الشائعة في هذا القسم", "This is a common pattern in this section")}
                 </p>
               </div>
               <div>
@@ -2227,7 +2294,7 @@ function PracticeTestContent() {
                   <span>⚡</span> {tx("أسرع طريقة للحل", "Fastest Method")}
                 </div>
                 <p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed">
-                  {currentQ.fast_method || tx("اقرأ السؤال بتأنٍّ وحدّد المعطيات قبل الحل", "Read the question carefully and identify the given data before solving")}
+                  {pickLocale(currentQ.fast_method) || tx("اقرأ السؤال بتأنٍّ وحدّد المعطيات قبل الحل", "Read the question carefully and identify the given data before solving")}
                 </p>
               </div>
               <div>
@@ -2235,7 +2302,7 @@ function PracticeTestContent() {
                   <span>⚠️</span> {tx("سبب الخطأ الشائع", "Common Mistake")}
                 </div>
                 <p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed">
-                  {currentQ.common_mistake || tx("احذر التسرّع قبل قراءة جميع الخيارات.", "Don't rush before reading all options.")}
+                  {pickLocale(currentQ.common_mistake) || tx("احذر التسرّع قبل قراءة جميع الخيارات.", "Don't rush before reading all options.")}
                 </p>
               </div>
             </div>

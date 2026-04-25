@@ -9,6 +9,13 @@
  * 5. Non-repetition guarantees
  */
 
+// A field that may carry either a plain string (legacy / single-locale source
+// data) or a bilingual { ar, en? } object emitted by the in-app enrichment
+// pipeline. UI renders via `pickLocale(value, isArabicExam)` which returns
+// the matching locale and silently falls back to ar when en is missing.
+export type Bilingual = { ar: string; en?: string };
+export type Localized = string | Bilingual;
+
 export interface TrainingQuestion {
   id: string;
   originalId?: string; // If this is a variation
@@ -27,13 +34,13 @@ export interface TrainingQuestion {
   subtype?: string;       // finer-grained pattern within a branch (e.g. "linear-add", "circle-area")
   strategy_tag?: string;  // canonical tag identifying the solving strategy (used for diversity)
   is_common?: boolean;    // true if this is a frequently-seen exam pattern
-  idea?: string;          // short label: "تبسيط" / "معادلة" / "تحليل"
-  fast_method?: string;   // fastest method tied to the question
-  why_important?: string; // why this type appears in exams
+  idea?: Localized;          // short label: "تبسيط" / "معادلة" / "تحليل"
+  fast_method?: Localized;   // fastest method tied to the question
+  why_important?: Localized; // why this type appears in exams
   wording_style?: string; // surface form: "direct", "story", "applied", "instruction", "passage"
-  hint?: string;          // short thinking prompt — must NOT reveal the answer
-  common_mistake?: string;// the trap students typically fall into on this pattern
-  reinforcement?: string; // brief positive tip shown when the student answers correctly
+  hint?: Localized;          // short thinking prompt — must NOT reveal the answer
+  common_mistake?: Localized;// the trap students typically fall into on this pattern
+  reinforcement?: Localized; // brief positive tip shown when the student answers correctly
 }
 
 export interface QuestionPool {
