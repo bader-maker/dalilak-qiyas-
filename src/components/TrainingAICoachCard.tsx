@@ -13,6 +13,14 @@
 // - Output is intentionally trimmed to 3 short lines (strengths / weaknesses
 //   / one improvement tip) per the spec — the heavier `plan` / `performance`
 //   fields returned by the API are deliberately discarded for this surface.
+//
+// Bilingualized 2026-04-25: parent passes `isArabic` (true for Qudrat-AR /
+// Tahsili-AR, false for GAT-EN / SAAT-EN). All chrome — title, loading,
+// section labels, and fallback copy when the AI returns an empty field —
+// switches via a small tx(ar, en) helper. The dynamic AI-generated body
+// text from /api/ai-analysis is intentionally left untouched (per the
+// "do not change AI logic" constraint), so English exams will still show
+// Arabic AI prose unless/until the route itself is asked to emit English.
 
 import { useEffect, useRef, useState } from "react";
 import {
@@ -28,9 +36,17 @@ type Props = {
   // can render it unconditionally.
   input: AIAnalysisInput | null;
   isPremium: boolean;
+  // True for Arabic exams (Qudrat-AR / Tahsili-AR), false for English exams
+  // (GAT-EN / SAAT-EN). Defaults to true so legacy callers keep their
+  // existing Arabic-only behavior.
+  isArabic?: boolean;
 };
 
-export default function TrainingAICoachCard({ input, isPremium }: Props) {
+export default function TrainingAICoachCard({
+  input,
+  isPremium,
+  isArabic = true,
+}: Props) {
   const [state, setState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [analysis, setAnalysis] = useState<AIAnalysisResult | null>(null);
   const startedFor = useRef<string | null>(null);
@@ -74,19 +90,28 @@ export default function TrainingAICoachCard({ input, isPremium }: Props) {
   // non-premium — keeps the normal training flow visually unchanged.
   if (!input || !isPremium || state === "error") return null;
 
+  const tx = (ar: string, en: string) => (isArabic ? ar : en);
+
   // Match the existing question-card visual language exactly: same radius,
   // same surface, same border tokens. This is intentionally NOT a redesign.
   return (
     <div
-      dir="rtl"
+      dir={isArabic ? "rtl" : "ltr"}
       className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-200 dark:border-gray-700 mb-4"
     >
       <div className="flex items-center gap-2 mb-2">
         <span className="text-lg">🤖</span>
         <h3 className="font-bold text-gray-900 dark:text-white text-sm">
-          نصائح ذكية بناءً على أدائك حتى الآن
+          {tx(
+            "نصائح ذكية بناءً على أدائك حتى الآن",
+            "Smart tips based on your performance so far",
+          )}
         </h3>
-        <span className="text-[10px] font-bold text-[#006C35] dark:text-[#4ade80] bg-[#006C35]/10 dark:bg-[#006C35]/20 px-2 py-0.5 rounded-full mr-auto">
+        <span
+          className={`text-[10px] font-bold text-[#006C35] dark:text-[#4ade80] bg-[#006C35]/10 dark:bg-[#006C35]/20 px-2 py-0.5 rounded-full ${
+            isArabic ? "mr-auto" : "ml-auto"
+          }`}
+        >
           AI
         </span>
       </div>
@@ -94,25 +119,45 @@ export default function TrainingAICoachCard({ input, isPremium }: Props) {
       {state === "loading" && (
         <div className="flex items-center gap-2 py-2 text-gray-500 dark:text-gray-400 text-xs">
           <div className="w-3 h-3 border-2 border-[#006C35] border-t-transparent rounded-full animate-spin" />
-          جاري إعداد ملاحظات سريعة لك…
+          {tx(
+            "جاري إعداد ملاحظات سريعة لك…",
+            "Preparing quick feedback for you…",
+          )}
         </div>
       )}
 
       {state === "ready" && analysis && (
         <div className="space-y-1.5 text-sm leading-relaxed">
           <p className="text-gray-800 dark:text-gray-100">
-            <span className="font-bold text-[#006C35] dark:text-[#4ade80]">✅ نقاط القوة: </span>
-            {analysis.strengths || "أداؤك متماسك في عدة مواضيع — استمر."}
+            <span className="font-bold text-[#006C35] dark:text-[#4ade80]">
+              {tx("✅ نقاط القوة: ", "✅ Strengths: ")}
+            </span>
+            {analysis.strengths ||
+              tx(
+                "أداؤك متماسك في عدة مواضيع — استمر.",
+                "Your performance is solid across several topics — keep it up.",
+              )}
           </p>
           <p className="text-gray-800 dark:text-gray-100">
-            <span className="font-bold text-red-600 dark:text-red-400">⚠️ نقاط الضعف: </span>
-            {analysis.weaknesses || "بعض المواضيع تحتاج مراجعة قصيرة قبل المتابعة."}
+            <span className="font-bold text-red-600 dark:text-red-400">
+              {tx("⚠️ نقاط الضعف: ", "⚠️ Weaknesses: ")}
+            </span>
+            {analysis.weaknesses ||
+              tx(
+                "بعض المواضيع تحتاج مراجعة قصيرة قبل المتابعة.",
+                "A few topics need a short review before moving on.",
+              )}
           </p>
           <p className="text-gray-800 dark:text-gray-100">
-            <span className="font-bold text-[#D4AF37] dark:text-[#fbbf24]">💡 نصيحة للتحسن: </span>
+            <span className="font-bold text-[#D4AF37] dark:text-[#fbbf24]">
+              {tx("💡 نصيحة للتحسن: ", "💡 Tip to improve: ")}
+            </span>
             {analysis.fastestImprovement ||
               (analysis.plan && analysis.plan[0]) ||
-              "ركّز على الموضوع الأضعف بتمارين قصيرة موقوتة."}
+              tx(
+                "ركّز على الموضوع الأضعف بتمارين قصيرة موقوتة.",
+                "Focus on your weakest topic with short, timed practice sets.",
+              )}
           </p>
         </div>
       )}
