@@ -117,3 +117,16 @@ The Practice module (`/practice` picker + `/practice/test` engine) is considered
   - User prompt is fully translated for `lang === "en"` (labels, previous-exam block, JSON footer); JSON response schema is identical in both languages.
   - `hashKey` in `src/lib/aiAnalysis.ts` includes `lng: input.lang === "en" ? "en" : null` so undefined / "ar" callers keep matching legacy AR cache entries while English exams get a distinct cache slot — no AR/EN cross-contamination.
 - TestEngine (`src/components/TestEngine.tsx`) untouched throughout this stabilization. Same for the dashboard, training engine, and the `/api/ai-analysis` auth + payload-cap + monthly quota guards.
+
+## Dashboard chrome refactor (2026-04-25)
+
+Refactored `/dashboard` chrome only — no logic, state, routing, or API changes. All existing sections (welcome + view toggle, exam type tabs, sub-type tabs, progress card, leaderboard, performance analysis, free trial test, practice mode, test bank with comprehensive + topic grids, features, ProgressCharts conditional view, Subscribe Modal, AIAssistant) are rendered unchanged inside the new shell.
+
+- Background: `bg-[#F8FAF9]` (was `bg-gray-50`).
+- New right-pinned 260px sidebar (`hidden lg:flex` — desktop only): logo + brand, nav links to existing routes (`/dashboard` active, `/practice`, `/subscriptions`, `/profile`), bottom theme toggle (reuses `toggleTheme`).
+- New sticky white top header (`h-16`): page title "لوحة التحكم" / "Dashboard" (desktop) or compact mobile-only logo (< lg), mobile-only theme toggle (`lg:hidden` — preserves theme toggle access on small screens since the sidebar is hidden there), decorative notification bell (no behavior — visual chrome), avatar with the existing `showUserMenu` dropdown (Profile, Subscriptions, Sign Out — all preserved).
+- Main content centered to `max-w-[1100px]` with `lg:mr-[260px]` (RTL) / `lg:ml-[260px]` (LTR) offset.
+- The pre-refactor top-bar "اشترك الآن" / "Subscribe Now" button (which calls `goToTest`, not `openSubscribeModal` — pre-existing naming) was relocated into a new banner card at the top of main content; handler unchanged.
+- Sidebar position and main offset mirror via `isEnglish` so GAT/SAAT bilingualization is not regressed; chrome strings (`Home/الرئيسية`, `Practice/التدريب`, etc.) bilingualized.
+- Subscribe Modal and floating `AIAssistant` remain at the root level outside the main column wrapper.
+- Skipped per scope: AI Hero block, AI input field, fabricated points/streak stats, "Invite friends" card, "Community" button — these would have been empty placeholders.
