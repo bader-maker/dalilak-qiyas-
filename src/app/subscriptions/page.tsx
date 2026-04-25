@@ -199,10 +199,10 @@ export default function SubscriptionsPage() {
                 </div>
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-bold">199</span>
-                <span className="text-white/80">ريال / سنة</span>
+                <span className="text-4xl font-bold">49</span>
+                <span className="text-white/80">ريال / شهر</span>
               </div>
-              <p className="text-white/60 text-sm mt-1">أو 49 ريال / شهر</p>
+              <p className="text-white/60 text-sm mt-1">أو 199 ريال / سنة</p>
             </div>
 
             <div className="p-6">
@@ -272,10 +272,10 @@ export default function SubscriptionsPage() {
                 </div>
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-bold">199</span>
-                <span className="text-white/80">ريال / سنة</span>
+                <span className="text-4xl font-bold">49</span>
+                <span className="text-white/80">ريال / شهر</span>
               </div>
-              <p className="text-white/60 text-sm mt-1">أو 49 ريال / شهر</p>
+              <p className="text-white/60 text-sm mt-1">أو 199 ريال / سنة</p>
             </div>
 
             <div className="p-6">
