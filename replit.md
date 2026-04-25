@@ -99,3 +99,21 @@ A small additive card on the post-exam result screen surfaces the top mover in e
 - All UI strings are Arabic; layout is RTL by default. Use `dir="rtl"` and `unicodeBidi: "isolate"` when mixing numerals/Latin text inside Arabic strings.
 - Brand colors are referenced as Tailwind arbitrary values (`text-[#006C35]`, `bg-[#D4AF37]/10`, etc.).
 - Per-question signal state (`answers`, `times`, `hints`) MUST be kept index-parallel through every mutation — including the in-session `practiceSimilar` insertion and both session-build branches. The session-end profile-save effect relies on this.
+
+## Practice module — STABLE (frozen 2026-04-25)
+
+The Practice module (`/practice` picker + `/practice/test` engine) is considered stable and feature-frozen as of this date. No new features or debug toggles to be added without an explicit thaw. Bug fixes only.
+
+- Category-specific picker for Qudrat / GAT / Tahsili / SAAT (`src/app/practice/page.tsx`) — `?focus=<value>` pre-selects the right tab via `focusToSection` (Qudrat) and `findGroupForFocus` (GAT/SAAT/Tahsili).
+- Correct return-to-source navigation via `?focus=` (and the optional `?returnFocus=` override) — `backToTrainingHref` in `src/app/practice/test/page.tsx` is the single source of truth used by every back / "Back to Training" button. `Try Again` reloads the URL so focus is preserved.
+- Bilingual UI and analysis throughout the in-test surface:
+  - Qudrat / Tahsili → Arabic, RTL
+  - GAT / SAAT → English, LTR
+  - Bilingualized: 6 smart-analysis fields (`idea`, `fast_method`, `why_important`, `hint`, `common_mistake`, `reinforcement`) on `Bilingual = { ar; en? }` typed dictionaries, the `TestPatternIndicator` "Your test pattern" banner (label + explanation per pattern), and the `TrainingAICoachCard` chrome (title, loading, section labels, fallbacks).
+  - Locale flag everywhere: `isArabicExam = focus === null || focus.endsWith("_ar")` is passed down as `isArabic` to both client-side cards.
+- AI coach (`/api/ai-analysis`) supports lang-aware prompts and cache separation:
+  - Request body now accepts `lang?: "ar" | "en"`.
+  - 4 system-prompt variants: `SYSTEM_PROMPT_TRAINING` / `SYSTEM_PROMPT_TRAINING_EN` / `SYSTEM_PROMPT_FULL_EXAM` / `SYSTEM_PROMPT_FULL_EXAM_EN` selected by `pickSystemPrompt({examType, lang})`.
+  - User prompt is fully translated for `lang === "en"` (labels, previous-exam block, JSON footer); JSON response schema is identical in both languages.
+  - `hashKey` in `src/lib/aiAnalysis.ts` includes `lng: input.lang === "en" ? "en" : null` so undefined / "ar" callers keep matching legacy AR cache entries while English exams get a distinct cache slot — no AR/EN cross-contamination.
+- TestEngine (`src/components/TestEngine.tsx`) untouched throughout this stabilization. Same for the dashboard, training engine, and the `/api/ai-analysis` auth + payload-cap + monthly quota guards.
