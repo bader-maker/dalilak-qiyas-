@@ -1,0 +1,156 @@
+Refactor the main dashboard UI to match a clean Arabic RTL dashboard layout.
+
+IMPORTANT:
+- DO NOT remove or modify any existing logic or features
+- DO NOT change data, state, routing, or API calls
+- ONLY change layout, alignment, spacing, and visual structure
+
+--------------------------------
+GOAL
+--------------------------------
+
+Transform the current page (which is crowded and stacked) into a structured dashboard like modern SaaS UI, with clear sections and proper spacing.
+
+Arabic mode ONLY for now.
+
+--------------------------------
+RTL REQUIREMENTS
+--------------------------------
+
+1. Set full page direction:
+   <html dir="rtl" lang="ar">
+
+2. All layout must follow RTL:
+   - Text aligned right
+   - Icons and spacing flipped correctly
+   - Flex/grid reversed where needed
+
+--------------------------------
+SIDEBAR (RIGHT SIDE)
+--------------------------------
+
+- Move sidebar to the RIGHT side of the screen
+- Fixed width: ~260px
+- Full height (100vh)
+- Background: white
+- Border-left (not right)
+
+Structure:
+- Logo at top
+- Navigation items stacked
+- Active item highlighted (green)
+- Bottom section:
+  - Invite friends card
+  - Community button
+
+--------------------------------
+TOP HEADER
+--------------------------------
+
+Add a top header bar:
+
+Right side:
+- Page title (Arabic)
+
+Left side:
+- Notification icon
+- User avatar
+
+Height: ~64px
+Background: white
+Border-bottom
+
+--------------------------------
+MAIN CONTENT CONTAINER
+--------------------------------
+
+- Center content
+- max-width: 1100px
+- margin: auto
+- padding: 24px
+- Keep space from sidebar
+
+--------------------------------
+SECTIONS (VERY IMPORTANT)
+--------------------------------
+
+Split page into clear sections:
+
+1. Banner section
+   (upgrade / info message)
+
+2. Tabs section
+   (الرئيسية / التقارير / التقدم / الخطة)
+
+3. Exam card section
+   (اختبار القدرات + التاريخ + الهدف)
+
+4. AI Hero section
+   (مرحبا انا دليلك الذكي)
+
+5. Input section
+   (ask / buttons)
+
+6. Progress section
+   (progress bar)
+
+7. Stats cards section
+   (points / streak / hours / tests)
+
+--------------------------------
+CARD DESIGN
+--------------------------------
+
+Each section must be inside a card:
+
+- background: white
+- border-radius: 16px
+- padding: 20px
+- margin-bottom: 20px
+- subtle shadow
+
+--------------------------------
+SPACING RULES
+--------------------------------
+
+- Between sections: 24px
+- Inside cards: 16–24px
+- Use consistent spacing everywhere
+
+--------------------------------
+COLORS (IMPORTANT)
+--------------------------------
+
+Use platform identity:
+
+Primary:
+#006C35 (Saudi green)
+
+Background:
+#F8FAF9
+
+Card:
+#FFFFFF
+
+Text:
+#1F2937
+
+--------------------------------
+DO NOT TOUCH
+--------------------------------
+
+- TestEngine
+- Training logic
+- API calls
+- AI logic
+- Routing
+- Data fetching
+
+--------------------------------
+OUTPUT
+--------------------------------
+
+1. Updated layout structure
+2. Sidebar moved to right
+3. Sections created
+4. No feature removed or broken
