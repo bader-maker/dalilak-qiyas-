@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTheme } from "@/contexts/ThemeContext";
 import AIAssistant from "@/components/AIAssistant";
 import type { ExamCategory, ExamSection } from "@/data/exam-config";
-import { examCategories, getSectionConfig } from "@/data/exam-config";
+import { examCategories } from "@/data/exam-config";
 import {
   getQuestions,
   getAllQuestionsForCategory,
@@ -82,12 +82,39 @@ function writeUsedQuestionIds(category: ExamCategory, ids: Set<string>): void {
   }
 }
 
+// =============================================================================
+// Standard test sizing — single source of truth for question count and timer
+// duration of the four standard exam pages (Qudrat / GAT / Tahsili / SAAT).
+//
+// These constants are the IMPLICIT defaults used when a caller doesn't pass
+// `questionLimit` / `timeLimit` props. They override the per-exam values that
+// previously came from `examCategories[...].totalQuestions` / `totalTimeMinutes`
+// and `getSectionConfig(...)`, which were inconsistent across categories
+// (Qudrat-AR sections were 60/60, GAT-EN sections 25/22, etc.).
+//
+// Caller-supplied props still win — `/test-saat` and `/test-tahsili` are
+// trial pages that explicitly pass `questionLimit={40}` + `timeLimit={60}`,
+// and that behavior is preserved. Practice / training does not use TestEngine
+// at all (it uses /practice/test/page.tsx) and is unaffected.
+// =============================================================================
+const COMPREHENSIVE_QUESTION_COUNT = 120;
+const COMPREHENSIVE_TIME_MINUTES = 120;
+const SECTION_QUESTION_COUNT = 25;
+const SECTION_TIME_MINUTES = 25;
+
 interface TestEngineProps {
   examCategory: ExamCategory;
   testMode: "comprehensive" | "section";
   selectedSection?: ExamSection;
+  /**
+   * Optional override for the implicit standard count
+   * (`COMPREHENSIVE_QUESTION_COUNT` / `SECTION_QUESTION_COUNT`). Used by
+   * trial pages that need a custom shorter test; standard test pages
+   * leave this unset to inherit the centralized defaults.
+   */
   questionLimit?: number;
-  timeLimit?: number; // in minutes
+  /** Optional override for the implicit standard timer (in minutes). */
+  timeLimit?: number;
   isTrialTest?: boolean;
 }
 
@@ -105,25 +132,34 @@ export default function TestEngine({
   const examConfig = examCategories[examCategory];
   const isArabic = examConfig.language === "ar";
 
-  // Calculate test parameters based on mode
+  // Calculate test parameters based on mode.
+  //
+  // Defaults are now centralized via the SECTION_* / COMPREHENSIVE_* constants
+  // above so every exam type behaves identically:
+  //   - section mode      → 25 questions / 25 minutes
+  //   - comprehensive mode → 120 questions / 120 minutes
+  // Caller-supplied `questionLimit` / `timeLimit` props still override (used
+  // by the trial pages /test-saat and /test-tahsili). The per-exam values
+  // from `examCategories[...]` and `getSectionConfig(...)` are no longer
+  // consulted here — the previous fallback chain was the source of the
+  // category-by-category inconsistency this fix removes.
   const getTestParameters = useCallback(() => {
     if (testMode === "section" && selectedSection) {
-      const sectionConfig = getSectionConfig(examCategory, selectedSection);
       return {
         questions: getQuestions(examCategory, selectedSection),
-        timeMinutes: timeLimit || sectionConfig?.timeMinutes || 30,
-        questionCount: questionLimit || sectionConfig?.questionCount || 25,
+        timeMinutes: timeLimit ?? SECTION_TIME_MINUTES,
+        questionCount: questionLimit ?? SECTION_QUESTION_COUNT,
       };
     } else {
       // Comprehensive test - get all questions from all sections
       const allQuestions = getAllQuestionsForCategory(examCategory);
       return {
         questions: allQuestions,
-        timeMinutes: timeLimit || examConfig.totalTimeMinutes,
-        questionCount: questionLimit || examConfig.totalQuestions,
+        timeMinutes: timeLimit ?? COMPREHENSIVE_TIME_MINUTES,
+        questionCount: questionLimit ?? COMPREHENSIVE_QUESTION_COUNT,
       };
     }
-  }, [examCategory, testMode, selectedSection, timeLimit, questionLimit, examConfig]);
+  }, [examCategory, testMode, selectedSection, timeLimit, questionLimit]);
 
   const [testParams, setTestParams] = useState<{
     questions: Question[];
