@@ -1,0 +1,76 @@
+Before making any changes, inspect the dashboard → practice flow and the practice page.
+
+IMPORTANT:
+- Do NOT redesign UI
+- Do NOT change colors, layout, spacing, typography, cards, or buttons
+- Do NOT modify AI, full exam results, subscription, or TestEngine
+- Only fix the practice navigation/context problem
+
+PROBLEM:
+When the user opens practice from sections other than Qudrat, the practice page still shows the Arabic Qudrat training UI (كمي / لفظي). This is wrong.
+
+EXPECTED BEHAVIOR:
+Practice must respect the selected exam category:
+
+1. Qudrat Arabic:
+- show existing Qudrat Arabic practice page exactly as today
+- quantitative_ar → كمي
+- verbal_ar → لفظي
+
+2. GAT:
+- must not show Arabic Qudrat labels
+- should route/use:
+  quantitative_en
+  verbal_en
+
+3. Tahsili Arabic:
+- must not show Qudrat كمي/لفظي
+- should route/use:
+  math_ar
+  physics_ar
+  chemistry_ar
+  biology_ar
+
+4. SAAT:
+- must not show Arabic Qudrat labels
+- should route/use:
+  math_en
+  physics_en
+  chemistry_en
+  biology_en
+
+TASK:
+1. Locate where the dashboard sends users to /practice.
+2. Determine how the selected exam category is stored:
+   - examType
+   - quduratType
+   - tahsiliType
+   - tahsiliTab
+   - or any equivalent state
+
+3. Update practice navigation so that:
+- Qudrat Arabic routes to /practice?focus=quantitative_ar or /practice?focus=verbal_ar
+- GAT routes to /practice?focus=quantitative_en or /practice?focus=verbal_en
+- Tahsili routes to /practice?focus=math_ar / physics_ar / chemistry_ar / biology_ar depending on selected subject
+- SAAT routes to /practice?focus=math_en / physics_en / chemistry_en / biology_en depending on selected subject
+
+4. If the practice page does not support a full category landing page for GAT/Tahsili/SAAT:
+- do NOT show the Arabic Qudrat topic-picker
+- redirect directly to /practice/test?focus=<focus>&count=10&difficulty=all
+using the existing deep-link behavior.
+
+5. Preserve existing Qudrat Arabic behavior exactly.
+
+6. Do NOT:
+- create new UI
+- redesign practice page
+- modify question banks
+- modify TestEngine
+- modify results pages
+
+DELIVERABLES:
+1. what caused GAT/Tahsili/SAAT to show Qudrat Arabic practice
+2. which files were modified
+3. how each exam category now routes to practice
+4. confirm Qudrat Arabic still works exactly as before
+5. confirm no UI/design changes

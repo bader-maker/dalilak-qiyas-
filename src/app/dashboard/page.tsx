@@ -181,6 +181,53 @@ export default function Dashboard() {
     setShowSubscribeModal(true);
   };
 
+  // Build the "Start Practice" href so it reflects the currently
+  // selected exam category and section. Without this, /practice always
+  // received zero focus and defaulted to the Qudrat-AR topic picker —
+  // showing كمي/لفظي labels even for GAT / Tahsili / SAAT users.
+  //
+  // The /practice page already knows what to do with each focus value:
+  //   - quantitative_ar / verbal_ar → render the existing Qudrat-AR
+  //     topic picker (default tab = matching section). No focus param
+  //     stays on Qudrat-AR comprehensive (preserves today's behavior).
+  //   - quantitative_en / verbal_en (GAT)
+  //   - math_ar / physics_ar / chemistry_ar / biology_ar (Tahsili-AR)
+  //   - math_en / physics_en / chemistry_en / biology_en (SAAT)
+  //     For all of these the page auto-redirects to
+  //     /practice/test?focus=<focus>&count=10&difficulty=all because the
+  //     Qudrat topic grid has no matching topics. No new UI is needed.
+  //
+  // Comprehensive tabs map to a sensible default (quantitative for GAT,
+  // math for Tahsili/SAAT) so the user lands in a real session instead
+  // of an empty / mismatched picker.
+  const practiceHref = (() => {
+    if (examType === "qudurat") {
+      if (quduratType === "general") {
+        // Qudrat-AR: keep today's behavior. activeTab "comprehensive"
+        // → bare /practice (full topic picker, exactly as today).
+        // activeTab quantitative/verbal → focus the matching section
+        // (the picker already supports both via focusToSection).
+        if (activeTab === "quantitative") return "/practice?focus=quantitative_ar";
+        if (activeTab === "verbal") return "/practice?focus=verbal_ar";
+        return "/practice";
+      }
+      // GAT (English) — never the Arabic Qudrat picker.
+      if (activeTab === "verbal") return "/practice?focus=verbal_en";
+      return "/practice?focus=quantitative_en";
+    }
+    // Tahsili family
+    const subjectMap: Record<typeof tahsiliTab, string> = {
+      comprehensive: "math",
+      math: "math",
+      physics: "physics",
+      chemistry: "chemistry",
+      biology: "biology",
+    };
+    const subject = subjectMap[tahsiliTab];
+    const suffix = tahsiliType === "tahsili" ? "ar" : "en"; // tahsili-AR vs SAAT-EN
+    return `/practice?focus=${subject}_${suffix}`;
+  })();
+
   // دالة للذهاب مباشرة للاختبار (مجاني مؤقتاً)
   const goToTest = () => {
     if (examType === "qudurat") {
@@ -806,7 +853,7 @@ export default function Dashboard() {
               <span className="text-sm">{isEnglish ? "Track Progress" : "تتبع التقدم"}</span>
             </div>
             <Link
-              href="/practice"
+              href={practiceHref}
               className="bg-[#006C35] text-white font-bold py-2 px-6 rounded-lg hover:bg-[#004d26] transition-colors mr-auto"
             >
               {isEnglish ? "Start Practice" : "ابدأ التدريب"}
