@@ -7,11 +7,11 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { isKnownTopicSlug } from "@/lib/topicMap";
 
 // `focusToSection` maps a `focus` query-param value to the practice
-// page's tab state. Only Qudrat-AR values map here — they are the only
-// sections this page's topic grid actually has content for. Every other
-// supported focus value (GAT-EN, Tahsili-AR, SAAT-EN) is handled by a
-// direct redirect to /practice/test (see EXAM_BANK_FOCUS_VALUES below)
-// because the topic grid has no matching topics for those banks.
+// page's tab state for the Qudrat-AR topic grid. Only Qudrat-AR values
+// map here — they are the only sections this page's topic grid actually
+// has content for. Other supported focus values (GAT-EN, Tahsili-AR,
+// SAAT-EN) are handled by the non-Qudrat picker (see `NON_QUDRAT_GROUPS`
+// below) and never reach this mapper for the topic grid.
 function focusToSection(focus: string | null): "quantitative" | "verbal" | null {
   if (!focus) return null;
   const f = focus.toLowerCase();
@@ -20,25 +20,80 @@ function focusToSection(focus: string | null): "quantitative" | "verbal" | null 
   return null;
 }
 
-// Focus values that drive a session straight from one of the four
-// exam banks (handled inside /practice/test). For these we skip the
-// Qudrat topic-selection UI on /practice — the user came in with a
-// specific weakest section and just wants questions from that bank.
-const EXAM_BANK_FOCUS_VALUES = new Set<string>([
-  // GAT (English)
-  "quantitative_en",
-  "verbal_en",
-  // Tahsili (Arabic)
-  "math_ar",
-  "physics_ar",
-  "chemistry_ar",
-  "biology_ar",
-  // SAAT (English)
-  "math_en",
-  "physics_en",
-  "chemistry_en",
-  "biology_en",
-]);
+// =============================================================================
+// Non-Qudrat practice picker
+// =============================================================================
+// The original `practiceCategories` topic grid below is hardcoded with
+// Qudrat-AR Arabic topics (Algebra, Geometry, Analogies, etc.) and has no
+// content for GAT / Tahsili / SAAT. Previously, those categories were silently
+// auto-redirected to /practice/test, which started a training session
+// immediately — bypassing any "options" step.
+//
+// To give every category an explicit selection step (matching Qudrat's flow),
+// non-Qudrat focus values now render a minimal subject/section picker (subject
+// tabs + question count + difficulty + Start button) instead of redirecting.
+// `NON_QUDRAT_GROUPS` is the source of truth for which focus values trigger
+// this branch and what subjects each group offers. Adding a new exam-bank
+// subject = add a row here.
+//
+// Qudrat-AR continues to use the topic-grid flow further down — this branch
+// is only entered when the URL `focus` matches one of the values listed below.
+// =============================================================================
+type NonQudratSubject = {
+  focus: string;
+  name: string;   // Arabic label
+  nameEn: string; // English label
+  icon: string;
+};
+type NonQudratGroup = {
+  id: "gat" | "tahsili" | "saat";
+  title: string;
+  titleEn: string;
+  language: "ar" | "en";
+  subjects: NonQudratSubject[];
+};
+const NON_QUDRAT_GROUPS: NonQudratGroup[] = [
+  {
+    id: "gat",
+    title: "القدرات بالإنجليزية",
+    titleEn: "GAT",
+    language: "en",
+    subjects: [
+      { focus: "quantitative_en", name: "الكمي",   nameEn: "Quantitative", icon: "🔢" },
+      { focus: "verbal_en",       name: "اللفظي",  nameEn: "Verbal",       icon: "📝" },
+    ],
+  },
+  {
+    id: "tahsili",
+    title: "التحصيلي",
+    titleEn: "Tahsili",
+    language: "ar",
+    subjects: [
+      { focus: "math_ar",      name: "الرياضيات", nameEn: "Math",      icon: "🔢" },
+      { focus: "physics_ar",   name: "الفيزياء",   nameEn: "Physics",   icon: "⚛️" },
+      { focus: "chemistry_ar", name: "الكيمياء",   nameEn: "Chemistry", icon: "🧪" },
+      { focus: "biology_ar",   name: "الأحياء",    nameEn: "Biology",   icon: "🧬" },
+    ],
+  },
+  {
+    id: "saat",
+    title: "التحصيلي بالإنجليزية",
+    titleEn: "SAAT",
+    language: "en",
+    subjects: [
+      { focus: "math_en",      name: "الرياضيات", nameEn: "Math",      icon: "🔢" },
+      { focus: "physics_en",   name: "الفيزياء",   nameEn: "Physics",   icon: "⚛️" },
+      { focus: "chemistry_en", name: "الكيمياء",   nameEn: "Chemistry", icon: "🧪" },
+      { focus: "biology_en",   name: "الأحياء",    nameEn: "Biology",   icon: "🧬" },
+    ],
+  },
+];
+
+function findGroupForFocus(focus: string | null): NonQudratGroup | null {
+  if (!focus) return null;
+  const f = focus.toLowerCase();
+  return NON_QUDRAT_GROUPS.find((g) => g.subjects.some((s) => s.focus === f)) ?? null;
+}
 
 // Practice categories with question counts
 const practiceCategories = {
@@ -286,20 +341,26 @@ function PracticePageInner() {
   const [questionCount, setQuestionCount] = useState(10);
   const [showSettings, setShowSettings] = useState(false);
 
-  // For exam-bank focus values (GAT-EN, Tahsili-AR, SAAT-EN), the
-  // topic grid below has no matching topics, so we skip it entirely
-  // and deep-link straight into a training session that pulls from
-  // the appropriate exam bank. Guarded by a ref so the redirect runs
-  // exactly once and never on later renders.
-  //
-  // Qudrat-AR focus values (`quantitative_ar`, `verbal_ar`):
-  //   - WITHOUT `?topics=`: NOT redirected — keep the original tab +
-  //     topic-picker flow (preserves the manual practice entry path).
-  //   - WITH `?topics=` (sent from a result page that identified
-  //     specific weak topics): redirected to /practice/test so the
-  //     personalization actually takes effect. Without this, the
-  //     topics= would be silently dropped at the topic picker and
-  //     personalization would never reach training.
+  // Non-Qudrat picker state — populated only when the URL `focus` matches one
+  // of the GAT / Tahsili / SAAT focus values. When non-null, the early-return
+  // picker further down renders instead of the Qudrat topic grid, and clicking
+  // its Start button (not the auto-redirect below) is what navigates to
+  // /practice/test. Initial focus comes from the URL so the dashboard's per-
+  // category Start Practice link lands on the correct subject tab.
+  const initialNonQudratGroup = findGroupForFocus(searchParams.get("focus"));
+  const [nonQudratFocus, setNonQudratFocus] = useState<string | null>(
+    () =>
+      initialNonQudratGroup
+        ? (searchParams.get("focus") ?? "").toLowerCase()
+        : null,
+  );
+
+  // Auto-redirect retained ONLY for Qudrat-AR with a `?topics=` deep-link
+  // (sent from a result page that identified specific weak topics — without
+  // this, the topics= would be silently dropped at the topic picker and
+  // personalization would never reach training). All other cases — including
+  // GAT / Tahsili / SAAT focus values — render their picker and require an
+  // explicit Start click before navigating to /practice/test.
   const redirectedToExamBank = useRef(false);
   useEffect(() => {
     if (redirectedToExamBank.current) return;
@@ -322,16 +383,14 @@ function PracticePageInner() {
           .filter(isKnownTopicSlug)
       : [];
 
-    const isExamBank = EXAM_BANK_FOCUS_VALUES.has(normalized);
-    // For Qudrat-AR we only divert to /practice/test when the URL
-    // actually carries an actionable, known topic hint. Without one
-    // there's nothing to personalize, so the original topic-picker
-    // flow runs unchanged.
+    // Only Qudrat-AR with a non-empty, validated topics hint diverts to
+    // /practice/test. GAT / Tahsili / SAAT now render the non-Qudrat picker
+    // (early return below) and never auto-start a session.
     const isQudratARWithTopics =
       (normalized === "quantitative_ar" || normalized === "verbal_ar") &&
       knownTopics.length > 0;
 
-    if (!isExamBank && !isQudratARWithTopics) return;
+    if (!isQudratARWithTopics) return;
 
     redirectedToExamBank.current = true;
     const params = new URLSearchParams({
@@ -375,6 +434,179 @@ function PracticePageInner() {
 
     router.push(`/practice/test?${params.toString()}`);
   };
+
+  // ---------------------------------------------------------------------------
+  // Non-Qudrat picker (GAT / Tahsili / SAAT) — early return.
+  //
+  // Renders a minimal subject-tabs + count + difficulty + Start button page
+  // so non-Qudrat categories get the same "explicit selection step" Qudrat
+  // has, instead of auto-starting a test. The Qudrat-AR topic-grid flow
+  // below is preserved untouched and entered only when `initialNonQudratGroup`
+  // is null (i.e. the URL has no focus, or focus is `quantitative_ar` /
+  // `verbal_ar`).
+  // ---------------------------------------------------------------------------
+  if (initialNonQudratGroup) {
+    const group = initialNonQudratGroup;
+    const isAr = group.language === "ar";
+    const dir = isAr ? "rtl" : "ltr";
+    const currentSubject =
+      group.subjects.find((s) => s.focus === nonQudratFocus) ?? group.subjects[0];
+
+    const handleStartNonQudrat = () => {
+      const params = new URLSearchParams({
+        focus: currentSubject.focus,
+        count: questionCount.toString(),
+        difficulty: selectedDifficulty,
+      });
+      router.push(`/practice/test?${params.toString()}`);
+    };
+
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300" dir={dir}>
+        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50 transition-colors duration-300">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16">
+              <div className="flex items-center gap-4">
+                <Link href="/dashboard" className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-gray-600 dark:text-gray-300">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </Link>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">🎯</span>
+                  <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                    {isAr ? `وضع التدريب — ${group.title}` : `Practice Mode — ${group.titleEn}`}
+                  </h1>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={toggleTheme}
+                  className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  {theme === "light" ? (
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Subject tabs */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-2 mb-6 shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="flex gap-2 flex-wrap">
+              {group.subjects.map((s) => {
+                const active = s.focus === currentSubject.focus;
+                return (
+                  <button
+                    key={s.focus}
+                    onClick={() => setNonQudratFocus(s.focus)}
+                    className={`flex-1 min-w-[120px] py-3 px-4 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
+                      active
+                        ? "bg-[#006C35] text-white shadow-md"
+                        : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    <span className="text-xl">{s.icon}</span>
+                    <span>{isAr ? s.name : s.nameEn}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Settings panel */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 mb-6 shadow-sm border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <span className="text-xl">⚙️</span>
+              {isAr ? "إعدادات التدريب" : "Practice Settings"}
+            </h3>
+
+            {/* Question count */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                {isAr ? "عدد الأسئلة" : "Number of Questions"}
+              </label>
+              <div className="flex gap-3 flex-wrap">
+                {[5, 10, 15, 20, 25, 30].map((count) => (
+                  <button
+                    key={count}
+                    onClick={() => setQuestionCount(count)}
+                    className={`px-5 py-2.5 rounded-xl font-medium transition-all ${
+                      questionCount === count
+                        ? "bg-[#006C35] text-white"
+                        : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                    }`}
+                  >
+                    {count}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Difficulty */}
+            <div className="mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                {isAr ? "مستوى الصعوبة" : "Difficulty Level"}
+              </label>
+              <div className="flex gap-3 flex-wrap">
+                <button
+                  onClick={() => setSelectedDifficulty("all")}
+                  className={`px-5 py-2.5 rounded-xl font-medium transition-all ${
+                    selectedDifficulty === "all"
+                      ? "bg-gray-800 dark:bg-white text-white dark:text-gray-900"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                  }`}
+                >
+                  {isAr ? "الكل" : "All"}
+                </button>
+                {difficultyLevels.map((level) => (
+                  <button
+                    key={level.id}
+                    onClick={() => setSelectedDifficulty(level.id)}
+                    className={`px-5 py-2.5 rounded-xl font-medium transition-all ${
+                      selectedDifficulty === level.id
+                        ? level.color === "green"
+                          ? "bg-green-500 text-white"
+                          : level.color === "yellow"
+                          ? "bg-yellow-500 text-white"
+                          : "bg-red-500 text-white"
+                        : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                    }`}
+                  >
+                    {isAr ? level.name : level.nameEn}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Start button */}
+          <div className="flex justify-center">
+            <button
+              onClick={handleStartNonQudrat}
+              className="px-12 py-4 rounded-xl font-bold text-lg transition-all flex items-center gap-3 bg-[#006C35] hover:bg-[#004d26] text-white shadow-lg hover:shadow-xl"
+            >
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {isAr ? "ابدأ التدريب" : "Start Practice"}
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300" dir="rtl">
