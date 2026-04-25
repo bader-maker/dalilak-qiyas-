@@ -1287,16 +1287,37 @@ function PracticeTestContent() {
   // ---------------------------------------------------------------------------
   // Back-to-Training destination
   // ---------------------------------------------------------------------------
-  // Previously hard-coded to `/practice` (the Qudrat picker), so finishing
-  // any non-Qudrat session dumped the user back into the wrong category.
+  // ===== Canonical "back to training" destination =====
+  // Every back/return surface inside this page (header chevron, results-screen
+  // Back-to-Training button, etc.) MUST route through this single helper —
+  // never hard-code "/practice", because that always lands on the Qudrat
+  // picker regardless of which exam the user came from.
+  //
+  // Resolution order (highest priority first):
+  //   1. `?returnFocus=<value>` — explicit override sent by a caller that
+  //      wants the back button to land somewhere other than the session's
+  //      own focus (rare; defensive support for cross-exam navigations).
+  //      Validated against KNOWN_FOCUS_VALUES so a malformed value doesn't
+  //      poison the URL.
+  //   2. `focus` — the session's own focus value (the common case;
+  //      preserved across re-renders because we read it from searchParams).
+  //   3. `null` → "/practice" — only for legacy Qudrat-AR sessions launched
+  //      without any focus param. The picker correctly defaults to Qudrat
+  //      in that case, so the user lands where they started.
+  //
   // Forwarding `?focus=<focus>` lands them on the same picker the dashboard
   // sent them to (the non-Qudrat picker pre-selects the matching subject
   // tab; the Qudrat picker pre-selects the matching section tab via
   // `focusToSection`). Auto-redirect on the practice page only fires for
   // Qudrat-AR + a `?topics=` deep-link, so this URL never re-launches a
   // session — it always lands on the picker.
-  const backToTrainingHref = focus
-    ? `/practice?focus=${encodeURIComponent(focus)}`
+  const rawReturnFocus = searchParams.get("returnFocus");
+  const returnFocus = rawReturnFocus && KNOWN_FOCUS_VALUES.has(rawReturnFocus.toLowerCase())
+    ? rawReturnFocus.toLowerCase()
+    : null;
+  const backFocus = returnFocus ?? focus;
+  const backToTrainingHref = backFocus
+    ? `/practice?focus=${encodeURIComponent(backFocus)}`
     : "/practice";
 
   // `topics` carries an optional comma-separated list of sub-topic slugs
