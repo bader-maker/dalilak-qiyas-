@@ -55,10 +55,22 @@ export default function TrainingAICoachCard({
     if (!isPremium) return;
     if (!input) return;
 
+    // Merge the locale into the request so the AI route knows which language
+    // to write in (and so the cache key separates AR / EN responses). The
+    // parent's `coachInput` snapshot is intentionally not mutated — `lang`
+    // is purely a per-request concern that belongs to the card's locale,
+    // not to the captured session data.
+    const requestInput = {
+      ...input,
+      lang: (isArabic ? "ar" : "en") as "ar" | "en",
+    };
+
     // Stable per-input dedup so a re-render with the same snapshot never
     // re-calls the API. The helper itself also caches in localStorage by
     // hash — this ref is the in-process belt to the storage suspenders.
-    const key = hashKey(input);
+    // hashKey now also incorporates `lang` (back-compat for AR), so a
+    // language flip would correctly produce a different key and re-fetch.
+    const key = hashKey(requestInput);
     if (startedFor.current === key) return;
     startedFor.current = key;
 
@@ -66,7 +78,7 @@ export default function TrainingAICoachCard({
     setState("loading");
     setAnalysis(null);
 
-    generateAIAnalysis(input)
+    generateAIAnalysis(requestInput)
       .then((res) => {
         if (cancelled) return;
         if (res) {
@@ -84,7 +96,7 @@ export default function TrainingAICoachCard({
     return () => {
       cancelled = true;
     };
-  }, [isPremium, input]);
+  }, [isPremium, input, isArabic]);
 
   // Per spec: render nothing while still gathering data, on failure, or for
   // non-premium — keeps the normal training flow visually unchanged.

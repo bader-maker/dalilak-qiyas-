@@ -40,6 +40,11 @@ type AnalysisInput = {
   previousCategoryPerformance?: Array<{ name: string; percentage: number }>;
   mostImprovedTopic?: { name: string; delta: number };
   mostDeclinedTopic?: { name: string; delta: number };
+  // Output language for the model. Default "ar" preserves all legacy behavior
+  // for callers (and cached entries) that predate this field. English exams
+  // (GAT / SAAT) pass "en" so the model writes the report in English; the
+  // returned JSON shape is identical in both languages so the UI never branches.
+  lang?: "ar" | "en";
 };
 
 // Default coaching prompt — kept verbatim from the previous version so
@@ -82,6 +87,47 @@ const SYSTEM_PROMPT_FULL_EXAM =
   "the number of questions, and when to retest. Examples in user message.\n" +
   "- Keep the writing concise and dense — no filler, no praise without basis.";
 
+// English variants — used when lang="en" (GAT / SAAT). Same intent and rules
+// as the Arabic prompts, just authored in English so the model produces
+// English output. JSON schema returned to the client is identical.
+const SYSTEM_PROMPT_TRAINING_EN =
+  "You are an expert Saudi standardized-exam coach (Qiyas family: GAT, SAAT, " +
+  "Tahsili, Qudrat). " +
+  "Your job is to deeply analyze the student's performance and give a realistic, " +
+  "personalized, and insightful report.\n\n" +
+  "RULES:\n" +
+  "- Write ONLY in English. Do not include any Arabic words or phrases.\n" +
+  "- Be specific and concrete (mention actual topics like algebra, ratios, " +
+  "vocabulary, reading comprehension)\n" +
+  "- Do NOT repeat obvious numbers\n" +
+  "- Focus on patterns and reasoning mistakes\n" +
+  "- Explain WHY the student is making mistakes\n" +
+  "- Give practical advice that can be applied immediately\n" +
+  "- Keep it concise but impactful\n\n" +
+  "STYLE:\n" +
+  "- Speak like a smart coach, not a textbook\n" +
+  "- Avoid generic phrases";
+
+const SYSTEM_PROMPT_FULL_EXAM_EN =
+  "You are an expert Saudi standardized-exam coach reviewing a FULL mock exam " +
+  "(not a short training session). The student spent ~1 hour and deserves a " +
+  "deeper report than a normal training analysis.\n\n" +
+  "MANDATORY DEPTH RULES:\n" +
+  "- Write ONLY in English, LTR, exam-coach tone — NEVER textbook tone. " +
+  "Do not include any Arabic words.\n" +
+  "- Each section must add NEW information. Do not repeat the same idea.\n" +
+  "- Mention actual topic names (algebra, ratios, vocabulary, verbal analogies, " +
+  "reading comprehension, mechanics, kinematics, etc.).\n" +
+  "- If previous exam data is supplied, EXPLICITLY compare progress " +
+  "(improved? declined? plateaued?) and name the responsible topics.\n" +
+  "- Diagnose PATTERNS not just stats: time pressure, careless errors in " +
+  "easy topics, conceptual gaps in specific subtypes, slow-section drag, etc.\n" +
+  "- Give a REALISTIC improvement path — short-term (this week) and " +
+  "medium-term (2-3 weeks) — not vague encouragement.\n" +
+  "- The plan items MUST be concrete and measurable: include the topic, " +
+  "the number of questions, and when to retest. Examples in user message.\n" +
+  "- Keep the writing concise and dense — no filler, no praise without basis.";
+
 function buildPreviousExamBlock(d: AnalysisInput): string {
   if (typeof d.previousScore !== "number") return "";
   const lines: string[] = [
@@ -114,7 +160,7 @@ function buildPreviousExamBlock(d: AnalysisInput): string {
   return lines.join("\n");
 }
 
-function buildUserPrompt(d: AnalysisInput) {
+function buildUserPromptAr(d: AnalysisInput) {
   const isFullExam = d.examType === "full";
   const previousBlock = isFullExam ? buildPreviousExamBlock(d) : "";
   const planExamples = isFullExam
@@ -162,6 +208,104 @@ JSON schema:
   "fastestImprovement": "string",
   "plan": ["string", "string", "string"]
 }`;
+}
+
+// English variant of buildUserPrompt — translates the labels & footer so the
+// model has no Arabic priming, while keeping the same data shape, the same
+// previous-exam block (translated), and the same JSON schema.
+function buildPreviousExamBlockEn(d: AnalysisInput): string {
+  if (typeof d.previousScore !== "number") return "";
+  const lines: string[] = [
+    "",
+    "PREVIOUS FULL EXAM (for progress comparison):",
+    `- Previous score: ${d.previousScore}%`,
+    `- Current delta: ${d.score - d.previousScore > 0 ? "+" : ""}${
+      d.score - d.previousScore
+    }%`,
+  ];
+  if (d.mostImprovedTopic) {
+    lines.push(
+      `- Most improved topic: ${d.mostImprovedTopic.name} (+${d.mostImprovedTopic.delta}%)`,
+    );
+  }
+  if (d.mostDeclinedTopic) {
+    lines.push(
+      `- Most declined topic: ${d.mostDeclinedTopic.name} (${d.mostDeclinedTopic.delta}%)`,
+    );
+  }
+  if (
+    Array.isArray(d.previousCategoryPerformance) &&
+    d.previousCategoryPerformance.length > 0
+  ) {
+    lines.push("- Previous performance by topic:");
+    for (const c of d.previousCategoryPerformance.slice(0, 12)) {
+      lines.push(`  • ${c.name}: ${c.percentage}%`);
+    }
+  }
+  return lines.join("\n");
+}
+
+function buildUserPromptEn(d: AnalysisInput) {
+  const isFullExam = d.examType === "full";
+  const previousBlock = isFullExam ? buildPreviousExamBlockEn(d) : "";
+  const planExamples = isFullExam
+    ? `\nPLAN ITEMS MUST FOLLOW THIS SHAPE (concrete, measurable, with retest timing):
+- "Solve 15 ratio questions over two days, then quiz yourself with 5 fast ones"
+- "Review verbal vocabulary for 20 minutes daily for 5 days"
+- "Retake a full mock exam in one week to measure improvement"`
+    : "";
+
+  return `DATA:
+- Session type: ${isFullExam ? "full exam" : "short training"}
+- Overall score: ${d.score}%
+- Current level: ${d.level}
+- Strengths (mastered topics): ${d.strongTopics.join(", ") || "none"}
+- Weaknesses (struggling topics): ${d.weakTopics.join(", ") || "none"}
+- Slow topics (consume more time): ${d.slowTopics.join(", ") || "none"}
+- Common mistake patterns: ${d.commonMistakes.join(", ") || "none"}
+- Average time per question: ${d.avgTimePerQuestion ?? "n/a"} seconds
+- Performance by topic:
+${d.categoryPerformance
+  .map(
+    (c) =>
+      `  • ${c.name}${c.section ? ` (${c.section})` : ""}: ${c.percentage}%${
+        c.correct != null && c.total != null ? ` — ${c.correct}/${c.total}` : ""
+      }`
+  )
+  .join("\n")}${previousBlock}${planExamples}
+
+Respond with JSON ONLY, following this format:
+- Performance analysis (performance)
+- Strengths (strengths)
+- Weaknesses (weaknesses)
+- Reasons for mistakes (mistakeReasons)
+- Fastest way to improve (fastestImprovement)
+- Suggested plan (plan: array of 3-5 specific steps${
+    isFullExam ? ", each step including the topic, number of questions, and retest timing" : ""
+  })
+
+JSON schema:
+{
+  "performance": "string",
+  "strengths": "string",
+  "weaknesses": "string",
+  "mistakeReasons": "string",
+  "fastestImprovement": "string",
+  "plan": ["string", "string", "string"]
+}`;
+}
+
+function buildUserPrompt(d: AnalysisInput) {
+  return d.lang === "en" ? buildUserPromptEn(d) : buildUserPromptAr(d);
+}
+
+function pickSystemPrompt(d: AnalysisInput): string {
+  const isFullExam = d.examType === "full";
+  const isEnglish = d.lang === "en";
+  if (isFullExam) {
+    return isEnglish ? SYSTEM_PROMPT_FULL_EXAM_EN : SYSTEM_PROMPT_FULL_EXAM;
+  }
+  return isEnglish ? SYSTEM_PROMPT_TRAINING_EN : SYSTEM_PROMPT_TRAINING;
 }
 
 export async function POST(req: NextRequest) {
@@ -238,13 +382,7 @@ export async function POST(req: NextRequest) {
       completion = await openai.chat.completions.create({
         model: "gpt-5.2",
         messages: [
-          {
-            role: "system",
-            content:
-              data.examType === "full"
-                ? SYSTEM_PROMPT_FULL_EXAM
-                : SYSTEM_PROMPT_TRAINING,
-          },
+          { role: "system", content: pickSystemPrompt(data) },
           { role: "user", content: buildUserPrompt(data) },
         ],
         response_format: { type: "json_object" },

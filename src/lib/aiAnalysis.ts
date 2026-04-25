@@ -31,6 +31,11 @@ export type AIAnalysisInput = {
   }>;
   mostImprovedTopic?: { name: string; delta: number };
   mostDeclinedTopic?: { name: string; delta: number };
+  // Output language for the AI report. Default (undefined) and "ar" both
+  // mean Arabic — see hashKey for the back-compat treatment that keeps
+  // legacy AR cache entries valid. "en" is used for GAT / SAAT and gets a
+  // distinct cache so Arabic responses cannot leak into English exams.
+  lang?: "ar" | "en";
 };
 
 export type AIAnalysisResult = {
@@ -83,6 +88,12 @@ export function hashKey(input: AIAnalysisInput): string {
     md: input.mostDeclinedTopic
       ? `${input.mostDeclinedTopic.name}:${input.mostDeclinedTopic.delta}`
       : null,
+    // Lang is back-compat-encoded: undefined and "ar" both hash to null so
+    // legacy AR cache entries (created before this field existed) keep
+    // matching. Only "en" produces a distinct hash, guaranteeing English
+    // responses get their own cache and Arabic responses never leak into
+    // English exams.
+    lng: input.lang === "en" ? "en" : null,
   });
   let h = 5381;
   for (let i = 0; i < normalized.length; i++) {
