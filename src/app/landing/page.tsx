@@ -144,33 +144,39 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background text-foreground" dir="rtl">
       {/* ============ NAVBAR ============ */}
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-[#006C35]/10">
+      {/* Visibility fix: navbar previously used bg-white/80 with dark text,
+          which clashed against the dark hero / brand-green page sections.
+          Switched to a Saudi-green (#006C35) backdrop with white text/links
+          and a gold (#D4AF37) "ابدأ مجاناً" CTA so it stays clearly visible
+          on top of any background and matches the brand. Logo, nav links,
+          login link, and CTA all updated; layout/spacing unchanged. */}
+      <header className="sticky top-0 z-50 bg-[#006C35]/95 backdrop-blur-xl border-b border-white/10">
         <div className="container mx-auto flex items-center justify-between py-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#006C35] rounded-xl flex items-center justify-center shadow-md">
+            <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center shadow-md">
               <GraduationCap className="w-6 h-6 text-white" />
             </div>
             <div className="flex flex-col leading-tight">
-              <span className="font-bold text-[#006C35]">دليلك إلى قياس</span>
-              <span className="text-xs text-muted-foreground">منصة التحضير الأولى</span>
+              <span className="font-bold text-white">دليلك إلى قياس</span>
+              <span className="text-xs text-white/70">منصة التحضير الأولى</span>
             </div>
           </div>
 
-          <nav className="hidden lg:flex items-center gap-8 text-sm font-medium text-foreground/80">
-            <a href="#categories" className="hover:text-[#006C35] transition-colors">الأقسام</a>
-            <a href="#how" className="hover:text-[#006C35] transition-colors">كيف تعمل</a>
-            <a href="#tools" className="hover:text-[#006C35] transition-colors">الأدوات</a>
-            <a href="#pricing" className="hover:text-[#006C35] transition-colors">الأسعار</a>
-            <a href="#faq" className="hover:text-[#006C35] transition-colors">الأسئلة الشائعة</a>
+          <nav className="hidden lg:flex items-center gap-8 text-sm font-medium text-white/90">
+            <a href="#categories" className="hover:text-[#D4AF37] transition-colors">الأقسام</a>
+            <a href="#how" className="hover:text-[#D4AF37] transition-colors">كيف تعمل</a>
+            <a href="#tools" className="hover:text-[#D4AF37] transition-colors">الأدوات</a>
+            <a href="#pricing" className="hover:text-[#D4AF37] transition-colors">الأسعار</a>
+            <a href="#faq" className="hover:text-[#D4AF37] transition-colors">الأسئلة الشائعة</a>
           </nav>
 
           <div className="flex items-center gap-3">
-            <Link href="/login" className="hidden sm:inline text-sm font-medium text-foreground/80 hover:text-[#006C35] transition-colors">
+            <Link href="/login" className="hidden sm:inline text-sm font-medium text-white hover:text-[#D4AF37] transition-colors">
               تسجيل الدخول
             </Link>
             <Link
               href="/login?next=/test"
-              className="px-5 py-2.5 bg-[#006C35] text-white text-sm font-bold rounded-xl hover:bg-[#004d26] transition-colors flex items-center gap-2 shadow-md"
+              className="px-5 py-2.5 bg-[#D4AF37] text-[#006C35] text-sm font-bold rounded-xl hover:bg-[#E8C547] transition-colors flex items-center gap-2 shadow-md"
             >
               <Sparkles className="w-4 h-4" />
               ابدأ مجاناً
@@ -230,17 +236,24 @@ export default function LandingPage() {
           </div>
 
           {/* Hero feature cards */}
+          {/* Visibility fix: cards previously used bg-white with default
+              foreground text, which became invisible against the dark/green
+              hero treatment. Switched to a dark green (#1a3d2b) background
+              with white text and a subtle white border so they read clearly
+              on dark surfaces. Icon containers kept as-is per spec
+              (already green tinted). Layout, spacing, and animations
+              unchanged. */}
           <div className="grid sm:grid-cols-2 gap-4">
             {featureCards.map((f, i) => (
               <div
                 key={f.title}
-                className={`bg-white rounded-2xl shadow-lg p-6 card-hover border border-[#006C35]/5 animate-scale-in animate-delay-${(i + 1) * 100}`}
+                className={`bg-[#1a3d2b] rounded-2xl shadow-lg p-6 card-hover border border-white/10 animate-scale-in animate-delay-${(i + 1) * 100}`}
               >
                 <div className="w-12 h-12 bg-[#006C35]/10 rounded-xl flex items-center justify-center mb-4">
                   <f.icon className="w-6 h-6 text-[#006C35]" />
                 </div>
-                <h3 className="font-bold text-lg mb-2">{f.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{f.desc}</p>
+                <h3 className="font-bold text-lg mb-2 text-white">{f.title}</h3>
+                <p className="text-sm text-white/70 leading-relaxed">{f.desc}</p>
               </div>
             ))}
           </div>
