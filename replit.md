@@ -343,3 +343,30 @@ New post-login funnel for free-trial users from the marketing site, plus a backw
 ### Validation
 - `bunx tsc --noEmit -p .` clean (no output).
 - Architect review: PASS. Verified the `/login?redirect=/diagnostic` round-trip works end-to-end for both email and Google OAuth; backward compat preserved; no open-redirect introduced; no protected-content flash.
+
+## Duplicate auth page removed (2026-05-01, late-2)
+
+User reported "two login pages showing." Root cause: `src/app/page.tsx` (the `/` route) had been a separate signup-only surface (Google button + collapsible "التسجيل بالبريد الإلكتروني" form using `signUp` + `signInWithGoogle`), which looked like a second login page next to the real one at `/login`. Removed.
+
+**Audit:** `src/app/auth/` only contains `callback/route.ts` (OAuth callback, untouched). `src/app/login/page.tsx` is the canonical login surface with the green stats sidebar, full email/password form, Google button, "نسيت كلمة المرور؟" and "إنشاء حساب جديد" — kept verbatim.
+
+### Changes
+- **`src/app/page.tsx`** — replaced the entire signup-form component with a 5-line server-side redirect to `/landing`:
+  ```tsx
+  import { redirect } from "next/navigation";
+  export default function Home() { redirect("/landing"); }
+  ```
+- **`src/app/login/page.tsx`** — single-link update: the "إنشاء حساب جديد" link previously pointed to `/` (the deleted signup form). Now points to `/landing`, where the marketing CTAs ("ابدأ مجاناً") funnel back through `/login?redirect=/diagnostic` via the existing redirect-param plumbing.
+
+### What was NOT touched
+- `signIn`, `signInWithGoogle`, `safeNext`, `redirect ?? next` param handling on `/login`
+- `AuthContext` / Supabase integration
+- `/auth/callback/route.ts`
+- `/diagnostic` page or any test/practice/API code
+- The kept login page's design, sidebar, fields, or any other link
+- All other `<Link href="/">` references in the app (DashboardView logo, forgot-password back, reset-password back, admin back) — these now resolve to `/landing` via the redirect, which is semantically the correct "home" destination
+
+### Validation
+- `bunx tsc --noEmit -p .` clean
+- Visual: `/` now renders the landing page; `/login?redirect=/diagnostic` still renders the kept login page with the redirect param preserved
+- Architect review: PASS

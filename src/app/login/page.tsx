@@ -219,7 +219,7 @@ function LoginForm() {
           {/* Sign Up Link */}
           <p className="text-center mt-8 text-gray-600">
             ليس لديك حساب؟{" "}
-            <Link href="/" className="text-[#006C35] font-medium hover:underline">
+            <Link href="/landing" className="text-[#006C35] font-medium hover:underline">
               إنشاء حساب جديد
             </Link>
           </p>
