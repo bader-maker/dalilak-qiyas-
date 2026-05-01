@@ -35,18 +35,29 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [animationKey, setAnimationKey] = useState(0);
 
-  // /qudrat-only sidebar: تدريب is a collapsible group whose children are كمي
-  // and لفظي. Open by default when the user is currently on one of those
-  // practice deep-links so the active sub-item is visible without a click.
-  // (Other sidebar items / /tahsili / legacy /dashboard are unaffected — only
-  //  the Qudrat training group reads this state.)
+  // Sidebar collapsible "تدريب" / "التدريب" group — used by both /qudrat
+  // (children: كمي، لفظي) and /tahsili (children: رياضيات، فيزياء، كيمياء،
+  // أحياء). Only one of those sidebars renders at a time (driven by
+  // lockedExamType) so a single shared open-state is safe. The dropdown is
+  // open by default when the user is currently on a /practice deep link that
+  // matches any of the recognized focus values, so the active sub-item is
+  // visible without an extra click.
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const practiceFocus = searchParams?.get("focus") ?? null;
-  const isOnQudratPracticeChild =
+  const PRACTICE_CHILD_FOCUSES = [
+    "quantitative_ar",
+    "verbal_ar",
+    "math_ar",
+    "physics_ar",
+    "chemistry_ar",
+    "biology_ar",
+  ] as const;
+  const isOnPracticeChild =
     pathname === "/practice" &&
-    (practiceFocus === "quantitative_ar" || practiceFocus === "verbal_ar");
-  const [practiceOpen, setPracticeOpen] = useState<boolean>(isOnQudratPracticeChild);
+    practiceFocus !== null &&
+    (PRACTICE_CHILD_FOCUSES as readonly string[]).includes(practiceFocus);
+  const [practiceOpen, setPracticeOpen] = useState<boolean>(isOnPracticeChild);
 
   useEffect(() => {
     setAnimationKey(prev => prev + 1);
@@ -470,10 +481,25 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
                 ]
               : lockedExamType === "tahsili"
               ? [
-                  { href: "#overview",                          labelAr: "الرئيسية",       labelEn: "Home",       icon: "home" as const },
-                  { href: "#progress",                          labelAr: "التقدم",         labelEn: "Progress",   icon: "chart" as const },
-                  { href: "/practice?focus=math_ar",            labelAr: "التدريب",        labelEn: "Training",   icon: "book" as const },
-                  { href: "#test-bank",                         labelAr: "بنك الاختبارات", labelEn: "Test Bank",  icon: "stack" as const },
+                  { href: "#overview", labelAr: "الرئيسية", labelEn: "Home",     icon: "home" as const },
+                  { href: "#progress", labelAr: "التقدم",   labelEn: "Progress", icon: "chart" as const },
+                  {
+                    // التدريب itself navigates to /practice?focus=math_ar
+                    // (Tahsili default) — the chevron is a separate toggle
+                    // that opens the 4-subject submenu beneath it. Same
+                    // dropdown pattern already used for /qudrat تدريب.
+                    href: "/practice?focus=math_ar",
+                    labelAr: "التدريب",
+                    labelEn: "Training",
+                    icon: "book" as const,
+                    children: [
+                      { href: "/practice?focus=math_ar",      labelAr: "رياضيات", labelEn: "Math",      icon: "calc" as const },
+                      { href: "/practice?focus=physics_ar",   labelAr: "فيزياء",  labelEn: "Physics",   icon: "atom" as const },
+                      { href: "/practice?focus=chemistry_ar", labelAr: "كيمياء",  labelEn: "Chemistry", icon: "flask" as const },
+                      { href: "/practice?focus=biology_ar",   labelAr: "أحياء",   labelEn: "Biology",   icon: "leaf" as const },
+                    ],
+                  },
+                  { href: "#test-bank", labelAr: "بنك الاختبارات", labelEn: "Test Bank", icon: "stack" as const },
                 ]
               : [
                   // Legacy /dashboard fallback — preserves the original cross-
@@ -490,7 +516,7 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
               // children) — TypeScript narrows `item.icon` based on the
               // top-level array entries, but children may use a wider set
               // (e.g. "calc"/"pen" only appear under the تدريب group).
-              type IconKey = "home" | "chart" | "calc" | "pen" | "book" | "stack" | "brain" | "cap" | "user";
+              type IconKey = "home" | "chart" | "calc" | "pen" | "book" | "stack" | "brain" | "cap" | "user" | "atom" | "flask" | "leaf";
               const renderIcon = (key: IconKey) => (
                 <span className="w-5 h-5 flex items-center justify-center flex-shrink-0" aria-hidden="true">
                   {key === "home" && (
@@ -516,12 +542,25 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
                   {key === "user" && (
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                   )}
+                  {/* Subject icons used by the /tahsili تدريب submenu —
+                      atom (physics), flask (chemistry), leaf (biology). */}
+                  {key === "atom" && (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="2" strokeWidth={2} /><ellipse cx="12" cy="12" rx="10" ry="4" strokeWidth={2} /><ellipse cx="12" cy="12" rx="10" ry="4" strokeWidth={2} transform="rotate(60 12 12)" /><ellipse cx="12" cy="12" rx="10" ry="4" strokeWidth={2} transform="rotate(120 12 12)" /></svg>
+                  )}
+                  {key === "flask" && (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3h6M10 3v6L4.5 18a2 2 0 001.73 3h11.54a2 2 0 001.73-3L14 9V3M8 14h8" /></svg>
+                  )}
+                  {key === "leaf" && (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 21c0-9 6-15 15-15 0 9-6 15-15 15zm0 0L15 11" /></svg>
+                  )}
                 </span>
               );
 
-              // Collapsible group (currently only تدريب on /qudrat). Renders a
-              // toggle button + an indented list of sub-item Links. The chevron
-              // rotates 180° when open. Sub-items keep the original
+              // Collapsible group — used by تدريب on /qudrat (children: كمي،
+              // لفظي) and التدريب on /tahsili (children: رياضيات، فيزياء،
+              // كيمياء، أحياء). Renders a Link (parent navigates to its own
+              // href) + a separate chevron toggle button + an indented list
+              // of sub-item Links. Sub-items keep the original
               // /practice?focus=... hrefs — no routing logic changed.
               if ("children" in item && item.children) {
                 // Map each child's href to the focus value it represents so we
@@ -560,7 +599,7 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
                         type="button"
                         onClick={() => setPracticeOpen((v) => !v)}
                         aria-expanded={practiceOpen}
-                        aria-controls="qudrat-practice-submenu"
+                        aria-controls="practice-submenu"
                         aria-label={isEnglish ? "Toggle practice submenu" : "إظهار/إخفاء قائمة التدريب"}
                         className="px-3 flex items-center justify-center rounded-xl"
                       >
@@ -578,7 +617,7 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
                     </div>
                     {practiceOpen && (
                       <div
-                        id="qudrat-practice-submenu"
+                        id="practice-submenu"
                         // Indent in RTL via padding-inline-start; keeps layout
                         // mirrored correctly in both directions.
                         className="mt-1 ps-6 space-y-1"
