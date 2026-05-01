@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import AIAssistant from "@/components/AIAssistant";
@@ -34,6 +34,19 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
   const [tahsiliTab, setTahsiliTab] = useState<"comprehensive" | "math" | "physics" | "chemistry" | "biology">("comprehensive");
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [animationKey, setAnimationKey] = useState(0);
+
+  // /qudrat-only sidebar: تدريب is a collapsible group whose children are كمي
+  // and لفظي. Open by default when the user is currently on one of those
+  // practice deep-links so the active sub-item is visible without a click.
+  // (Other sidebar items / /tahsili / legacy /dashboard are unaffected — only
+  //  the Qudrat training group reads this state.)
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const practiceFocus = searchParams?.get("focus") ?? null;
+  const isOnQudratPracticeChild =
+    pathname === "/practice" &&
+    (practiceFocus === "quantitative_ar" || practiceFocus === "verbal_ar");
+  const [practiceOpen, setPracticeOpen] = useState<boolean>(isOnQudratPracticeChild);
 
   useEffect(() => {
     setAnimationKey(prev => prev + 1);
@@ -434,14 +447,26 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
             {isEnglish ? "Menu" : "القائمة"}
           </p>
           <div className="space-y-1.5">
+            {/* Sidebar nav config. The Qudrat branch now expresses تدريب as a
+                collapsible group with `children` (كمي / لفظي) instead of
+                listing them as their own top-level items — see the
+                `item.children` branch in the renderer below. /tahsili and the
+                legacy /dashboard arrays are intentionally unchanged. */}
             {(lockedExamType === "qudurat"
               ? [
-                  { href: "#overview",                          labelAr: "الرئيسية",       labelEn: "Home",         icon: "home" as const },
-                  { href: "#progress",                          labelAr: "التقدم",         labelEn: "Progress",     icon: "chart" as const },
-                  { href: "/practice?focus=quantitative_ar",    labelAr: "كمي",            labelEn: "Quantitative", icon: "calc" as const },
-                  { href: "/practice?focus=verbal_ar",          labelAr: "لفظي",           labelEn: "Verbal",       icon: "pen" as const },
-                  { href: "/practice",                          labelAr: "تدريب",          labelEn: "Practice",     icon: "book" as const },
-                  { href: "#test-bank",                         labelAr: "بنك الاختبارات", labelEn: "Test Bank",    icon: "stack" as const },
+                  { href: "#overview",  labelAr: "الرئيسية",       labelEn: "Home",      icon: "home" as const },
+                  { href: "#progress",  labelAr: "التقدم",         labelEn: "Progress",  icon: "chart" as const },
+                  {
+                    href: "/practice",
+                    labelAr: "تدريب",
+                    labelEn: "Practice",
+                    icon: "book" as const,
+                    children: [
+                      { href: "/practice?focus=quantitative_ar", labelAr: "كمي",  labelEn: "Quantitative", icon: "calc" as const },
+                      { href: "/practice?focus=verbal_ar",       labelAr: "لفظي", labelEn: "Verbal",       icon: "pen" as const },
+                    ],
+                  },
+                  { href: "#test-bank", labelAr: "بنك الاختبارات", labelEn: "Test Bank", icon: "stack" as const },
                 ]
               : lockedExamType === "tahsili"
               ? [
@@ -458,44 +483,141 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
                   { href: "/practice",      labelAr: "التدريب",        labelEn: "Practice",      icon: "book" as const },
                   { href: "/profile",       labelAr: "الملف الشخصي", labelEn: "Profile",       icon: "user" as const },
                 ]
-            ).map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white transition-colors"
-              >
+            ).map((item) => {
+              // Inline icon renderer reused for both the parent items and the
+              // collapsible group's sub-items. The key union must be widened
+              // to include every icon used anywhere in the nav (parents *and*
+              // children) — TypeScript narrows `item.icon` based on the
+              // top-level array entries, but children may use a wider set
+              // (e.g. "calc"/"pen" only appear under the تدريب group).
+              type IconKey = "home" | "chart" | "calc" | "pen" | "book" | "stack" | "brain" | "cap" | "user";
+              const renderIcon = (key: IconKey) => (
                 <span className="w-5 h-5 flex items-center justify-center flex-shrink-0" aria-hidden="true">
-                  {item.icon === "home" && (
+                  {key === "home" && (
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3v-6h6v6h3a1 1 0 001-1V10" /></svg>
                   )}
-                  {item.icon === "chart" && (
+                  {key === "chart" && (
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
                   )}
-                  {item.icon === "calc" && (
+                  {key === "calc" && (
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m-6 4h6m-6 4h2m4 0h2M5 5a2 2 0 012-2h10a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5z" /></svg>
                   )}
-                  {item.icon === "pen" && (
+                  {key === "pen" && (
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                   )}
-                  {item.icon === "book" && (
+                  {key === "book" && (
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
                   )}
-                  {item.icon === "stack" && (
+                  {key === "stack" && (
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
                   )}
-                  {item.icon === "brain" && (
-                    <span className="text-base">🧠</span>
-                  )}
-                  {item.icon === "cap" && (
-                    <span className="text-base">🎓</span>
-                  )}
-                  {item.icon === "user" && (
+                  {key === "brain" && <span className="text-base">🧠</span>}
+                  {key === "cap" && <span className="text-base">🎓</span>}
+                  {key === "user" && (
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                   )}
                 </span>
-                <span>{isEnglish ? item.labelEn : item.labelAr}</span>
-              </Link>
-            ))}
+              );
+
+              // Collapsible group (currently only تدريب on /qudrat). Renders a
+              // toggle button + an indented list of sub-item Links. The chevron
+              // rotates 180° when open. Sub-items keep the original
+              // /practice?focus=... hrefs — no routing logic changed.
+              if ("children" in item && item.children) {
+                // Map each child's href to the focus value it represents so we
+                // can do an exact equality check against the current focus
+                // query param (avoids false positives if focus values ever
+                // share substrings).
+                const childFocusOf = (href: string): string | null => {
+                  const m = href.match(/[?&]focus=([^&]+)/);
+                  return m ? decodeURIComponent(m[1]) : null;
+                };
+                const isActiveChild = (href: string): boolean =>
+                  pathname === "/practice" && practiceFocus !== null && childFocusOf(href) === practiceFocus;
+                const isActiveParent = item.children.some((c) => isActiveChild(c.href));
+                return (
+                  <div key={item.href}>
+                    {/* Row split into two controls so تدريب itself still
+                        navigates to /practice (preserving the previous
+                        behavior) while the chevron is a separate, dedicated
+                        toggle for the dropdown. The two share one rounded
+                        background so they read as a single sidebar row. */}
+                    <div
+                      className={`flex items-stretch rounded-xl transition-colors ${
+                        isActiveParent
+                          ? "bg-[#006C35] text-white shadow-sm shadow-[#006C35]/30"
+                          : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white"
+                      }`}
+                    >
+                      <Link
+                        href={item.href}
+                        className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium flex-1 rounded-xl"
+                      >
+                        {renderIcon(item.icon)}
+                        <span>{isEnglish ? item.labelEn : item.labelAr}</span>
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => setPracticeOpen((v) => !v)}
+                        aria-expanded={practiceOpen}
+                        aria-controls="qudrat-practice-submenu"
+                        aria-label={isEnglish ? "Toggle practice submenu" : "إظهار/إخفاء قائمة التدريب"}
+                        className="px-3 flex items-center justify-center rounded-xl"
+                      >
+                        {/* Chevron — points down, rotates 180° when open. */}
+                        <svg
+                          className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${practiceOpen ? "rotate-180" : ""}`}
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          aria-hidden="true"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                    </div>
+                    {practiceOpen && (
+                      <div
+                        id="qudrat-practice-submenu"
+                        // Indent in RTL via padding-inline-start; keeps layout
+                        // mirrored correctly in both directions.
+                        className="mt-1 ps-6 space-y-1"
+                      >
+                        {item.children.map((child) => {
+                          const active = isActiveChild(child.href);
+                          return (
+                            <Link
+                              key={child.href}
+                              href={child.href}
+                              className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
+                                active
+                                  ? "bg-[#006C35] text-white shadow-sm shadow-[#006C35]/30"
+                                  : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white"
+                              }`}
+                            >
+                              {renderIcon(child.icon)}
+                              <span>{isEnglish ? child.labelEn : child.labelAr}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              // Default leaf item — unchanged from before.
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white transition-colors"
+                >
+                  {renderIcon(item.icon)}
+                  <span>{isEnglish ? item.labelEn : item.labelAr}</span>
+                </Link>
+              );
+            })}
           </div>
 
           {/* Bottom section — الاشتراكات + الدعم الفني. Pinned to the bottom of
