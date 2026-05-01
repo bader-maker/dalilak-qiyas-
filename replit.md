@@ -268,3 +268,41 @@ Remaining `bg-white/10`, `bg-white/15`, `bg-white/20` utilities are intentional 
 - All `py-*`, `p-*`, `gap-*`, grid-cols, container widths unchanged.
 - TypeScript clean (`bunx tsc --noEmit`).
 - Page wrapper `bg-background text-foreground` unchanged → hero rendering unchanged.
+
+## Landing page "white rhythm" repaint (2026-05-01, later)
+
+Color-only reversal of the prior dark-theme pass to match a cleaner cathoven.com-style rhythm: white navbar → dark green hero → white/gray-50 alternating middle sections with white cards → dark stats break (achievements) → continued white/gray-50 → dark green Final CTA → dark footer. **No logic, layout, spacing, routing, or handler changes.**
+
+### Section-by-section
+- **Navbar**: `bg-[#006C35]/95` → `bg-white/95`, `border-white/10` → `border-gray-100`. Logo chip back to `bg-[#006C35]` with white icon. Title `text-[#006C35]`, subtitle `text-gray-500`. Nav links `text-gray-700 hover:text-[#006C35]`. Login link `text-gray-600 hover:text-[#006C35]`. Primary CTA back to brand green `bg-[#006C35] text-white hover:bg-[#004d26]`.
+- **Hero**: section gained explicit `bg-[#0d2b1a] text-white`. Eyebrow chip → `bg-white/10 text-[#D4AF37]`. h1 forced `text-white`; lead `text-white/80`. Primary CTA flipped to gold (`bg-[#D4AF37] text-[#006C35]`) for max pop on dark green; outline CTA `border-white/30 text-white`. Trust row `text-white/80` with gold check icons. Hero feature cards stay `bg-[#1a3d2b]`; their icon chips moved from `bg-[#006C35]/10` (invisible green-on-green) to `bg-white/10` with gold icon.
+- **Main Categories**: `bg-[#006C35]` → `bg-white`. Cards `bg-[#1a3d2b]` → `bg-white shadow-lg border-gray-100 hover:border-[#006C35]/30`. Titles → `text-gray-900`, desc → `text-gray-600`. Count + arrow accents → `text-[#006C35]`.
+- **Free Resources**: `bg-[#0d2b1a]` → `bg-gray-50`. Cards → `bg-white border-gray-100`, dark text. Resource icon chips kept gold (`bg-[#D4AF37]/15` + gold icon) — gold reads beautifully on white. Section CTA + card CTA → `text-[#006C35]`.
+- **Testimonials**: `bg-[#006C35]` → `bg-white`. Cards `bg-white border-gray-100`. Quote glyph muted to `text-[#006C35]/20`. Score badge `text-[#006C35] bg-[#006C35]/10`. Stars stay gold.
+- **How It Works**: `bg-[#1a3d2b]` → `bg-gray-50`. Step cards `bg-white border-gray-100`. Faded step number muted to `text-[#006C35]/10`. Step icon chip kept solid green with white icon.
+- **More Tools**: `bg-[#006C35]` → `bg-white`. Cards `bg-white border-gray-100`. Icon chips `bg-[#006C35]/10` with `text-[#006C35]` icon.
+- **Score Preview**: outer `bg-[#0d2b1a]` → `bg-gray-50`. Inner container `bg-[#1a3d2b]` → `bg-white shadow-lg border-gray-100`. CTA flipped back to brand green `bg-[#006C35] text-white`. Right-side gradient performance card kept (intentional showcase).
+- **Achievements**: untouched on purpose — `bg-saudi-gradient-dark` provides a dark stats break between the score-preview gray-50 and pricing white sections, mirroring cathoven's occasional dark feature bands.
+- **Pricing**: `bg-[#1a3d2b]` → `bg-white`. Non-highlighted cards `bg-white shadow-lg border-gray-100`, dark text, green check icons, brand-green CTA. Highlighted plan keeps `bg-saudi-gradient text-white` with white text — its CTA reverted to `bg-white text-[#006C35]` (clean inverted) and its badge to `bg-[#D4AF37] text-white`.
+- **Blog**: `bg-[#006C35]` → `bg-gray-50`. Cards `bg-white border-gray-100`. Image banner stays `bg-saudi-gradient`. Eyebrow + section CTA + per-card "اقرأ المقال" → `text-[#006C35]`.
+- **FAQ**: `bg-[#0d2b1a]` → `bg-white`. Accordion items `bg-white shadow-lg border-gray-100`. Question text `text-gray-900`, chevron `text-[#006C35]`, answer body `text-gray-600`.
+- **Final CTA**: outer section stays `bg-[#1a3d2b]`; inner `bg-saudi-gradient` banner kept. Primary inner button reverted from gold to `bg-white text-[#006C35]` (cleaner inverted style on the green gradient).
+- **Footer**: untouched (`bg-[#1a3a2a]`).
+
+### Resulting rhythm
+white nav → dark-green hero → white → gray-50 → white → gray-50 → white → gray-50 → dark stats → white → gray-50 → white → dark-green CTA → dark footer.
+
+### Invariants
+- Wrapper `min-h-screen bg-background text-foreground` unchanged.
+- All `Link href`, `<a href>`, FAQ `onClick` handlers unchanged.
+- All grid columns, container widths, `py-*`, `p-*`, `gap-*` unchanged.
+- TypeScript clean (`bunx tsc --noEmit`).
+- Brand palette preserved: `#006C35` Saudi green for primary chrome/CTAs/accents, `#D4AF37` gold reserved for stars, hero accents, and the highlighted-plan badge.
+
+### Architect-driven contrast follow-up (same task, post-review)
+The first architect pass on the white-rhythm repaint flagged three contrast regressions, all fixed:
+1. **Hero primary CTA** — was `bg-[#D4AF37] text-[#006C35]` (gold + dark green ≈ 3:1). Switched to `bg-white text-[#006C35] hover:bg-gray-100` to match the Final CTA pattern (max contrast against the dark green hero, consistent inverted style across both dark green sections).
+2. **Free Resources eyebrow** — was `text-[#D4AF37]` on `bg-gray-50` (low contrast for small bold text). Switched to `text-[#006C35]` to match every other middle-section eyebrow.
+3. **Pricing highlighted plan badge** — was `bg-[#D4AF37] text-white` (gold + white ≈ 1.7:1). Reverted to `bg-[#D4AF37] text-[#006C35]` (gold + dark green, original brand pairing).
+
+After the fixes, brand-gold (`#D4AF37`) is reserved on light surfaces only for stars and the highlighted-plan check icons (where it provides intentional accent without carrying critical text), and is paired with dark green or used inside dark surfaces (hero accents, achievements icons) where contrast is solid.

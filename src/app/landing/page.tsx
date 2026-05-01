@@ -144,39 +144,33 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background text-foreground" dir="rtl">
       {/* ============ NAVBAR ============ */}
-      {/* Visibility fix: navbar previously used bg-white/80 with dark text,
-          which clashed against the dark hero / brand-green page sections.
-          Switched to a Saudi-green (#006C35) backdrop with white text/links
-          and a gold (#D4AF37) "ابدأ مجاناً" CTA so it stays clearly visible
-          on top of any background and matches the brand. Logo, nav links,
-          login link, and CTA all updated; layout/spacing unchanged. */}
-      <header className="sticky top-0 z-50 bg-[#006C35]/95 backdrop-blur-xl border-b border-white/10">
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-xl border-b border-gray-100">
         <div className="container mx-auto flex items-center justify-between py-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center shadow-md">
+            <div className="w-10 h-10 bg-[#006C35] rounded-xl flex items-center justify-center shadow-md">
               <GraduationCap className="w-6 h-6 text-white" />
             </div>
             <div className="flex flex-col leading-tight">
-              <span className="font-bold text-white">دليلك إلى قياس</span>
-              <span className="text-xs text-white/70">منصة التحضير الأولى</span>
+              <span className="font-bold text-[#006C35]">دليلك إلى قياس</span>
+              <span className="text-xs text-gray-500">منصة التحضير الأولى</span>
             </div>
           </div>
 
-          <nav className="hidden lg:flex items-center gap-8 text-sm font-medium text-white/90">
-            <a href="#categories" className="hover:text-[#D4AF37] transition-colors">الأقسام</a>
-            <a href="#how" className="hover:text-[#D4AF37] transition-colors">كيف تعمل</a>
-            <a href="#tools" className="hover:text-[#D4AF37] transition-colors">الأدوات</a>
-            <a href="#pricing" className="hover:text-[#D4AF37] transition-colors">الأسعار</a>
-            <a href="#faq" className="hover:text-[#D4AF37] transition-colors">الأسئلة الشائعة</a>
+          <nav className="hidden lg:flex items-center gap-8 text-sm font-medium text-gray-700">
+            <a href="#categories" className="hover:text-[#006C35] transition-colors">الأقسام</a>
+            <a href="#how" className="hover:text-[#006C35] transition-colors">كيف تعمل</a>
+            <a href="#tools" className="hover:text-[#006C35] transition-colors">الأدوات</a>
+            <a href="#pricing" className="hover:text-[#006C35] transition-colors">الأسعار</a>
+            <a href="#faq" className="hover:text-[#006C35] transition-colors">الأسئلة الشائعة</a>
           </nav>
 
           <div className="flex items-center gap-3">
-            <Link href="/login" className="hidden sm:inline text-sm font-medium text-white hover:text-[#D4AF37] transition-colors">
+            <Link href="/login" className="hidden sm:inline text-sm font-medium text-gray-600 hover:text-[#006C35] transition-colors">
               تسجيل الدخول
             </Link>
             <Link
               href="/login?next=/test"
-              className="px-5 py-2.5 bg-[#D4AF37] text-[#006C35] text-sm font-bold rounded-xl hover:bg-[#E8C547] transition-colors flex items-center gap-2 shadow-md"
+              className="px-5 py-2.5 bg-[#006C35] text-white text-sm font-bold rounded-xl hover:bg-[#004d26] transition-colors flex items-center gap-2 shadow-md"
             >
               <Sparkles className="w-4 h-4" />
               ابدأ مجاناً
@@ -186,18 +180,18 @@ export default function LandingPage() {
       </header>
 
       {/* ============ HERO ============ */}
-      <section className="relative overflow-hidden">
+      <section className="relative overflow-hidden bg-[#0d2b1a] text-white">
         <div className="container mx-auto py-16 lg:py-24 grid lg:grid-cols-2 gap-12 items-center">
           <div className="space-y-6 animate-fade-slide-in">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#006C35]/10 text-[#006C35] rounded-xl text-sm font-bold">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 text-[#D4AF37] rounded-xl text-sm font-bold">
               <Sparkles className="w-4 h-4" />
               مدعوم بالذكاء الاصطناعي
             </div>
-            <h1 className="text-4xl lg:text-6xl font-black leading-tight">
+            <h1 className="text-4xl lg:text-6xl font-black leading-tight text-white">
               ابدأ رحلتك نحو
               <span className="text-gradient block mt-2">درجتك المستهدفة</span>
             </h1>
-            <p className="text-lg text-muted-foreground leading-loose max-w-xl">
+            <p className="text-lg text-white/80 leading-loose max-w-xl">
               منصة تحضير ذكية لاختبارات قياس تبني لك خطة مخصصة، تحاكي الاختبار الحقيقي،
               وتعطيك تحليلاً فورياً لأدائك بعد كل جلسة.
             </p>
@@ -205,27 +199,27 @@ export default function LandingPage() {
             <div id="hero-cta" className="flex flex-col sm:flex-row gap-3">
               <Link
                 href="/login"
-                className="px-6 py-4 bg-[#006C35] text-white font-bold rounded-xl hover:bg-[#004d26] transition-colors flex items-center justify-center gap-2 shadow-lg"
+                className="px-6 py-4 bg-white text-[#006C35] font-bold rounded-xl hover:bg-gray-100 transition-colors flex items-center justify-center gap-2 shadow-lg"
               >
                 <Sparkles className="w-5 h-5" />
                 ابدأ التجربة المجانية
               </Link>
               <a
                 href="#how"
-                className="px-6 py-4 border-2 border-gray-200 rounded-xl hover:border-[#006C35]/30 hover:bg-gray-50 transition-all flex items-center justify-center gap-2 font-bold text-foreground"
+                className="px-6 py-4 border-2 border-white/30 rounded-xl hover:border-white/60 hover:bg-white/10 transition-all flex items-center justify-center gap-2 font-bold text-white"
               >
                 <PlayCircle className="w-5 h-5" />
                 شاهد كيف تعمل
               </a>
             </div>
 
-            <div className="flex flex-wrap items-center gap-6 pt-4 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-6 pt-4 text-sm text-white/80">
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-[#006C35]" />
+                <CheckCircle2 className="w-4 h-4 text-[#D4AF37]" />
                 لا حاجة لبطاقة ائتمان
               </div>
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-[#006C35]" />
+                <CheckCircle2 className="w-4 h-4 text-[#D4AF37]" />
                 +50,000 طالب وطالبة
               </div>
               <div className="flex items-center gap-2">
@@ -235,22 +229,15 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Hero feature cards */}
-          {/* Visibility fix: cards previously used bg-white with default
-              foreground text, which became invisible against the dark/green
-              hero treatment. Switched to a dark green (#1a3d2b) background
-              with white text and a subtle white border so they read clearly
-              on dark surfaces. Icon containers kept as-is per spec
-              (already green tinted). Layout, spacing, and animations
-              unchanged. */}
+          {/* Hero feature cards — dark green chip cards on dark green hero. */}
           <div className="grid sm:grid-cols-2 gap-4">
             {featureCards.map((f, i) => (
               <div
                 key={f.title}
                 className={`bg-[#1a3d2b] rounded-2xl shadow-lg p-6 card-hover border border-white/10 animate-scale-in animate-delay-${(i + 1) * 100}`}
               >
-                <div className="w-12 h-12 bg-[#006C35]/10 rounded-xl flex items-center justify-center mb-4">
-                  <f.icon className="w-6 h-6 text-[#006C35]" />
+                <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center mb-4">
+                  <f.icon className="w-6 h-6 text-[#D4AF37]" />
                 </div>
                 <h3 className="font-bold text-lg mb-2 text-white">{f.title}</h3>
                 <p className="text-sm text-white/70 leading-relaxed">{f.desc}</p>
@@ -261,24 +248,24 @@ export default function LandingPage() {
       </section>
 
       {/* ============ MAIN CATEGORIES ============ */}
-      <section id="categories" className="py-20 bg-[#006C35] text-white">
+      <section id="categories" className="py-20 bg-white">
         <div className="container mx-auto">
           <div className="text-center max-w-2xl mx-auto mb-12">
-            <span className="text-[#E8C547] font-bold text-sm">الأقسام الرئيسية</span>
-            <h2 className="text-3xl lg:text-4xl font-black mt-2 mb-4 text-white">اختر الاختبار المناسب لك</h2>
-            <p className="text-white/80">تغطية كاملة لجميع اختبارات قياس بمحتوى محدّث ومراجَع من مختصّين.</p>
+            <span className="text-[#006C35] font-bold text-sm">الأقسام الرئيسية</span>
+            <h2 className="text-3xl lg:text-4xl font-black mt-2 mb-4 text-gray-900">اختر الاختبار المناسب لك</h2>
+            <p className="text-gray-600">تغطية كاملة لجميع اختبارات قياس بمحتوى محدّث ومراجَع من مختصّين.</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {categories.map((c) => (
-              <Link key={c.title} href={c.href} className="bg-[#1a3d2b] rounded-2xl shadow-lg p-6 card-hover border border-white/10 block hover:border-[#D4AF37]/40 transition-colors">
+              <Link key={c.title} href={c.href} className="bg-white rounded-2xl shadow-lg p-6 card-hover border border-gray-100 block hover:border-[#006C35]/30 transition-colors">
                 <div className="w-14 h-14 bg-gradient-to-br from-[#006C35] to-[#008542] rounded-xl flex items-center justify-center mb-5 shadow-md">
                   <c.icon className="w-7 h-7 text-white" />
                 </div>
-                <h3 className="font-bold text-xl mb-2 text-white">{c.title}</h3>
-                <p className="text-sm text-white/70 leading-relaxed mb-4">{c.desc}</p>
-                <div className="flex items-center justify-between pt-4 border-t border-white/10">
-                  <span className="text-xs font-bold text-[#D4AF37]">{c.count}</span>
-                  <ArrowLeft className="w-4 h-4 text-[#D4AF37]" />
+                <h3 className="font-bold text-xl mb-2 text-gray-900">{c.title}</h3>
+                <p className="text-sm text-gray-600 leading-relaxed mb-4">{c.desc}</p>
+                <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                  <span className="text-xs font-bold text-[#006C35]">{c.count}</span>
+                  <ArrowLeft className="w-4 h-4 text-[#006C35]" />
                 </div>
               </Link>
             ))}
@@ -287,27 +274,27 @@ export default function LandingPage() {
       </section>
 
       {/* ============ FREE RESOURCES ============ */}
-      <section className="py-20 bg-[#0d2b1a]">
+      <section className="py-20 bg-gray-50">
         <div className="container mx-auto">
           <div className="flex flex-col lg:flex-row lg:items-end justify-between mb-12 gap-4">
             <div className="max-w-xl">
-              <span className="text-[#D4AF37] font-bold text-sm">موارد مجانية</span>
-              <h2 className="text-3xl lg:text-4xl font-black mt-2 mb-4 text-white">ابدأ التحضير الآن — بدون اشتراك</h2>
-              <p className="text-white/70">ملفات وأدوات وفيديوهات مختارة بعناية لمساعدتك من اليوم الأول.</p>
+              <span className="text-[#006C35] font-bold text-sm">موارد مجانية</span>
+              <h2 className="text-3xl lg:text-4xl font-black mt-2 mb-4 text-gray-900">ابدأ التحضير الآن — بدون اشتراك</h2>
+              <p className="text-gray-600">ملفات وأدوات وفيديوهات مختارة بعناية لمساعدتك من اليوم الأول.</p>
             </div>
-            <a href="#" className="text-[#D4AF37] font-bold flex items-center gap-2 hover:gap-3 transition-all">
+            <a href="#" className="text-[#006C35] font-bold flex items-center gap-2 hover:gap-3 transition-all">
               تصفّح كل الموارد <ArrowLeft className="w-4 h-4" />
             </a>
           </div>
           <div className="grid md:grid-cols-3 gap-5">
             {resources.map((r) => (
-              <div key={r.title} className="bg-[#1a3d2b] rounded-2xl shadow-lg p-6 card-hover border border-white/10">
+              <div key={r.title} className="bg-white rounded-2xl shadow-lg p-6 card-hover border border-gray-100">
                 <div className="w-12 h-12 bg-[#D4AF37]/15 rounded-xl flex items-center justify-center mb-4">
                   <r.icon className="w-6 h-6 text-[#D4AF37]" />
                 </div>
-                <h3 className="font-bold text-lg mb-2 text-white">{r.title}</h3>
-                <p className="text-sm text-white/70 leading-relaxed mb-5">{r.desc}</p>
-                <Link href="/login" className="text-sm font-bold text-[#D4AF37] flex items-center gap-2 hover:gap-3 transition-all">
+                <h3 className="font-bold text-lg mb-2 text-gray-900">{r.title}</h3>
+                <p className="text-sm text-gray-600 leading-relaxed mb-5">{r.desc}</p>
+                <Link href="/login" className="text-sm font-bold text-[#006C35] flex items-center gap-2 hover:gap-3 transition-all">
                   ابدأ الآن <ArrowLeft className="w-4 h-4" />
                 </Link>
               </div>
@@ -317,29 +304,29 @@ export default function LandingPage() {
       </section>
 
       {/* ============ TESTIMONIALS ============ */}
-      <section className="py-20 bg-[#006C35] text-white">
+      <section className="py-20 bg-white">
         <div className="container mx-auto">
           <div className="text-center max-w-2xl mx-auto mb-12">
-            <span className="text-[#E8C547] font-bold text-sm">آراء طلابنا</span>
-            <h2 className="text-3xl lg:text-4xl font-black mt-2 mb-4 text-white">قصص نجاح حقيقية</h2>
-            <p className="text-white/80">طلاب اختاروا منصتنا ووصلوا لدرجاتهم المستهدفة.</p>
+            <span className="text-[#006C35] font-bold text-sm">آراء طلابنا</span>
+            <h2 className="text-3xl lg:text-4xl font-black mt-2 mb-4 text-gray-900">قصص نجاح حقيقية</h2>
+            <p className="text-gray-600">طلاب اختاروا منصتنا ووصلوا لدرجاتهم المستهدفة.</p>
           </div>
           <div className="grid md:grid-cols-3 gap-5">
             {testimonials.map((t) => (
-              <div key={t.name} className="bg-[#1a3d2b] rounded-2xl shadow-lg p-6 card-hover border border-white/10 flex flex-col">
-                <Quote className="w-8 h-8 text-[#D4AF37]/40 mb-3" />
-                <p className="text-white/80 leading-loose mb-6 flex-1">{t.text}</p>
+              <div key={t.name} className="bg-white rounded-2xl shadow-lg p-6 card-hover border border-gray-100 flex flex-col">
+                <Quote className="w-8 h-8 text-[#006C35]/20 mb-3" />
+                <p className="text-gray-700 leading-loose mb-6 flex-1">{t.text}</p>
                 <div className="flex items-center gap-1 mb-4">
                   {[...Array(5)].map((_, i) => (
                     <Star key={i} className="w-4 h-4 text-[#D4AF37] fill-[#D4AF37]" />
                   ))}
                 </div>
-                <div className="flex items-center justify-between pt-4 border-t border-white/10">
+                <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                   <div>
-                    <div className="font-bold text-white">{t.name}</div>
-                    <div className="text-xs text-white/70">{t.role}</div>
+                    <div className="font-bold text-gray-900">{t.name}</div>
+                    <div className="text-xs text-gray-500">{t.role}</div>
                   </div>
-                  <span className="text-xs font-bold text-[#D4AF37] bg-[#D4AF37]/10 px-3 py-1.5 rounded-xl">
+                  <span className="text-xs font-bold text-[#006C35] bg-[#006C35]/10 px-3 py-1.5 rounded-xl">
                     {t.score}
                   </span>
                 </div>
@@ -350,22 +337,22 @@ export default function LandingPage() {
       </section>
 
       {/* ============ HOW IT WORKS ============ */}
-      <section id="how" className="py-20 bg-[#1a3d2b]">
+      <section id="how" className="py-20 bg-gray-50">
         <div className="container mx-auto">
           <div className="text-center max-w-2xl mx-auto mb-12">
-            <span className="text-[#D4AF37] font-bold text-sm">خطوات بسيطة</span>
-            <h2 className="text-3xl lg:text-4xl font-black mt-2 mb-4 text-white">كيف تعمل المنصة</h2>
-            <p className="text-white/70">ثلاث خطوات تفصلك عن خطة تحضير ذكية ومخصصة لك.</p>
+            <span className="text-[#006C35] font-bold text-sm">خطوات بسيطة</span>
+            <h2 className="text-3xl lg:text-4xl font-black mt-2 mb-4 text-gray-900">كيف تعمل المنصة</h2>
+            <p className="text-gray-600">ثلاث خطوات تفصلك عن خطة تحضير ذكية ومخصصة لك.</p>
           </div>
           <div className="grid md:grid-cols-3 gap-6">
             {steps.map((s) => (
-              <div key={s.num} className="relative bg-[#0d2b1a] rounded-2xl shadow-lg p-8 card-hover border border-white/10">
-                <span className="absolute top-6 left-6 text-5xl font-black text-[#D4AF37]/20">{s.num}</span>
+              <div key={s.num} className="relative bg-white rounded-2xl shadow-lg p-8 card-hover border border-gray-100">
+                <span className="absolute top-6 left-6 text-5xl font-black text-[#006C35]/10">{s.num}</span>
                 <div className="w-14 h-14 bg-[#006C35] rounded-xl flex items-center justify-center mb-5 shadow-md">
                   <s.icon className="w-7 h-7 text-white" />
                 </div>
-                <h3 className="font-bold text-xl mb-2 text-white">{s.title}</h3>
-                <p className="text-sm text-white/70 leading-relaxed">{s.desc}</p>
+                <h3 className="font-bold text-xl mb-2 text-gray-900">{s.title}</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">{s.desc}</p>
               </div>
             ))}
           </div>
@@ -373,21 +360,21 @@ export default function LandingPage() {
       </section>
 
       {/* ============ MORE TOOLS ============ */}
-      <section id="tools" className="py-20 bg-[#006C35] text-white">
+      <section id="tools" className="py-20 bg-white">
         <div className="container mx-auto">
           <div className="text-center max-w-2xl mx-auto mb-12">
-            <span className="text-[#E8C547] font-bold text-sm">أدوات إضافية</span>
-            <h2 className="text-3xl lg:text-4xl font-black mt-2 mb-4 text-white">كل ما تحتاجه في مكان واحد</h2>
-            <p className="text-white/80">أدوات ذكية تساعدك تخطّط وتقيس وتتحسّن باستمرار.</p>
+            <span className="text-[#006C35] font-bold text-sm">أدوات إضافية</span>
+            <h2 className="text-3xl lg:text-4xl font-black mt-2 mb-4 text-gray-900">كل ما تحتاجه في مكان واحد</h2>
+            <p className="text-gray-600">أدوات ذكية تساعدك تخطّط وتقيس وتتحسّن باستمرار.</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {moreTools.map((t) => (
-              <div key={t.title} className="bg-[#1a3d2b] rounded-2xl shadow-lg p-6 card-hover border border-white/10">
-                <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center mb-4">
-                  <t.icon className="w-6 h-6 text-[#D4AF37]" />
+              <div key={t.title} className="bg-white rounded-2xl shadow-lg p-6 card-hover border border-gray-100">
+                <div className="w-12 h-12 bg-[#006C35]/10 rounded-xl flex items-center justify-center mb-4">
+                  <t.icon className="w-6 h-6 text-[#006C35]" />
                 </div>
-                <h3 className="font-bold text-lg mb-2 text-white">{t.title}</h3>
-                <p className="text-sm text-white/70 leading-relaxed">{t.desc}</p>
+                <h3 className="font-bold text-lg mb-2 text-gray-900">{t.title}</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">{t.desc}</p>
               </div>
             ))}
           </div>
@@ -395,21 +382,21 @@ export default function LandingPage() {
       </section>
 
       {/* ============ SCORE PREVIEW ============ */}
-      <section className="py-20 bg-[#0d2b1a]">
+      <section className="py-20 bg-gray-50">
         <div className="container mx-auto">
-          <div className="bg-[#1a3d2b] rounded-2xl shadow-lg p-8 lg:p-12 border border-white/10 grid lg:grid-cols-2 gap-10 items-center">
+          <div className="bg-white rounded-2xl shadow-lg p-8 lg:p-12 border border-gray-100 grid lg:grid-cols-2 gap-10 items-center">
             <div className="space-y-5">
-              <span className="text-[#D4AF37] font-bold text-sm">معاينة لوحة الأداء</span>
-              <h2 className="text-3xl lg:text-4xl font-black leading-tight text-white">
+              <span className="text-[#006C35] font-bold text-sm">معاينة لوحة الأداء</span>
+              <h2 className="text-3xl lg:text-4xl font-black leading-tight text-gray-900">
                 شاهد تطوّرك يتحوّل إلى أرقام
               </h2>
-              <p className="text-white/70 leading-loose">
+              <p className="text-gray-600 leading-loose">
                 لوحة تحكم تعرض لك متوسط أدائك، نقاط ضعفك، والوقت المتوقع لوصولك لهدفك —
                 بعد كل جلسة وبشكل لحظي.
               </p>
               <Link
                 href="/login"
-                className="inline-flex items-center gap-2 px-6 py-4 bg-[#D4AF37] text-[#006C35] font-bold rounded-xl hover:bg-[#E8C547] transition-colors shadow-lg"
+                className="inline-flex items-center gap-2 px-6 py-4 bg-[#006C35] text-white font-bold rounded-xl hover:bg-[#004d26] transition-colors shadow-lg"
               >
                 <BarChart3 className="w-5 h-5" />
                 جرّب لوحة الأداء
@@ -481,12 +468,12 @@ export default function LandingPage() {
       </section>
 
       {/* ============ PRICING TEASER ============ */}
-      <section id="pricing" className="py-20 bg-[#1a3d2b]">
+      <section id="pricing" className="py-20 bg-white">
         <div className="container mx-auto">
           <div className="text-center max-w-2xl mx-auto mb-12">
-            <span className="text-[#D4AF37] font-bold text-sm">باقات مرنة</span>
-            <h2 className="text-3xl lg:text-4xl font-black mt-2 mb-4 text-white">اختر الخطة المناسبة لك</h2>
-            <p className="text-white/70">ابدأ مجاناً وطوّر اشتراكك متى ما احتجت إمكانيات أكثر.</p>
+            <span className="text-[#006C35] font-bold text-sm">باقات مرنة</span>
+            <h2 className="text-3xl lg:text-4xl font-black mt-2 mb-4 text-gray-900">اختر الخطة المناسبة لك</h2>
+            <p className="text-gray-600">ابدأ مجاناً وطوّر اشتراكك متى ما احتجت إمكانيات أكثر.</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-5 max-w-5xl mx-auto">
@@ -496,7 +483,7 @@ export default function LandingPage() {
                 className={`relative rounded-2xl p-8 border card-hover ${
                   p.highlighted
                     ? "bg-saudi-gradient text-white shadow-2xl border-transparent"
-                    : "bg-[#0d2b1a] shadow-lg border-white/10"
+                    : "bg-white shadow-lg border-gray-100"
                 }`}
               >
                 {p.badge && (
@@ -504,10 +491,10 @@ export default function LandingPage() {
                     <Crown className="w-3 h-3" /> {p.badge}
                   </span>
                 )}
-                <div className={`font-bold text-lg mb-2 ${p.highlighted ? "" : "text-white"}`}>{p.name}</div>
+                <div className={`font-bold text-lg mb-2 ${p.highlighted ? "" : "text-gray-900"}`}>{p.name}</div>
                 <div className="flex items-baseline gap-2 mb-6">
-                  <span className={`text-5xl font-black ${p.highlighted ? "" : "text-white"}`}>{p.price}</span>
-                  <span className={p.highlighted ? "opacity-80 text-sm" : "text-white/70 text-sm"}>
+                  <span className={`text-5xl font-black ${p.highlighted ? "" : "text-gray-900"}`}>{p.price}</span>
+                  <span className={p.highlighted ? "opacity-80 text-sm" : "text-gray-500 text-sm"}>
                     {p.period}
                   </span>
                 </div>
@@ -516,10 +503,10 @@ export default function LandingPage() {
                     <li key={f} className="flex items-start gap-2 text-sm">
                       <CheckCircle2
                         className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
-                          p.highlighted ? "text-[#E8C547]" : "text-[#D4AF37]"
+                          p.highlighted ? "text-[#E8C547]" : "text-[#006C35]"
                         }`}
                       />
-                      <span className={p.highlighted ? "" : "text-white/80"}>{f}</span>
+                      <span className={p.highlighted ? "" : "text-gray-700"}>{f}</span>
                     </li>
                   ))}
                 </ul>
@@ -527,7 +514,7 @@ export default function LandingPage() {
                   href="/login"
                   className={`block text-center w-full py-3 font-bold rounded-xl transition-colors ${
                     p.highlighted
-                      ? "bg-[#D4AF37] text-[#006C35] hover:bg-[#E8C547]"
+                      ? "bg-white text-[#006C35] hover:bg-gray-100"
                       : "bg-[#006C35] text-white hover:bg-[#004d26]"
                   }`}
                 >
@@ -540,31 +527,31 @@ export default function LandingPage() {
       </section>
 
       {/* ============ BLOG PREVIEW ============ */}
-      <section className="py-20 bg-[#006C35] text-white">
+      <section className="py-20 bg-gray-50">
         <div className="container mx-auto">
           <div className="flex flex-col lg:flex-row lg:items-end justify-between mb-12 gap-4">
             <div className="max-w-xl">
-              <span className="text-[#E8C547] font-bold text-sm">من المدوّنة</span>
-              <h2 className="text-3xl lg:text-4xl font-black mt-2 mb-4 text-white">نصائح ومقالات تساعدك تتقدّم</h2>
-              <p className="text-white/80">محتوى مكتوب من مختصّين ومدرّبين قياس.</p>
+              <span className="text-[#006C35] font-bold text-sm">من المدوّنة</span>
+              <h2 className="text-3xl lg:text-4xl font-black mt-2 mb-4 text-gray-900">نصائح ومقالات تساعدك تتقدّم</h2>
+              <p className="text-gray-600">محتوى مكتوب من مختصّين ومدرّبين قياس.</p>
             </div>
-            <a href="#" className="text-[#E8C547] font-bold flex items-center gap-2 hover:gap-3 transition-all">
+            <a href="#" className="text-[#006C35] font-bold flex items-center gap-2 hover:gap-3 transition-all">
               تصفّح المدوّنة <ArrowLeft className="w-4 h-4" />
             </a>
           </div>
           <div className="grid md:grid-cols-3 gap-5">
             {blogs.map((b) => (
-              <article key={b.title} className="bg-[#1a3d2b] rounded-2xl shadow-lg overflow-hidden card-hover border border-white/10">
+              <article key={b.title} className="bg-white rounded-2xl shadow-lg overflow-hidden card-hover border border-gray-100">
                 <div className="h-40 bg-saudi-gradient relative">
                   <span className="absolute top-4 right-4 bg-white/20 backdrop-blur text-white text-xs font-bold px-3 py-1.5 rounded-xl">
                     {b.tag}
                   </span>
                 </div>
                 <div className="p-6">
-                  <h3 className="font-bold text-lg leading-snug mb-3 text-white">{b.title}</h3>
-                  <div className="flex items-center justify-between pt-4 border-t border-white/10">
-                    <span className="text-xs text-white/70">{b.read}</span>
-                    <a href="#" className="text-sm font-bold text-[#D4AF37] flex items-center gap-1 hover:gap-2 transition-all">
+                  <h3 className="font-bold text-lg leading-snug mb-3 text-gray-900">{b.title}</h3>
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                    <span className="text-xs text-gray-500">{b.read}</span>
+                    <a href="#" className="text-sm font-bold text-[#006C35] flex items-center gap-1 hover:gap-2 transition-all">
                       اقرأ المقال <ArrowLeft className="w-4 h-4" />
                     </a>
                   </div>
@@ -576,11 +563,11 @@ export default function LandingPage() {
       </section>
 
       {/* ============ FAQ ============ */}
-      <section id="faq" className="py-20 bg-[#0d2b1a]">
+      <section id="faq" className="py-20 bg-white">
         <div className="container mx-auto max-w-3xl">
           <div className="text-center mb-12">
-            <span className="text-[#D4AF37] font-bold text-sm">الأسئلة الشائعة</span>
-            <h2 className="text-3xl lg:text-4xl font-black mt-2 mb-4 text-white">إجابات لأكثر ما يسأله الطلاب</h2>
+            <span className="text-[#006C35] font-bold text-sm">الأسئلة الشائعة</span>
+            <h2 className="text-3xl lg:text-4xl font-black mt-2 mb-4 text-gray-900">إجابات لأكثر ما يسأله الطلاب</h2>
           </div>
           <div className="space-y-3">
             {faqs.map((f, i) => {
@@ -588,21 +575,21 @@ export default function LandingPage() {
               return (
                 <div
                   key={f.q}
-                  className="bg-[#1a3d2b] rounded-2xl shadow-lg border border-white/10 overflow-hidden"
+                  className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden"
                 >
                   <button
                     onClick={() => setOpenFaq(open ? null : i)}
                     className="w-full flex items-center justify-between p-6 text-right"
                   >
-                    <span className="font-bold text-lg text-white">{f.q}</span>
+                    <span className="font-bold text-lg text-gray-900">{f.q}</span>
                     <ChevronDown
-                      className={`w-5 h-5 text-[#D4AF37] flex-shrink-0 transition-transform ${
+                      className={`w-5 h-5 text-[#006C35] flex-shrink-0 transition-transform ${
                         open ? "rotate-180" : ""
                       }`}
                     />
                   </button>
                   {open && (
-                    <div className="px-6 pb-6 text-white/70 leading-loose animate-fade-slide-in">
+                    <div className="px-6 pb-6 text-gray-600 leading-loose animate-fade-slide-in">
                       {f.a}
                     </div>
                   )}
@@ -633,7 +620,7 @@ export default function LandingPage() {
               <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
                 <Link
                   href="/login?next=/test"
-                  className="px-6 py-4 bg-[#D4AF37] text-[#006C35] font-bold rounded-xl hover:bg-[#E8C547] transition-colors flex items-center justify-center gap-2 shadow-lg"
+                  className="px-6 py-4 bg-white text-[#006C35] font-bold rounded-xl hover:bg-gray-100 transition-colors flex items-center justify-center gap-2 shadow-lg"
                 >
                   <Sparkles className="w-5 h-5" />
                   ابدأ مجاناً الآن
