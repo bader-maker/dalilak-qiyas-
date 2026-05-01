@@ -9,8 +9,11 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { signIn, signInWithGoogle, user } = useAuth();
-  const nextParam = searchParams.get("next");
-  const safeNext = nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : "/dashboard";
+  // Accept either ?redirect=/path or ?next=/path. `redirect` wins if both
+  // are present (newer landing CTAs use `redirect`; older callers still
+  // use `next`). Both are validated to be a same-origin path before use.
+  const redirectParam = searchParams.get("redirect") ?? searchParams.get("next");
+  const safeNext = redirectParam && redirectParam.startsWith("/") && !redirectParam.startsWith("//") ? redirectParam : "/dashboard";
 
   useEffect(() => {
     if (user) {

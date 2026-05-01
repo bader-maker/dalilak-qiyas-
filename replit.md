@@ -306,3 +306,40 @@ The first architect pass on the white-rhythm repaint flagged three contrast regr
 3. **Pricing highlighted plan badge** — was `bg-[#D4AF37] text-white` (gold + white ≈ 1.7:1). Reverted to `bg-[#D4AF37] text-[#006C35]` (gold + dark green, original brand pairing).
 
 After the fixes, brand-gold (`#D4AF37`) is reserved on light surfaces only for stars and the highlighted-plan check icons (where it provides intentional accent without carrying critical text), and is paired with dark green or used inside dark surfaces (hero accents, achievements icons) where contrast is solid.
+
+## /diagnostic page + login redirect plumbing (2026-05-01, late)
+
+New post-login funnel for free-trial users from the marketing site, plus a backward-compatible login-param upgrade. **No TestEngine, API, AI, or existing test logic changed. Existing pages untouched aside from the two specific landing CTAs and one additive line in login.**
+
+### Files
+- **NEW** `src/app/diagnostic/page.tsx` — client component, auth-guarded, two-card chooser
+- **MODIFIED** `src/app/login/page.tsx` — single-line additive change to accept `?redirect=` as alias for `?next=`
+- **MODIFIED** `src/app/landing/page.tsx` — two CTA `href` strings updated; nothing else
+
+### Login redirect-param upgrade (additive, backward-compatible)
+- Before: `const nextParam = searchParams.get("next")`
+- After: `const redirectParam = searchParams.get("redirect") ?? searchParams.get("next")`
+- `safeNext` validation unchanged (same `startsWith("/") && !startsWith("//")` same-origin guard, default `/dashboard`).
+- Both email/password (`window.location.href = safeNext`) and Google OAuth (`signInWithGoogle(safeNext)` → `/auth/callback?next=...`) honor the resolved path. Legacy `?next=` callers (e.g. server-side OAuth callback chain, any internal/bookmark) keep working unchanged.
+
+### Landing CTAs updated to send free-trial signups through /diagnostic
+- Navbar "ابدأ مجاناً" CTA: `/login?next=/test` → `/login?redirect=/diagnostic`
+- Final-CTA banner "ابدأ مجاناً الآن": `/login?next=/test` → `/login?redirect=/diagnostic`
+- Other landing `/login` links (hero "ابدأ التجربة المجانية", login link in nav, free-resources cards, score-preview CTA, pricing CTAs, blog CTAs) intentionally **not** redirected — they keep the default `/dashboard` post-login destination.
+
+### /diagnostic page
+- Client component using `useAuth()` from `@/contexts/AuthContext` (existing app pattern).
+- **Auth guard**: `useEffect` checks `!loading && !user` and calls `router.replace("/login?redirect=/diagnostic")`. While `loading || !user`, the page renders only a spinner — protected card content never flashes to unauthed users.
+- **Layout** (white bg, brand-green accents, RTL):
+  - Header: brand logo chip (link to `/dashboard`) matching landing nav style
+  - Centered intro: green eyebrow chip "مرحباً بك" + h1 "اختر نوع الاختبار التجريبي" + lead "اختبار قصير يحدد مستواك الحالي ويبني لك خطة تدريب مخصصة"
+  - Two cards (`md:grid-cols-2 max-w-4xl mx-auto`): each `bg-white border border-gray-200 rounded-2xl shadow-sm hover:border-[#006C35] hover:shadow-md transition-all flex flex-col`
+    - Card 1 (Brain icon): "اختبار القدرات التجريبي" — يشمل: الكمي / اللفظي → links to existing `/test/qudrat-ar`
+    - Card 2 (GraduationCap icon): "اختبار التحصيلي التجريبي" — يشمل: الرياضيات / العلوم → links to existing `/test/tahsili-ar`
+  - Each card uses icon chip `bg-[#006C35]/10` + `text-[#006C35]` icon, title `text-2xl font-bold text-gray-900`, body `text-gray-600`, "ابدأ الاختبار" CTA `bg-[#006C35] text-white rounded-xl` pinned to card bottom via `mt-auto`
+  - Footnote: "الاختبار التجريبي مجاني تماماً • 30 سؤال • 30 دقيقة"
+- No new test logic, no new API, no new TestEngine wrapper — just `<Link>` to the existing test pages.
+
+### Validation
+- `bunx tsc --noEmit -p .` clean (no output).
+- Architect review: PASS. Verified the `/login?redirect=/diagnostic` round-trip works end-to-end for both email and Google OAuth; backward compat preserved; no open-redirect introduced; no protected-content flash.

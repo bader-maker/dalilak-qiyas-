@@ -1,0 +1,110 @@
+Create a new page at /diagnostic in the Next.js app.
+
+IMPORTANT:
+- Do NOT change TestEngine
+- Do NOT change existing pages
+- Do NOT change practice/test logic
+- Do NOT change API or AI
+- This is a NEW page only
+
+GOAL:
+After login, user lands on /diagnostic to choose between:
+1. اختبار القدرات التجريبي
+2. اختبار التحصيلي التجريبي
+
+Then starts the correct diagnostic test.
+
+--------------------------------
+STEP 1 — Update Landing Page CTA
+--------------------------------
+
+In src/app/landing/page.tsx:
+- "ابدأ مجاناً" button must route to /login
+- After login, redirect to /diagnostic
+- Add ?redirect=/diagnostic to the login URL:
+  /login?redirect=/diagnostic
+
+--------------------------------
+STEP 2 — Update Login Page
+--------------------------------
+
+In src/app/login/page.tsx (or auth):
+- After successful login, check for redirect param
+- If redirect=/diagnostic → send user to /diagnostic
+- If no redirect → send to existing default
+
+--------------------------------
+STEP 3 — Create /diagnostic page
+--------------------------------
+
+Create: src/app/diagnostic/page.tsx
+
+Page design:
+- White background
+- Saudi green #006C35 accents
+- Arabic RTL
+- Centered content
+
+Layout:
+[ شعار المنصة ]
+
+[ عنوان ]
+اختر نوع الاختبار التجريبي
+
+[ وصف ]
+اختبار قصير يحدد مستواك الحالي ويبني لك خطة تدريب مخصصة
+
+[ بطاقتان جنب بعض ]
+
+┌─────────────────┐  ┌─────────────────┐
+│   🧠             │  │   🎓             │
+│ اختبار القدرات  │  │ اختبار التحصيلي │
+│                 │  │                 │
+│ يشمل:          │  │ يشمل:          │
+│ • الكمي        │  │ • الرياضيات    │
+│ • اللفظي       │  │ • العلوم       │
+│                 │  │                 │
+│ [ابدأ الاختبار] │  │ [ابدأ الاختبار] │
+└─────────────────┘  └─────────────────┘
+
+[ ملاحظة صغيرة ]
+الاختبار التجريبي مجاني تماماً • 30 سؤال • 30 دقيقة
+
+CARD BEHAVIOR:
+- Clicking القدرات button → routes to /test/qudrat-ar (existing)
+- Clicking التحصيلي button → routes to /test/tahsili-ar (existing)
+
+STYLING:
+- Use same design system as landing page
+- Cards: white, border border-gray-200, rounded-2xl, shadow-sm
+- Hover: border-[#006C35] shadow-md transition
+- Button: bg-[#006C35] text-white rounded-xl
+- Icon chips: bg-[#006C35]/10 text-[#006C35]
+- Title: text-gray-900 font-bold text-2xl
+- Description: text-gray-600
+
+AUTHENTICATION:
+- Page must be protected (user must be logged in)
+- If not logged in → redirect to /login?redirect=/diagnostic
+- Use existing auth check pattern from the project
+
+DO NOT:
+- Create new test logic
+- Modify TestEngine
+- Modify existing test pages
+- Add new API routes
+
+VALIDATION:
+1. Landing "ابدأ مجاناً" → /login → /diagnostic
+2. /diagnostic shows two cards
+3. القدرات card → /test/qudrat-ar
+4. التحصيلي card → /test/tahsili-ar
+5. Not logged in → redirects to login
+6. TypeScript clean
+7. Arabic RTL correct
+
+Return:
+1. Files created/modified
+2. Auth check implementation
+3. Redirect flow
+4. Confirmation TestEngine unchanged
