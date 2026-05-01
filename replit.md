@@ -231,3 +231,40 @@ There is **no payment integration, no entitlement service, no DB tables, and no 
 - Hoisted `BundleId` type to `src/data/types.ts` (canonical home alongside `ExamCategory` etc.); both files import it via `import type { BundleId } from "@/data/types"` to prevent future drift.
 - Dashboard Subscribe Modal heading + tagline now honor `isEnglish` ("Choose your bundle" / "Subscribe now and unlock full access to every test") instead of being hardcoded Arabic.
 - Pricing option button alignment (`text-right` ↔ `text-left`) toggles based on `isEnglish` for proper RTL/LTR layout in both UI languages.
+
+## Landing page dark theme pass (2026-05-01)
+
+Two-step color-only refactor of `src/app/landing/page.tsx` to fix readability and align the marketing page with the brand's dark Saudi-green / gold aesthetic. **No logic, layout, spacing, routing, or handler changes** — only Tailwind background/text/border color utilities.
+
+### Step 1 — Navbar + hero feature cards
+- **Navbar** (`<header>`): `bg-white/80` → `bg-[#006C35]/95`; logo chip `bg-[#006C35]` → `bg-white/10` (white icon kept); logo title/subtitle → `text-white` / `text-white/70`; nav links + login link → `text-white(/90)` with `hover:text-[#D4AF37]`; "ابدأ مجاناً" CTA changed from green to gold (`bg-[#D4AF37] text-[#006C35]`) so it stays visible on the new green nav.
+- **Hero feature cards** (right-side 4 cards): `bg-white` → `bg-[#1a3d2b]`; titles/descriptions → `text-white` / `text-white/70`; border `[#006C35]/5` → `border-white/10`. Icon containers explicitly **kept as-is** (`bg-[#006C35]/10` + green icon) per the spec — they read as a subtle tonal accent rather than a sharp focal point.
+
+### Step 2 — All sections below the hero
+Wrapper (`min-h-screen bg-background`) and the hero section were intentionally left untouched so the existing hero rendering doesn't shift.
+
+For sections that previously had no explicit background, an explicit dark surface was added so they no longer inherit the wrapper's light `bg-background`:
+- `FREE RESOURCES`, `SCORE PREVIEW`, `FAQ` → `bg-[#0d2b1a]` (deepest)
+- `HOW IT WORKS`, `PRICING TEASER`, `FINAL CTA` → `bg-[#1a3d2b]` (mid, alternates)
+- Sections already on `bg-[#006C35]` (`MAIN CATEGORIES`, `TESTIMONIALS`, `MORE TOOLS`, `BLOG PREVIEW`) retained their green section background.
+- `ACHIEVEMENTS` (already `bg-saudi-gradient-dark`) and `FOOTER` (already `bg-[#1a3a2a]`) untouched.
+
+Inside every section, white card panels (`bg-white`) became `bg-[#1a3d2b]` (or `bg-[#0d2b1a]` for cards inside `bg-[#1a3d2b]` sections to maintain contrast). Card text moved to `text-white` (titles) and `text-white/70-80` (descriptions). All gray dividers (`border-gray-100`) and faint green borders (`border-[#006C35]/5`) became `border-white/10`. Brand-green inline accents (`text-[#006C35]`) on dark surfaces became gold `text-[#D4AF37]` for legibility. Where applicable, secondary accent backgrounds (e.g. testimonial score badge) flipped from `bg-[#006C35]/10` to `bg-[#D4AF37]/10`.
+
+### CTA button rule
+"Primary" CTAs against dark/green backgrounds now use solid gold (`bg-[#D4AF37] text-[#006C35]`):
+- Navbar "ابدأ مجاناً"
+- Score Preview "جرّب لوحة الأداء"
+- Pricing highlighted plan CTA "ابدأ الآن"
+- Final CTA banner "ابدأ مجاناً الآن"
+
+Secondary/non-highlighted plan CTA stays brand-green `bg-[#006C35] text-white` for hierarchy.
+
+### Translucent overlays preserved
+Remaining `bg-white/10`, `bg-white/15`, `bg-white/20` utilities are intentional translucent chips/progress tracks on dark or gradient surfaces (logo chip, blog tag pill, performance card progress bar, final-CTA badge, etc.) — not white panels.
+
+### Strict invariants verified by architect (PASS)
+- Every `Link href`, `<a href>`, FAQ `onClick` handler unchanged.
+- All `py-*`, `p-*`, `gap-*`, grid-cols, container widths unchanged.
+- TypeScript clean (`bunx tsc --noEmit`).
+- Page wrapper `bg-background text-foreground` unchanged → hero rendering unchanged.
