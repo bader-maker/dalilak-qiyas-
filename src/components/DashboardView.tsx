@@ -53,11 +53,31 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
     "chemistry_ar",
     "biology_ar",
   ] as const;
+  // The practice submenu auto-opens when the user is on a recognized child —
+  // either the new per-subject page (/practice/<subject>) or the legacy
+  // /practice?focus=..._ar URL.
+  const PRACTICE_CHILD_PATHS = [
+    "/practice/quantitative",
+    "/practice/verbal",
+    "/practice/math",
+    "/practice/physics",
+    "/practice/chemistry",
+    "/practice/biology",
+  ] as const;
   const isOnPracticeChild =
-    pathname === "/practice" &&
-    practiceFocus !== null &&
-    (PRACTICE_CHILD_FOCUSES as readonly string[]).includes(practiceFocus);
+    (pathname !== null && (PRACTICE_CHILD_PATHS as readonly string[]).includes(pathname)) ||
+    (pathname === "/practice" &&
+      practiceFocus !== null &&
+      (PRACTICE_CHILD_FOCUSES as readonly string[]).includes(practiceFocus));
   const [practiceOpen, setPracticeOpen] = useState<boolean>(isOnPracticeChild);
+
+  // Re-open the submenu on client-side navigation onto any recognized child
+  // route (useState initializer only runs on mount). We only ever force the
+  // dropdown OPEN here — never closed — so the user's manual collapse on
+  // unrelated pages is preserved.
+  useEffect(() => {
+    if (isOnPracticeChild) setPracticeOpen(true);
+  }, [isOnPracticeChild]);
 
   useEffect(() => {
     setAnimationKey(prev => prev + 1);
@@ -484,10 +504,11 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
                   { href: "#overview", labelAr: "الرئيسية", labelEn: "Home",     icon: "home" as const },
                   { href: "#progress", labelAr: "التقدم",   labelEn: "Progress", icon: "chart" as const },
                   {
-                    // التدريب itself navigates to /practice?focus=math_ar
-                    // (Tahsili default) — the chevron is a separate toggle
-                    // that opens the 4-subject submenu beneath it. Same
-                    // dropdown pattern already used for /qudrat تدريب.
+                    // التدريب is a toggle-only parent — clicking it just
+                    // opens/closes the 4-subject submenu beneath it; the
+                    // user always picks a specific subject from the children.
+                    // The href below is unused for navigation (kept only as
+                    // a stable React `key` for the nav list).
                     href: "/practice?focus=math_ar",
                     labelAr: "التدريب",
                     labelEn: "Training",
@@ -558,11 +579,11 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
 
               // Collapsible group — used by تدريب on /qudrat (children: كمي،
               // لفظي) and التدريب on /tahsili (children: رياضيات، فيزياء،
-              // كيمياء، أحياء). Renders a Link (parent navigates to its own
-              // href) + a separate chevron toggle button + an indented list
-              // of sub-item Links. Sub-items now point at the per-subject
-              // /practice/<subject> pages (overview + worked example), each of
-              // which has its own CTA back into /practice?focus=..._ar.
+              // كيمياء، أحياء). Renders a single button row that ONLY toggles
+              // the dropdown (the parent label no longer navigates anywhere)
+              // plus an indented list of sub-item Links. Sub-items point at
+              // the per-subject /practice/<subject> pages (overview + worked
+              // example), each of which has its own CTA into /practice?focus=...
               if ("children" in item && item.children) {
                 // Highlight the right child both when the user is on the new
                 // per-subject pathname (e.g. /practice/math) AND when they're on
@@ -595,45 +616,34 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
                 const isActiveParent = item.children.some((c) => isActiveChild(c.href));
                 return (
                   <div key={item.href}>
-                    {/* Row split into two controls so تدريب itself still
-                        navigates to /practice (preserving the previous
-                        behavior) while the chevron is a separate, dedicated
-                        toggle for the dropdown. The two share one rounded
-                        background so they read as a single sidebar row. */}
-                    <div
-                      className={`flex items-stretch rounded-xl transition-colors ${
+                    {/* Single button row — clicking anywhere on the parent
+                        (icon, label, or chevron) only toggles the dropdown.
+                        The parent no longer navigates anywhere; the user
+                        always picks a specific subject from the submenu. */}
+                    <button
+                      type="button"
+                      onClick={() => setPracticeOpen((v) => !v)}
+                      aria-expanded={practiceOpen}
+                      aria-controls="practice-submenu"
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                         isActiveParent
                           ? "bg-[#006C35] text-white shadow-sm shadow-[#006C35]/30"
                           : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white"
                       }`}
                     >
-                      <Link
-                        href={item.href}
-                        className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium flex-1 rounded-xl"
+                      {renderIcon(item.icon)}
+                      <span className="flex-1 text-start">{isEnglish ? item.labelEn : item.labelAr}</span>
+                      {/* Chevron — points down, rotates 180° when open. */}
+                      <svg
+                        className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${practiceOpen ? "rotate-180" : ""}`}
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        aria-hidden="true"
                       >
-                        {renderIcon(item.icon)}
-                        <span>{isEnglish ? item.labelEn : item.labelAr}</span>
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => setPracticeOpen((v) => !v)}
-                        aria-expanded={practiceOpen}
-                        aria-controls="practice-submenu"
-                        aria-label={isEnglish ? "Toggle practice submenu" : "إظهار/إخفاء قائمة التدريب"}
-                        className="px-3 flex items-center justify-center rounded-xl"
-                      >
-                        {/* Chevron — points down, rotates 180° when open. */}
-                        <svg
-                          className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${practiceOpen ? "rotate-180" : ""}`}
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          aria-hidden="true"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </button>
-                    </div>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
                     {practiceOpen && (
                       <div
                         id="practice-submenu"

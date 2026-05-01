@@ -411,3 +411,19 @@ Six new static-content overview pages — one per Qudrat/Tahsili subject — tha
 - `bunx tsc --noEmit -p .` clean.
 - Visual: `/practice/quantitative`, `/practice/physics`, `/practice/biology` all render correctly with hero, stats row, types grid, and per-subject content from `data.ts`.
 - Architect review: **PASS** (after one round of back-compat fix for legacy URL highlighting in the sidebar).
+
+## 2026-05-01 (late-4) — Sidebar تدريب dropdown: parent is toggle-only
+
+### Bug
+Clicking the "تدريب" parent row in the `/qudrat` sidebar (and "التدريب" on `/tahsili`) was navigating directly to `/practice` (or `/practice?focus=math_ar` for Tahsili) instead of just opening the dropdown. The chevron worked as a toggle but the label area was a `<Link>`, so the user couldn't expand the submenu without leaving the page.
+
+### Fix (`src/components/DashboardView.tsx`)
+- **Parent row converted to a single `<button>`** that only toggles `practiceOpen`. Removed the previous `<div flex>` containing `<Link href={item.href}>` + separate chevron `<button>`. The icon + label + chevron now share one button with `aria-expanded` / `aria-controls` and the active-parent green styling preserved.
+- **Auto-open extended to new pathnames.** `isOnPracticeChild` now matches any of `/practice/{quantitative,verbal,math,physics,chemistry,biology}` in addition to the legacy `/practice?focus=..._ar` URLs. A new `useEffect` re-asserts `setPracticeOpen(true)` on client-side navigation onto a child route (the `useState` initializer only runs once). The effect ONLY ever forces open — never closed — so a user-initiated collapse on unrelated pages is preserved.
+- **Stale Tahsili comment** above the parent definition rewritten to reflect toggle-only behavior; `href` field kept as a stable React `key` only.
+
+### Validation
+- `bunx tsc --noEmit -p .` clean.
+- Visual: `/qudrat` sidebar shows "تدريب" with chevron, dropdown collapsed by default (correct, since `/qudrat` is not a practice-child route). Sub-items still link to per-subject pages via `<Link>`.
+- Note: `DashboardView` only renders on `/qudrat` and `/tahsili`; the new `/practice/<subject>` pages have their own standalone layout. Auto-open logic is therefore future-proof but a runtime no-op on those pages today.
+- Architect review: **PASS** (no must-fix; one cleanup applied — stale comment rewrite).
