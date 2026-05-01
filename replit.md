@@ -370,3 +370,44 @@ User reported "two login pages showing." Root cause: `src/app/page.tsx` (the `/`
 - `bunx tsc --noEmit -p .` clean
 - Visual: `/` now renders the landing page; `/login?redirect=/diagnostic` still renders the kept login page with the redirect param preserved
 - Architect review: PASS
+
+## Per-subject practice overview pages (2026-05-01, late-3)
+
+Six new static-content overview pages — one per Qudrat/Tahsili subject — that introduce the subject, list common question types, teach the fastest solving methods, walk through one worked example, and CTA into the existing `/practice?focus=..._ar` flow. **No changes to TestEngine, /practice page, /practice/test, API, AI, or sidebar structure.** Sidebar child hrefs were updated to point at the new pages (the only sidebar change).
+
+### New routes
+| Route | Subject | Parent | CTA target (unchanged) |
+|---|---|---|---|
+| `/practice/quantitative` | الكمي | `/qudrat` | `/practice?focus=quantitative_ar` |
+| `/practice/verbal` | اللفظي | `/qudrat` | `/practice?focus=verbal_ar` |
+| `/practice/math` | الرياضيات | `/tahsili` | `/practice?focus=math_ar` |
+| `/practice/physics` | الفيزياء | `/tahsili` | `/practice?focus=physics_ar` |
+| `/practice/chemistry` | الكيمياء | `/tahsili` | `/practice?focus=chemistry_ar` |
+| `/practice/biology` | الأحياء | `/tahsili` | `/practice?focus=biology_ar` |
+
+### Architecture (data-driven, not 6 hand-written pages)
+- **`src/app/practice/_subjects/data.ts`** — single source of truth: `SUBJECTS` record keyed by 6 subjects. Each subject carries `{parent, parentLabel, parentHref, nameAr, iconKey, description, stats[3], types[4], methods[5], example{question, options?, solution[], methodHighlight}, focusHref}`. Content matches the spec verbatim (descriptions, types, methods, worked examples per subject).
+- **`src/app/practice/_subjects/SubjectPage.tsx`** — shared server-component layout that reads a Subject prop and renders all four sections (hero+stats, types grid, numbered methods list, worked example with gold "الطريقة الأسرع" callout, green CTA card).
+- **6 page wrappers** (~5 lines each) at `src/app/practice/{quantitative,verbal,math,physics,chemistry,biology}/page.tsx` that just render `<SubjectPage subject={SUBJECTS.<key>} />`.
+
+### Layout/styling
+- Brand-disciplined: white bg, `#006C35` primary, `#D4AF37` / `#8a6d10` gold accents, gray-200 borders, gray-600 body, gray-900 headings. Cards `bg-white border border-gray-200 rounded-2xl shadow-sm hover:border-[#006C35] hover:shadow-md` matching landing/diagnostic rhythm.
+- Sticky header with right-side back button "العودة إلى {القدرات|التحصيلي}" linking to the parent dashboard.
+- Hero: 20×20 icon chip (`bg-[#006C35]/10`) + gold eyebrow chip + large title + 3-up stats row.
+- Section 1: 2×2 grid of question-type cards.
+- Section 2: numbered ordered list of 5 method cards with green numbered chip.
+- Section 3: question panel (`bg-gray-50`) → numbered solution steps → gold "الطريقة الأسرع" highlight box.
+- Section 4: full-bleed green CTA card with white "ابدأ التدريب الآن" button.
+- `dir="rtl"` everywhere, all text Arabic, lucide-react icons mapped through a typed `IconKey` registry.
+
+### Sidebar (`src/components/DashboardView.tsx`)
+- **6 child `href` values updated** in the Qudrat and Tahsili `children` arrays to point at the new pages. Labels, icons, and menu structure unchanged.
+- **`isActiveChild` extended** with two branches:
+  - Branch 1: exact pathname match for `/practice/<subject>` (new per-subject pages).
+  - Branch 2: legacy `/practice?focus=..._ar` highlight via a stable `PATH_TO_FOCUS` map inside `childFocusOf` so subject highlighting still works when arriving via the "ابدأ التدريب الآن" CTA, the Tahsili parent's own href (`/practice?focus=math_ar`), or any legacy bookmark.
+- `isActiveParent` derivation, the chevron toggle, and every other sidebar item left untouched.
+
+### Validation
+- `bunx tsc --noEmit -p .` clean.
+- Visual: `/practice/quantitative`, `/practice/physics`, `/practice/biology` all render correctly with hero, stats row, types grid, and per-subject content from `data.ts`.
+- Architect review: **PASS** (after one round of back-compat fix for legacy URL highlighting in the sidebar).

@@ -1,0 +1,286 @@
+Create separate practice subject pages for /qudrat and /tahsili.
+
+IMPORTANT:
+- Do NOT change TestEngine
+- Do NOT change existing practice/test logic
+- Do NOT modify /practice/test page
+- Do NOT change API or AI
+- Do NOT change sidebar navigation
+- Only create NEW pages with static content
+
+GOAL:
+Each subject gets its own dedicated page with:
+- Subject overview
+- Common question types
+- Fastest solving methods
+- Solved examples
+- Start Training button
+
+--------------------------------
+PAGES TO CREATE:
+--------------------------------
+
+1. src/app/practice/quantitative/page.tsx
+   Arabic RTL
+   Subject: الكمي (Quantitative)
+
+2. src/app/practice/verbal/page.tsx
+   Arabic RTL
+   Subject: اللفظي (Verbal)
+
+3. src/app/practice/math/page.tsx
+   Arabic RTL
+   Subject: الرياضيات (Tahsili Math)
+
+4. src/app/practice/physics/page.tsx
+   Arabic RTL
+   Subject: الفيزياء (Tahsili Physics)
+
+5. src/app/practice/chemistry/page.tsx
+   Arabic RTL
+   Subject: الكيمياء (Tahsili Chemistry)
+
+6. src/app/practice/biology/page.tsx
+   Arabic RTL
+   Subject: الأحياء (Tahsili Biology)
+
+--------------------------------
+PAGE LAYOUT (same for all):
+--------------------------------
+
+Each page must have this structure:
+
+[ Header with back button → returns to /qudrat or /tahsili ]
+
+[ Hero Card ]
+- Subject icon (large)
+- Subject name (large title)
+- Short description
+- 3 quick stats: عدد الأسئلة / متوسط الوقت / مستوى الصعوبة
+
+[ Section 1: أنواع الأسئلة الشائعة ]
+- Grid of 3-4 cards
+- Each card: icon + type name + short description
+- Example types for كمي: الجبر، الهندسة، النسب، الإحصاء
+- Example types for لفظي: التناظر، استيعاب المقروء، المفردات، إكمال الجملة
+
+[ Section 2: أسرع طرق الحل ]
+- Numbered list (1, 2, 3...)
+- Each item: tip title + explanation
+- Practical and specific to the subject
+
+[ Section 3: مثال محلول ]
+- Show 1 real example question
+- Show the solution steps clearly
+- Highlight the fastest method used
+
+[ Section 4: ابدأ التدريب - CTA ]
+- Large prominent card
+- Button: ابدأ التدريب الآن
+- Routes to existing practice with correct focus:
+  quantitative → /practice?focus=quantitative_ar
+  verbal → /practice?focus=verbal_ar
+  math → /practice?focus=math_ar
+  physics → /practice?focus=physics_ar
+  chemistry → /practice?focus=chemistry_ar
+  biology → /practice?focus=biology_ar
+
+--------------------------------
+CONTENT (Static - write it properly):
+--------------------------------
+
+QUANTITATIVE (كمي):
+Description: قسم الكمي يقيس قدرتك على حل المسائل الرياضية والمنطقية
+
+Question types:
+- الجبر: معادلات ومتغيرات
+- الهندسة: أشكال ومساحات وزوايا
+- النسب والتناسب: العلاقات بين الأعداد
+- الإحصاء: المتوسطات والاحتمالات
+
+Fastest methods:
+1. اقرأ السؤال واستخرج المعطيات أولاً
+2. في النسب استخدم الضرب التبادلي
+3. في الهندسة ارسم الشكل دائماً
+4. في المعادلات عوّض بالأرقام إذا تعقّدت
+5. استبعد الخيارات البعيدة أولاً
+
+Example:
+Question: إذا كانت نسبة أ إلى ب هي 3:5، وكان مجموعهما 40، فما قيمة أ؟
+Solution:
+- المجموع = 40، النسبة 3:5 أي الكل 8 أجزاء
+- قيمة الجزء = 40 ÷ 8 = 5
+- أ = 3 × 5 = 15
+
+---
+
+VERBAL (لفظي):
+Description: قسم اللفظي يقيس قدرتك اللغوية والاستيعابية
+
+Question types:
+- التناظر اللفظي: العلاقة بين الكلمات
+- استيعاب المقروء: فهم النصوص
+- المفردات: معاني الكلمات وأضدادها
+- إكمال الجملة: السياق اللغوي
+
+Fastest methods:
+1. في التناظر حدد العلاقة بين الكلمتين أولاً
+2. في المقروء اقرأ السؤال قبل النص
+3. في المفردات استخدم الجذر اللغوي
+4. استبعد الخيار الشاذ أو البعيد
+5. لا تقضِ أكثر من دقيقتين في سؤال واحد
+
+Example:
+Question: قلم : كتابة :: مشرط : ؟
+Options: أ) جراحة  ب) مطبخ  ج) رسم  د) بناء
+Solution:
+- العلاقة: الأداة واستخدامها
+- القلم أداة للكتابة
+- المشرط أداة للجراحة
+- الإجابة: أ) جراحة
+
+---
+
+MATH (رياضيات - تحصيلي):
+Description: رياضيات التحصيلي تشمل الجبر والهندسة والإحصاء والتفاضل
+
+Question types:
+- الجبر والمعادلات
+- الهندسة التحليلية
+- الإحصاء والاحتمالات
+- حساب المثلثات
+
+Fastest methods:
+1. احفظ القوانين الأساسية جيداً
+2. في المعادلات التربيعية استخدم المميز أولاً
+3. في الهندسة ارسم المسألة
+4. في الاحتمالات فكر في الحالات الكلية
+5. تحقق من الوحدات في المسائل التطبيقية
+
+Example:
+Question: حل المعادلة: س² - 5س + 6 = 0
+Solution:
+- المميز = 25 - 24 = 1
+- س = (5 ± 1) ÷ 2
+- س = 3 أو س = 2
+
+---
+
+PHYSICS (فيزياء):
+Description: فيزياء التحصيلي تغطي الميكانيكا والكهرباء والموجات والحرارة
+
+Question types:
+- قوانين نيوتن والحركة
+- الكهرباء والمغناطيسية
+- الموجات والصوت والضوء
+- الحرارة والديناميكا
+
+Fastest methods:
+1. ارسم مخطط القوى في مسائل الحركة
+2. تذكر القانون: ق = ك × ت
+3. في الكهرباء طبق قانون أوم أولاً
+4. تحقق من الوحدات دائماً
+5. في الموجات: السرعة = التردد × الطول الموجي
+
+Example:
+Question: جسم كتلته 10 كجم يتحرك بتسارع 5 م/ث²، ما القوة المؤثرة عليه؟
+Solution:
+- القانون: ق = ك × ت
+- ق = 10 × 5 = 50 نيوتن
+
+---
+
+CHEMISTRY (كيمياء):
+Description: كيمياء التحصيلي تشمل الكيمياء العامة والعضوية وغير العضوية
+
+Question types:
+- الجدول الدوري والعناصر
+- المعادلات الكيميائية والموازنة
+- المحاليل والتفاعلات
+- الكيمياء العضوية
+
+Fastest methods:
+1. احفظ الجدول الدوري جيداً (الدورات والمجموعات)
+2. في الموازنة ابدأ بالعنصر الأقل تكراراً
+3. في المحاليل تذكر: م = ن ÷ ح
+4. في التفاعلات حدد نوع التفاعل أولاً
+5. أحفظ التكافؤات الشائعة
+
+Example:
+Question: ما عدد مولات 36 جرام من الماء؟ (الكتلة المولية للماء = 18)
+Solution:
+- عدد المولات = الكتلة ÷ الكتلة المولية
+- = 36 ÷ 18 = 2 مول
+
+---
+
+BIOLOGY (أحياء):
+Description: أحياء التحصيلي تغطي الخلية والوراثة والتشريح والبيئة
+
+Question types:
+- الخلية ومكوناتها
+- الوراثة والجينات
+- أجهزة جسم الإنسان
+- البيئة والنظام البيئي
+
+Fastest methods:
+1. افهم المفهوم ولا تحفظ فقط
+2. في الوراثة ارسم مربع بانيت
+3. في أجهزة الجسم ربط الوظيفة بالتركيب
+4. في البيئة تذكر سلاسل الغذاء
+5. راجع المصطلحات العلمية باستمرار
+
+Example:
+Question: خلية بها 46 كروموسوم خضعت للانقسام الميتوزي، كم عدد كروموسومات الخلايا الناتجة؟
+Solution:
+- الانقسام الميتوزي ينتج خلايا متطابقة
+- عدد الكروموسومات = 46 في كل خلية ناتجة
+
+--------------------------------
+DESIGN SYSTEM:
+--------------------------------
+
+Use same design as landing page:
+- Background: bg-white
+- Primary: #006C35
+- Gold accent: #D4AF37
+- Cards: bg-white border border-gray-200 rounded-2xl shadow-sm
+- Section titles: text-gray-900 font-bold
+- Descriptions: text-gray-600
+- Icon chips: bg-[#006C35]/10 text-[#006C35]
+- CTA button: bg-[#006C35] text-white rounded-xl px-8 py-4
+- Arabic RTL throughout
+
+--------------------------------
+UPDATE SIDEBAR LINKS:
+--------------------------------
+
+In src/components/DashboardView.tsx:
+
+Update /qudrat sidebar:
+- كمي → /practice/quantitative (not /practice?focus=quantitative_ar)
+- لفظي → /practice/verbal (not /practice?focus=verbal_ar)
+
+Update /tahsili sidebar:
+- رياضيات → /practice/math
+- فيزياء → /practice/physics
+- كيمياء → /practice/chemistry
+- أحياء → /practice/biology
+
+--------------------------------
+VALIDATION:
+--------------------------------
+
+1. All 6 pages exist and render correctly
+2. Each page has all 4 sections
+3. Back button works correctly
+4. Start Training button routes to correct focus
+5. Sidebar links updated
+6. Arabic RTL correct
+7. TypeScript clean
+
+Return:
+1. Pages created
+2. Content added per page
+3. Sidebar links updated
+4. Confirmation TestEngine unchanged

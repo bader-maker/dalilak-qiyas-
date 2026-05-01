@@ -473,8 +473,8 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
                     labelEn: "Practice",
                     icon: "book" as const,
                     children: [
-                      { href: "/practice?focus=quantitative_ar", labelAr: "كمي",  labelEn: "Quantitative", icon: "calc" as const },
-                      { href: "/practice?focus=verbal_ar",       labelAr: "لفظي", labelEn: "Verbal",       icon: "pen" as const },
+                      { href: "/practice/quantitative", labelAr: "كمي",  labelEn: "Quantitative", icon: "calc" as const },
+                      { href: "/practice/verbal",       labelAr: "لفظي", labelEn: "Verbal",       icon: "pen" as const },
                     ],
                   },
                   { href: "#test-bank", labelAr: "بنك الاختبارات", labelEn: "Test Bank", icon: "stack" as const },
@@ -493,10 +493,10 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
                     labelEn: "Training",
                     icon: "book" as const,
                     children: [
-                      { href: "/practice?focus=math_ar",      labelAr: "رياضيات", labelEn: "Math",      icon: "calc" as const },
-                      { href: "/practice?focus=physics_ar",   labelAr: "فيزياء",  labelEn: "Physics",   icon: "atom" as const },
-                      { href: "/practice?focus=chemistry_ar", labelAr: "كيمياء",  labelEn: "Chemistry", icon: "flask" as const },
-                      { href: "/practice?focus=biology_ar",   labelAr: "أحياء",   labelEn: "Biology",   icon: "leaf" as const },
+                      { href: "/practice/math",      labelAr: "رياضيات", labelEn: "Math",      icon: "calc" as const },
+                      { href: "/practice/physics",   labelAr: "فيزياء",  labelEn: "Physics",   icon: "atom" as const },
+                      { href: "/practice/chemistry", labelAr: "كيمياء",  labelEn: "Chemistry", icon: "flask" as const },
+                      { href: "/practice/biology",   labelAr: "أحياء",   labelEn: "Biology",   icon: "leaf" as const },
                     ],
                   },
                   { href: "#test-bank", labelAr: "بنك الاختبارات", labelEn: "Test Bank", icon: "stack" as const },
@@ -560,19 +560,38 @@ export default function DashboardView({ lockedExamType }: DashboardViewProps = {
               // لفظي) and التدريب on /tahsili (children: رياضيات، فيزياء،
               // كيمياء، أحياء). Renders a Link (parent navigates to its own
               // href) + a separate chevron toggle button + an indented list
-              // of sub-item Links. Sub-items keep the original
-              // /practice?focus=... hrefs — no routing logic changed.
+              // of sub-item Links. Sub-items now point at the per-subject
+              // /practice/<subject> pages (overview + worked example), each of
+              // which has its own CTA back into /practice?focus=..._ar.
               if ("children" in item && item.children) {
-                // Map each child's href to the focus value it represents so we
-                // can do an exact equality check against the current focus
-                // query param (avoids false positives if focus values ever
-                // share substrings).
+                // Highlight the right child both when the user is on the new
+                // per-subject pathname (e.g. /practice/math) AND when they're on
+                // the legacy /practice?focus=math_ar URL (still used by the
+                // Tahsili parent and by every "ابدأ التدريب الآن" CTA on the
+                // subject pages). Exact equality on the focus key avoids false
+                // positives if focus values ever share substrings.
                 const childFocusOf = (href: string): string | null => {
+                  // Legacy querystring form — extract focus directly.
                   const m = href.match(/[?&]focus=([^&]+)/);
-                  return m ? decodeURIComponent(m[1]) : null;
+                  if (m) return decodeURIComponent(m[1]);
+                  // New per-subject pathname form — map to its corresponding
+                  // legacy focus value so highlighting still works on /practice.
+                  const PATH_TO_FOCUS: Record<string, string> = {
+                    "/practice/quantitative": "quantitative_ar",
+                    "/practice/verbal":       "verbal_ar",
+                    "/practice/math":         "math_ar",
+                    "/practice/physics":      "physics_ar",
+                    "/practice/chemistry":    "chemistry_ar",
+                    "/practice/biology":      "biology_ar",
+                  };
+                  return PATH_TO_FOCUS[href] ?? null;
                 };
-                const isActiveChild = (href: string): boolean =>
-                  pathname === "/practice" && practiceFocus !== null && childFocusOf(href) === practiceFocus;
+                const isActiveChild = (href: string): boolean => {
+                  // New per-subject pages live at /practice/<subject> — exact pathname match.
+                  if (href.startsWith("/practice/") && pathname === href) return true;
+                  // Legacy /practice?focus=... — highlight by focus key derived above.
+                  return pathname === "/practice" && practiceFocus !== null && childFocusOf(href) === practiceFocus;
+                };
                 const isActiveParent = item.children.some((c) => isActiveChild(c.href));
                 return (
                   <div key={item.href}>
